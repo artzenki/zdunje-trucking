@@ -86,6 +86,8 @@ export default function DocumentsPage() {
         "drugPassport",
         "bankInfoDoc",
         "einLetter",
+        "onboardingDoc",
+        "leaseAgreement",
       ];
 
       singleKeys.forEach((k) => {

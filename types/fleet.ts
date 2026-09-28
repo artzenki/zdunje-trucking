@@ -109,6 +109,8 @@ export interface DriverDocuments {
   dotRecords: FleetDocument[]; // Driver DOT Records (with date selector & file uploader)
   bankInfoDoc: FleetDocument | null; // 10. Bank info / Voided Check
   einLetter: FleetDocument | null; // 11. EIN Letter / W9
+  onboardingDoc: FleetDocument | null; // 12. Onboarding Packet / Handbook
+  leaseAgreement: FleetDocument | null; // 13. Driver Lease Agreement / Independent Contractor Agreement
 }
 
 export interface Driver {
@@ -124,6 +126,7 @@ export interface Driver {
   assignedTruckId: string | null;
   bankInfo: DriverBankInfo;
   documents: DriverDocuments;
+  skippedDocuments?: string[]; // Keys of documents marked as "Skipped / Not Required" (e.g. leaseAgreement for company drivers)
   hireDate: string;
   notes: string;
 }

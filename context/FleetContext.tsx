@@ -74,6 +74,7 @@ interface FleetContextType {
   addDriverDotRecord: (driverId: string, document: FleetDocument) => void;
   removeDriverDotRecord: (driverId: string, documentId: string) => void;
   updateDriverApplicationLink: (driverId: string, link: string) => void;
+  toggleDriverDocumentSkip: (driverId: string, documentKey: string) => void;
 
   // Maintenance
   addMaintenanceRecord: (
@@ -129,8 +130,11 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           parsed.map((d: any) => ({
             ...d,
+            skippedDocuments: d.skippedDocuments || [],
             documents: {
               ...d.documents,
+              onboardingDoc: d.documents?.onboardingDoc || null,
+              leaseAgreement: d.documents?.leaseAgreement || null,
               drugTestResults: d.documents?.drugTestResults || [],
               dotRecords: d.documents?.dotRecords || [],
             },
@@ -424,7 +428,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         dotRecords: [],
         bankInfoDoc: null,
         einLetter: null,
+        onboardingDoc: null,
+        leaseAgreement: null,
       },
+      skippedDocuments: [],
     };
     setDrivers((prev) => [newDriver, ...prev]);
   };
@@ -567,6 +574,22 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  const toggleDriverDocumentSkip = (driverId: string, documentKey: string) => {
+    setDrivers((prev) =>
+      prev.map((d) => {
+        if (d.id !== driverId) return d;
+        const currentSkipped = d.skippedDocuments || [];
+        const isAlreadySkipped = currentSkipped.includes(documentKey);
+        return {
+          ...d,
+          skippedDocuments: isAlreadySkipped
+            ? currentSkipped.filter((k) => k !== documentKey)
+            : [...currentSkipped, documentKey],
+        };
+      })
+    );
+  };
+
   // Maintenance Handlers
   const addMaintenanceRecord = (record: Omit<MaintenanceRecord, "id">) => {
     const newRecord: MaintenanceRecord = {
@@ -651,6 +674,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         addDriverDotRecord,
         removeDriverDotRecord,
         updateDriverApplicationLink,
+        toggleDriverDocumentSkip,
         addMaintenanceRecord,
         updateMaintenanceRecord,
         deleteMaintenanceRecord,

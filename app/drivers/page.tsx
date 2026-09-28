@@ -32,10 +32,75 @@ import {
   Award,
   ShieldCheck,
   Calendar,
+  AlertTriangle,
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
 import { downloadDocument } from "@/lib/documentUtils";
+
+const DRIVER_REQUIRED_DOC_KEYS: {
+  key: keyof Omit<
+    DriverType["documents"],
+    "drugTestResults" | "applicationLink" | "dotRecords"
+  >;
+  label: string;
+  category: string;
+}[] = [
+  { key: "cdl", label: "Commercial Driver License (CDL)", category: "CDL" },
+  { key: "medCard", label: "Medical Examiner Certificate (MEDCard)", category: "MEDCard" },
+  { key: "mvr", label: "Motor Vehicle Record (MVR)", category: "MVR" },
+  { key: "pspAuth", label: "PSP Authorization", category: "PSP Authorization" },
+  { key: "pspReport", label: "PSP Driver Report", category: "PSP Driver Report" },
+  { key: "clearingHouse", label: "FMCSA Clearinghouse", category: "Clearing House" },
+  { key: "applicationFile", label: "Signed Driver Application", category: "Application Link" },
+  { key: "onboardingDoc", label: "Onboarding Document / Handbook", category: "Onboarding Document" },
+  { key: "drugCustodyForm", label: "Drug Custody Form (CCF)", category: "Drug Test Custody Form" },
+  { key: "drugPassport", label: "Drug Test ePassport", category: "Drug Test ePassport" },
+  { key: "bankInfoDoc", label: "Bank Info / Voided Check", category: "Bank Information" },
+  { key: "einLetter", label: "EIN Letter / W-9", category: "EIN Letter" },
+  { key: "leaseAgreement", label: "Driver Lease Agreement", category: "Driver Lease Agreement" },
+];
+
+function getDriverCompliance(driver: DriverType) {
+  const skipped = driver.skippedDocuments || [];
+  let totalRequired = 0;
+  let uploadedCount = 0;
+  let missingCount = 0;
+  let skippedCount = 0;
+  const missingKeys: string[] = [];
+
+  DRIVER_REQUIRED_DOC_KEYS.forEach(({ key }) => {
+    const isSkipped = skipped.includes(key);
+    const doc = driver.documents[key];
+    const hasDoc = !!doc;
+
+    if (isSkipped) {
+      skippedCount++;
+    } else {
+      totalRequired++;
+      if (hasDoc) {
+        uploadedCount++;
+      } else {
+        missingCount++;
+        missingKeys.push(key);
+      }
+    }
+  });
+
+  const percentage =
+    totalRequired > 0 ? Math.round((uploadedCount / totalRequired) * 100) : 100;
+  const isCompliant = missingCount === 0;
+
+  return {
+    totalRequired,
+    uploadedCount,
+    missingCount,
+    skippedCount,
+    percentage,
+    isCompliant,
+    missingKeys,
+  };
+}
 
 function DriversContent() {
   const searchParams = useSearchParams();
@@ -52,10 +117,14 @@ function DriversContent() {
     addDriverDotRecord,
     removeDriverDotRecord,
     updateDriverApplicationLink,
+    toggleDriverDocumentSkip,
   } = useFleet();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [complianceFilter, setComplianceFilter] = useState<
+    "all" | "missing" | "compliant"
+  >("all");
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
 
   // Active Folder Tab in Driver View
@@ -117,6 +186,11 @@ function DriversContent() {
     [drivers, selectedDriverId]
   );
 
+  const selectedCompliance = useMemo(
+    () => (selectedDriver ? getDriverCompliance(selectedDriver) : null),
+    [selectedDriver]
+  );
+
   const filteredDrivers = useMemo(() => {
     return drivers.filter((d) => {
       const fullName = `${d.firstName} ${d.middleName} ${d.lastName}`.toLowerCase();
@@ -129,9 +203,14 @@ function DriversContent() {
       const matchStatus =
         statusFilter === "all" || d.status === statusFilter;
 
-      return matchSearch && matchStatus;
+      const comp = getDriverCompliance(d);
+      let matchCompliance = true;
+      if (complianceFilter === "missing") matchCompliance = !comp.isCompliant;
+      if (complianceFilter === "compliant") matchCompliance = comp.isCompliant;
+
+      return matchSearch && matchStatus && matchCompliance;
     });
-  }, [drivers, search, statusFilter]);
+  }, [drivers, search, statusFilter, complianceFilter]);
 
   const openAddModal = () => {
     setFormData({
@@ -321,6 +400,43 @@ function DriversContent() {
                 Inactive
               </button>
             </div>
+
+            {/* Compliance Quick Filters */}
+            <div className="flex items-center space-x-1 text-[11px] pt-2 border-t border-slate-200/80">
+              <span className="text-[10px] uppercase font-bold text-slate-400 mr-1">Compliance:</span>
+              <button
+                onClick={() => setComplianceFilter("all")}
+                className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
+                  complianceFilter === "all"
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setComplianceFilter("missing")}
+                className={`px-2 py-0.5 rounded-md font-semibold transition-colors flex items-center space-x-1 ${
+                  complianceFilter === "missing"
+                    ? "bg-red-600 text-white"
+                    : "text-red-700 bg-red-50 hover:bg-red-100"
+                }`}
+              >
+                <AlertTriangle className="w-2.5 h-2.5" />
+                <span>Missing ({drivers.filter((d) => !getDriverCompliance(d).isCompliant).length})</span>
+              </button>
+              <button
+                onClick={() => setComplianceFilter("compliant")}
+                className={`px-2 py-0.5 rounded-md font-semibold transition-colors flex items-center space-x-1 ${
+                  complianceFilter === "compliant"
+                    ? "bg-emerald-600 text-white"
+                    : "text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                }`}
+              >
+                <CheckCircle className="w-2.5 h-2.5" />
+                <span>Compliant ({drivers.filter((d) => getDriverCompliance(d).isCompliant).length})</span>
+              </button>
+            </div>
           </div>
 
           {/* Roster Items */}
@@ -335,6 +451,7 @@ function DriversContent() {
                 const assignedTruck = trucks.find(
                   (t) => t.id === driver.assignedTruckId
                 );
+                const comp = getDriverCompliance(driver);
 
                 return (
                   <button
@@ -346,7 +463,7 @@ function DriversContent() {
                         : "hover:bg-slate-50/80"
                     }`}
                   >
-                    <div className="min-w-0 pr-2">
+                    <div className="min-w-0 pr-2 flex-1">
                       <div className="flex items-center space-x-2">
                         <span className="font-bold text-slate-900 text-base">
                           {driver.firstName} {driver.lastName}
@@ -373,18 +490,26 @@ function DriversContent() {
                         </span>
                       </div>
 
-                      <div className="mt-2 flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500 flex items-center space-x-1">
-                          <Truck className="w-3 h-3 text-slate-400" />
-                          <span>
+                      <div className="mt-2.5 flex items-center justify-between text-[11px] gap-1">
+                        <span className="text-slate-500 flex items-center space-x-1 truncate">
+                          <Truck className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="truncate">
                             {assignedTruck
-                              ? `Assigned: Unit #${assignedTruck.unitNumber}`
+                              ? `Unit #${assignedTruck.unitNumber}`
                               : "Unassigned"}
                           </span>
                         </span>
-                        <span className="text-emerald-700 font-semibold">
-                          Folder Active
-                        </span>
+                        {comp.isCompliant ? (
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-100 text-emerald-800 flex items-center space-x-1 shrink-0">
+                            <CheckCircle className="w-3 h-3 text-emerald-600" />
+                            <span>100% Compliant</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-red-100 text-red-800 flex items-center space-x-1 shrink-0">
+                            <AlertTriangle className="w-3 h-3 text-red-600" />
+                            <span>Missing {comp.missingCount} doc{comp.missingCount > 1 ? "s" : ""}</span>
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -527,6 +652,80 @@ function DriversContent() {
                 )}
               </div>
 
+              {/* Compliance Audit Status Bar */}
+              {selectedCompliance && (
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center space-x-3">
+                      <div
+                        className={`p-2.5 rounded-xl ${
+                          selectedCompliance.isCompliant
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {selectedCompliance.isCompliant ? (
+                          <CheckCircle className="w-5 h-5" />
+                        ) : (
+                          <AlertTriangle className="w-5 h-5" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h4 className="font-extrabold text-slate-900 text-sm">
+                            Driver File Compliance Audit
+                          </h4>
+                          <span
+                            className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
+                              selectedCompliance.isCompliant
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {selectedCompliance.percentage}% Complete
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {selectedCompliance.isCompliant
+                            ? "All required safety qualification documents are uploaded and valid."
+                            : `${selectedCompliance.missingCount} required document${
+                                selectedCompliance.missingCount > 1 ? "s are" : " is"
+                              } missing. You can upload or skip non-applicable items.`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Summary Counters */}
+                    <div className="flex items-center space-x-2 text-xs flex-wrap gap-y-1">
+                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 font-semibold rounded-lg border border-emerald-200">
+                        ✓ {selectedCompliance.uploadedCount} Filed
+                      </span>
+                      {selectedCompliance.missingCount > 0 && (
+                        <span className="px-2.5 py-1 bg-red-50 text-red-700 font-semibold rounded-lg border border-red-200 flex items-center space-x-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>{selectedCompliance.missingCount} Missing</span>
+                        </span>
+                      )}
+                      {selectedCompliance.skippedCount > 0 && (
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 font-semibold rounded-lg border border-slate-200">
+                          {selectedCompliance.skippedCount} Skipped (Exempt)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        selectedCompliance.isCompliant ? "bg-emerald-500" : "bg-amber-500"
+                      }`}
+                      style={{ width: `${selectedCompliance.percentage}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Digital Compliance Folder Binder */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
                 {/* Folder Binder Tabs */}
@@ -616,6 +815,10 @@ function DriversContent() {
                           title="3. Commercial Driver License (CDL)"
                           description="Front & back copy of Class A license with expiration tracking"
                           doc={selectedDriver.documents.cdl}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("cdl")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(selectedDriver.id, "cdl")
+                          }
                           onPreview={() => setViewingDoc(selectedDriver.documents.cdl)}
                           onDownload={() =>
                             downloadDocument(selectedDriver.documents.cdl!)
@@ -637,6 +840,10 @@ function DriversContent() {
                           title="4. Medical Examiner's Certificate (MEDCard)"
                           description="DOT Physical examination certificate (NRCME certified doctor)"
                           doc={selectedDriver.documents.medCard}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("medCard")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(selectedDriver.id, "medCard")
+                          }
                           onPreview={() =>
                             setViewingDoc(selectedDriver.documents.medCard)
                           }
@@ -673,6 +880,10 @@ function DriversContent() {
                           title="1. Motor Vehicle Record (MVR)"
                           description="36-month official state driving violation lookback"
                           doc={selectedDriver.documents.mvr}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("mvr")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(selectedDriver.id, "mvr")
+                          }
                           onPreview={() => setViewingDoc(selectedDriver.documents.mvr)}
                           onDownload={() =>
                             downloadDocument(selectedDriver.documents.mvr!)
@@ -694,6 +905,13 @@ function DriversContent() {
                           title="5. FMCSA Clearinghouse Query"
                           description="Annual query / Pre-employment electronic consent record"
                           doc={selectedDriver.documents.clearingHouse}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("clearingHouse")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(
+                              selectedDriver.id,
+                              "clearingHouse"
+                            )
+                          }
                           onPreview={() =>
                             setViewingDoc(selectedDriver.documents.clearingHouse)
                           }
@@ -717,6 +935,10 @@ function DriversContent() {
                           title="2. PSP Authorization"
                           description="Driver signed electronic consent for FMCSA crash & inspection report"
                           doc={selectedDriver.documents.pspAuth}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("pspAuth")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(selectedDriver.id, "pspAuth")
+                          }
                           onPreview={() =>
                             setViewingDoc(selectedDriver.documents.pspAuth)
                           }
@@ -740,6 +962,10 @@ function DriversContent() {
                           title="2.1 PSP Driver Report"
                           description="FMCSA Pre-Employment Screening Program official 5-year crash & 3-year inspection history"
                           doc={selectedDriver.documents.pspReport}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("pspReport")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(selectedDriver.id, "pspReport")
+                          }
                           onPreview={() =>
                             setViewingDoc(selectedDriver.documents.pspReport)
                           }
@@ -755,6 +981,41 @@ function DriversContent() {
                           }
                           onRemove={() =>
                             removeDriverDocument(selectedDriver.id, "pspReport")
+                          }
+                        />
+
+                        {/* Onboarding Document */}
+                        <DocumentCard
+                          title="Onboarding Document & Handbook"
+                          description="Company driver handbook receipt, safety policies & orientation packet"
+                          doc={selectedDriver.documents.onboardingDoc}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("onboardingDoc")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(
+                              selectedDriver.id,
+                              "onboardingDoc"
+                            )
+                          }
+                          onPreview={() =>
+                            setViewingDoc(selectedDriver.documents.onboardingDoc)
+                          }
+                          onDownload={() =>
+                            downloadDocument(
+                              selectedDriver.documents.onboardingDoc!
+                            )
+                          }
+                          onUpload={() =>
+                            openDocumentUploader(
+                              "Onboarding Document",
+                              "onboardingDoc",
+                              false
+                            )
+                          }
+                          onRemove={() =>
+                            removeDriverDocument(
+                              selectedDriver.id,
+                              "onboardingDoc"
+                            )
                           }
                         />
 
@@ -918,6 +1179,10 @@ function DriversContent() {
                           title="7. Drug Test Custody Form (CCF)"
                           description="Chain of custody form for laboratory urine collection"
                           doc={selectedDriver.documents.drugCustodyForm}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("drugCustodyForm")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(selectedDriver.id, "drugCustodyForm")
+                          }
                           onPreview={() =>
                             setViewingDoc(selectedDriver.documents.drugCustodyForm)
                           }
@@ -946,6 +1211,10 @@ function DriversContent() {
                           title="8. Drug Test ePassport"
                           description="Electronic clinic authorization ticket (Quest / Labcorp / Concentra)"
                           doc={selectedDriver.documents.drugPassport}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("drugPassport")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(selectedDriver.id, "drugPassport")
+                          }
                           onPreview={() =>
                             setViewingDoc(selectedDriver.documents.drugPassport)
                           }
@@ -1072,6 +1341,10 @@ function DriversContent() {
                           title="10. Bank Information / Voided Check"
                           description="Direct deposit authorization form or voided check for payroll"
                           doc={selectedDriver.documents.bankInfoDoc}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("bankInfoDoc")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(selectedDriver.id, "bankInfoDoc")
+                          }
                           onPreview={() =>
                             setViewingDoc(selectedDriver.documents.bankInfoDoc)
                           }
@@ -1100,6 +1373,10 @@ function DriversContent() {
                           title="11. EIN Letter / W-9 Verification"
                           description="IRS Employer Identification Number confirmation or signed W-9"
                           doc={selectedDriver.documents.einLetter}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("einLetter")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(selectedDriver.id, "einLetter")
+                          }
                           onPreview={() =>
                             setViewingDoc(selectedDriver.documents.einLetter)
                           }
@@ -1117,6 +1394,36 @@ function DriversContent() {
                             removeDriverDocument(
                               selectedDriver.id,
                               "einLetter"
+                            )
+                          }
+                        />
+
+                        {/* 12. Driver Lease Agreement */}
+                        <DocumentCard
+                          title="12. Driver Lease / Contractor Agreement"
+                          description="Independent contractor agreement or truck lease agreement for owner-operators"
+                          doc={selectedDriver.documents.leaseAgreement}
+                          isSkipped={selectedDriver.skippedDocuments?.includes("leaseAgreement")}
+                          onToggleSkip={() =>
+                            toggleDriverDocumentSkip(selectedDriver.id, "leaseAgreement")
+                          }
+                          onPreview={() =>
+                            setViewingDoc(selectedDriver.documents.leaseAgreement)
+                          }
+                          onDownload={() =>
+                            downloadDocument(selectedDriver.documents.leaseAgreement!)
+                          }
+                          onUpload={() =>
+                            openDocumentUploader(
+                              "Driver Lease Agreement",
+                              "leaseAgreement",
+                              true
+                            )
+                          }
+                          onRemove={() =>
+                            removeDriverDocument(
+                              selectedDriver.id,
+                              "leaseAgreement"
                             )
                           }
                         />
@@ -1627,6 +1934,8 @@ interface DocumentCardProps {
   title: string;
   description: string;
   doc: FleetDocument | null | undefined;
+  isSkipped?: boolean;
+  onToggleSkip?: () => void;
   onPreview: () => void;
   onDownload: () => void;
   onUpload: () => void;
@@ -1637,6 +1946,8 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
   title,
   description,
   doc,
+  isSkipped = false,
+  onToggleSkip,
   onPreview,
   onDownload,
   onUpload,
@@ -1647,35 +1958,46 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
       className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
         doc
           ? "bg-white border-slate-200 hover:border-emerald-300 shadow-xs"
-          : "bg-slate-50/60 border-dashed border-slate-300"
+          : isSkipped
+          ? "bg-slate-50/70 border-dashed border-slate-300 opacity-80"
+          : "bg-red-50/20 border-dashed border-red-300 hover:border-red-400 shadow-xs"
       }`}
     >
       <div>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-2.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center space-x-2.5 min-w-0">
             <div
-              className={`p-2 rounded-lg ${
+              className={`p-2 rounded-lg shrink-0 ${
                 doc
                   ? "bg-emerald-50 text-emerald-600"
-                  : "bg-slate-200 text-slate-400"
+                  : isSkipped
+                  ? "bg-slate-200 text-slate-500"
+                  : "bg-red-100 text-red-600"
               }`}
             >
               <FileText className="w-4 h-4" />
             </div>
-            <div>
-              <h4 className="font-semibold text-slate-900 text-sm">{title}</h4>
-              <p className="text-[11px] text-slate-400">{description}</p>
+            <div className="min-w-0">
+              <h4 className="font-semibold text-slate-900 text-sm truncate" title={title}>
+                {title}
+              </h4>
+              <p className="text-[11px] text-slate-400 line-clamp-1">{description}</p>
             </div>
           </div>
 
           {doc ? (
-            <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full flex items-center space-x-1">
+            <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full flex items-center space-x-1 shrink-0">
               <CheckCircle className="w-3 h-3 mr-0.5" />
               <span>On File</span>
             </span>
+          ) : isSkipped ? (
+            <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-600 rounded-full shrink-0">
+              ⚪ Skipped (N/A)
+            </span>
           ) : (
-            <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-600 rounded-full">
-              Missing
+            <span className="px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-800 rounded-full flex items-center space-x-1 shrink-0">
+              <AlertTriangle className="w-3 h-3 text-red-600" />
+              <span>Missing</span>
             </span>
           )}
         </div>
@@ -1698,9 +2020,21 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
             )}
           </div>
         )}
+
+        {!doc && isSkipped && (
+          <div className="mt-2.5 p-2 bg-slate-100/60 rounded-lg text-[11px] text-slate-500 italic">
+            Marked as exempt / not necessary for this driver.
+          </div>
+        )}
+
+        {!doc && !isSkipped && (
+          <div className="mt-2.5 p-2 bg-red-50/60 border border-red-100 rounded-lg text-[11px] text-red-700 font-medium">
+            Required document for driver qualification file.
+          </div>
+        )}
       </div>
 
-      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
         {doc ? (
           <>
             <div className="flex items-center space-x-1.5">
@@ -1731,14 +2065,43 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </>
+        ) : isSkipped ? (
+          <div className="w-full flex items-center justify-between gap-2">
+            {onToggleSkip && (
+              <button
+                onClick={onToggleSkip}
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Mark as Required
+              </button>
+            )}
+            <button
+              onClick={onUpload}
+              className="inline-flex items-center space-x-1 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors ml-auto"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Upload Anyway</span>
+            </button>
+          </div>
         ) : (
-          <button
-            onClick={onUpload}
-            className="w-full inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100/80 rounded-lg transition-colors"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Upload Document</span>
-          </button>
+          <div className="w-full flex items-center justify-between gap-2">
+            <button
+              onClick={onUpload}
+              className="flex-1 inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-xs"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Upload Document</span>
+            </button>
+            {onToggleSkip && (
+              <button
+                onClick={onToggleSkip}
+                className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+                title="Mark this document as not required / exempt for this driver"
+              >
+                <span>Skip (N/A)</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -558,7 +558,18 @@ export const initialDrivers: Driver[] = [
         uploadedAt: "2021-04-15T11:30:00Z",
         notes: "Miller Express LLC / EIN verified",
       },
+      onboardingDoc: {
+        id: "doc-d1-onboard",
+        name: "Driver_Onboarding_Handbook_Miller.pdf",
+        category: "Onboarding Document",
+        fileType: "application/pdf",
+        fileSize: 480000,
+        uploadedAt: "2021-04-15T09:00:00Z",
+        notes: "Company safety policies & driver handbook signed",
+      },
+      leaseAgreement: null,
     },
+    skippedDocuments: ["leaseAgreement"],
   },
   {
     id: "driver-2",
@@ -708,7 +719,26 @@ export const initialDrivers: Driver[] = [
         fileSize: 270000,
         uploadedAt: "2022-08-30T11:00:00Z",
       },
+      onboardingDoc: {
+        id: "doc-d2-onboard",
+        name: "Onboarding_Package_Signed_Petrovic.pdf",
+        category: "Onboarding Document",
+        fileType: "application/pdf",
+        fileSize: 490000,
+        uploadedAt: "2022-09-01T08:30:00Z",
+      },
+      leaseAgreement: {
+        id: "doc-d2-lease",
+        name: "OwnerOperator_Lease_Agreement_Petrovic.pdf",
+        category: "Driver Lease Agreement",
+        fileType: "application/pdf",
+        fileSize: 620000,
+        uploadedAt: "2022-09-01T09:00:00Z",
+        expirationDate: "2027-09-01",
+        notes: "Independent Contractor Agreement - 88% gross revenue split",
+      },
     },
+    skippedDocuments: [],
   },
   {
     id: "driver-3",
@@ -834,7 +864,10 @@ export const initialDrivers: Driver[] = [
         fileSize: 265000,
         uploadedAt: "2024-01-15T11:00:00Z",
       },
+      onboardingDoc: null, // Missing!
+      leaseAgreement: null, // Skipped
     },
+    skippedDocuments: ["leaseAgreement"],
   },
 ];
 
