@@ -12,6 +12,7 @@ interface DocumentUploadModalProps {
   targetName: string;
   hasExpiration?: boolean;
   isDrugTestResult?: boolean;
+  isDotRecord?: boolean;
   onUpload: (document: FleetDocument) => void;
 }
 
@@ -22,6 +23,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   targetName,
   hasExpiration = false,
   isDrugTestResult = false,
+  isDotRecord = false,
   onUpload,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -33,6 +35,15 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [testType, setTestType] = useState<
     "Random FMCSA" | "Pre-Employment" | "Post-Accident" | "Reasonable Suspicion"
   >("Random FMCSA");
+  const [recordDate, setRecordDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [inspectionLevel, setInspectionLevel] = useState(
+    "Level 3 (Driver-Only)"
+  );
+  const [inspectionResult, setInspectionResult] = useState<
+    "Clean / No Violations" | "Violations Noted"
+  >("Clean / No Violations");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -88,6 +99,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       if (isDrugTestResult) {
         newDoc.testDate = testDate;
         newDoc.testType = testType;
+      }
+
+      if (isDotRecord) {
+        newDoc.recordDate = recordDate;
+        newDoc.inspectionLevel = inspectionLevel;
+        newDoc.inspectionResult = inspectionResult;
       }
 
       onUpload(newDoc);
@@ -220,6 +237,76 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                   onChange={(e) => setTestDate(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+            </div>
+          )}
+
+          {/* DOT Roadside Record Specific Inputs */}
+          {isDotRecord && (
+            <div className="space-y-3 p-3.5 bg-amber-50/70 rounded-xl border border-amber-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Inspection Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={recordDate}
+                    onChange={(e) => setRecordDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    Date roadside inspection occurred
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Inspection Level
+                  </label>
+                  <select
+                    value={inspectionLevel}
+                    onChange={(e) => setInspectionLevel(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="Level 1 (Full Inspection)">Level 1 (Full Vehicle & Driver)</option>
+                    <option value="Level 2 (Walk-Around)">Level 2 (Walk-Around & Driver)</option>
+                    <option value="Level 3 (Driver-Only)">Level 3 (Driver-Only / Credentials / Log)</option>
+                    <option value="Level 4 (Special Inspection)">Level 4 (Special Study)</option>
+                    <option value="Level 5 (Vehicle-Only)">Level 5 (Vehicle-Only)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Inspection Finding / Result
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInspectionResult("Clean / No Violations")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border text-center transition-all ${
+                      inspectionResult === "Clean / No Violations"
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                        : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    ✓ Clean / No Violations
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInspectionResult("Violations Noted")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border text-center transition-all ${
+                      inspectionResult === "Violations Noted"
+                        ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                        : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    ⚠ Violations Noted
+                  </button>
+                </div>
               </div>
             </div>
           )}

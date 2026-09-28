@@ -102,7 +102,18 @@ export default function DocumentsPage() {
       });
 
       // Drug tests
-      dDocs.drugTestResults.forEach((doc) => {
+      (dDocs.drugTestResults || []).forEach((doc) => {
+        list.push({
+          doc,
+          entityType: "driver",
+          entityId: d.id,
+          entityName: driverName,
+          linkUrl: `/drivers?id=${d.id}`,
+        });
+      });
+
+      // Driver DOT records
+      (dDocs.dotRecords || []).forEach((doc) => {
         list.push({
           doc,
           entityType: "driver",
@@ -337,8 +348,29 @@ export default function DocumentsPage() {
                             <p className="text-[11px] text-slate-400">
                               {item.doc.category}
                               {item.doc.testType && (
-                                <span className="ml-1.5 px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded text-[9px] font-bold">
+                                <span className="ml-1.5 px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-[9px] font-bold">
                                   {item.doc.testType}
+                                </span>
+                              )}
+                              {item.doc.inspectionLevel && (
+                                <span className="ml-1.5 px-1.5 py-0.5 bg-slate-200 text-slate-800 rounded text-[9px] font-bold">
+                                  {item.doc.inspectionLevel}
+                                </span>
+                              )}
+                              {item.doc.inspectionResult && (
+                                <span
+                                  className={`ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                    item.doc.inspectionResult === "Violations Noted"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : "bg-emerald-100 text-emerald-800"
+                                  }`}
+                                >
+                                  {item.doc.inspectionResult}
+                                </span>
+                              )}
+                              {item.doc.recordDate && (
+                                <span className="ml-1.5 text-slate-500 font-mono text-[10px]">
+                                  (Date: {item.doc.recordDate})
                                 </span>
                               )}
                             </p>

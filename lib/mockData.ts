@@ -526,6 +526,20 @@ export const initialDrivers: Driver[] = [
           notes: "August FMCSA random pool selection. Result: NEGATIVE",
         },
       ],
+      dotRecords: [
+        {
+          id: "doc-d1-dot-1",
+          name: "Roadside_DOT_Inspection_Level3_Miller.pdf",
+          category: "Driver DOT Record",
+          fileType: "application/pdf",
+          fileSize: 320000,
+          uploadedAt: "2026-06-12T14:30:00Z",
+          recordDate: "2026-06-12",
+          inspectionLevel: "Level 3 (Driver-Only)",
+          inspectionResult: "Clean / No Violations",
+          notes: "Ohio State Highway Patrol I-80 scale inspection. Clean roadside inspection - zero violations.",
+        },
+      ],
       bankInfoDoc: {
         id: "doc-d1-bank",
         name: "Direct_Deposit_Authorization_Miller.pdf",
@@ -664,6 +678,20 @@ export const initialDrivers: Driver[] = [
           notes: "FMCSA monthly random pull. Result: NEGATIVE",
         },
       ],
+      dotRecords: [
+        {
+          id: "doc-d2-dot-1",
+          name: "DOT_Roadside_Inspection_Level2_Petrovic.pdf",
+          category: "Driver DOT Record",
+          fileType: "application/pdf",
+          fileSize: 345000,
+          uploadedAt: "2026-05-18T10:15:00Z",
+          recordDate: "2026-05-18",
+          inspectionLevel: "Level 2 (Walk-Around)",
+          inspectionResult: "Clean / No Violations",
+          notes: "Indiana State Police inspection post #4. Verified logbook, hours of service, coupling devices, and lights.",
+        },
+      ],
       bankInfoDoc: {
         id: "doc-d2-bank",
         name: "FifthThird_Voided_Check.pdf",
@@ -789,6 +817,7 @@ export const initialDrivers: Driver[] = [
           notes: "Result: NEGATIVE",
         },
       ],
+      dotRecords: [],
       bankInfoDoc: {
         id: "doc-d3-bank",
         name: "DirectDeposit_Huntington_Williams.pdf",

@@ -56,15 +56,23 @@ interface FleetContextType {
   deleteDriver: (id: string) => void;
   uploadDriverDocument: (
     driverId: string,
-    categoryKey: keyof Omit<Driver["documents"], "drugTestResults" | "applicationLink">,
+    categoryKey: keyof Omit<
+      Driver["documents"],
+      "drugTestResults" | "applicationLink" | "dotRecords"
+    >,
     document: FleetDocument
   ) => void;
   removeDriverDocument: (
     driverId: string,
-    categoryKey: keyof Omit<Driver["documents"], "drugTestResults" | "applicationLink">
+    categoryKey: keyof Omit<
+      Driver["documents"],
+      "drugTestResults" | "applicationLink" | "dotRecords"
+    >
   ) => void;
   addDriverDrugTestResult: (driverId: string, document: FleetDocument) => void;
   removeDriverDrugTestResult: (driverId: string, documentId: string) => void;
+  addDriverDotRecord: (driverId: string, document: FleetDocument) => void;
+  removeDriverDotRecord: (driverId: string, documentId: string) => void;
   updateDriverApplicationLink: (driverId: string, link: string) => void;
 
   // Maintenance
@@ -115,8 +123,22 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       if (savedTrailers) setTrailers(JSON.parse(savedTrailers));
       else setTrailers(initialTrailers);
 
-      if (savedDrivers) setDrivers(JSON.parse(savedDrivers));
-      else setDrivers(initialDrivers);
+      if (savedDrivers) {
+        const parsed = JSON.parse(savedDrivers);
+        setDrivers(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          parsed.map((d: any) => ({
+            ...d,
+            documents: {
+              ...d.documents,
+              drugTestResults: d.documents?.drugTestResults || [],
+              dotRecords: d.documents?.dotRecords || [],
+            },
+          }))
+        );
+      } else {
+        setDrivers(initialDrivers);
+      }
 
       if (savedShops) setShops(JSON.parse(savedShops));
       else setShops(initialShops);
@@ -399,6 +421,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         drugCustodyForm: null,
         drugPassport: null,
         drugTestResults: [],
+        dotRecords: [],
         bankInfoDoc: null,
         einLetter: null,
       },
@@ -420,7 +443,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     driverId: string,
     categoryKey: keyof Omit<
       Driver["documents"],
-      "drugTestResults" | "applicationLink"
+      "drugTestResults" | "applicationLink" | "dotRecords"
     >,
     document: FleetDocument
   ) => {
@@ -442,7 +465,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     driverId: string,
     categoryKey: keyof Omit<
       Driver["documents"],
-      "drugTestResults" | "applicationLink"
+      "drugTestResults" | "applicationLink" | "dotRecords"
     >
   ) => {
     setDrivers((prev) =>
@@ -470,7 +493,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           ...d,
           documents: {
             ...d.documents,
-            drugTestResults: [document, ...d.documents.drugTestResults],
+            drugTestResults: [document, ...(d.documents.drugTestResults || [])],
           },
         };
       })
@@ -488,7 +511,39 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           ...d,
           documents: {
             ...d.documents,
-            drugTestResults: d.documents.drugTestResults.filter(
+            drugTestResults: (d.documents.drugTestResults || []).filter(
+              (doc) => doc.id !== documentId
+            ),
+          },
+        };
+      })
+    );
+  };
+
+  const addDriverDotRecord = (driverId: string, document: FleetDocument) => {
+    setDrivers((prev) =>
+      prev.map((d) => {
+        if (d.id !== driverId) return d;
+        return {
+          ...d,
+          documents: {
+            ...d.documents,
+            dotRecords: [document, ...(d.documents.dotRecords || [])],
+          },
+        };
+      })
+    );
+  };
+
+  const removeDriverDotRecord = (driverId: string, documentId: string) => {
+    setDrivers((prev) =>
+      prev.map((d) => {
+        if (d.id !== driverId) return d;
+        return {
+          ...d,
+          documents: {
+            ...d.documents,
+            dotRecords: (d.documents.dotRecords || []).filter(
               (doc) => doc.id !== documentId
             ),
           },
@@ -593,6 +648,8 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         removeDriverDocument,
         addDriverDrugTestResult,
         removeDriverDrugTestResult,
+        addDriverDotRecord,
+        removeDriverDotRecord,
         updateDriverApplicationLink,
         addMaintenanceRecord,
         updateMaintenanceRecord,

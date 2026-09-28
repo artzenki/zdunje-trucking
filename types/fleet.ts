@@ -26,10 +26,13 @@ export interface FleetDocument {
   fileSize: number;
   uploadedAt: string; // ISO date
   expirationDate?: string; // YYYY-MM-DD
+  recordDate?: string; // YYYY-MM-DD for DOT records / inspection date
   fileData?: string; // base64 or object URL
   notes?: string;
   testDate?: string; // for drug test results
   testType?: "Random FMCSA" | "Pre-Employment" | "Post-Accident" | "Reasonable Suspicion" | "Return-to-Duty";
+  inspectionLevel?: string; // e.g. "Level 1", "Level 2", "Level 3"
+  inspectionResult?: "Clean / No Violations" | "Violations Noted";
 }
 
 export type TruckDocumentKey =
@@ -103,6 +106,7 @@ export interface DriverDocuments {
   drugCustodyForm: FleetDocument | null; // 7. Custody & Control Form (CCF)
   drugPassport: FleetDocument | null; // 8. ePassport
   drugTestResults: FleetDocument[]; // 9. Multiple files (monthly FMCSA random picks)
+  dotRecords: FleetDocument[]; // Driver DOT Records (with date selector & file uploader)
   bankInfoDoc: FleetDocument | null; // 10. Bank info / Voided Check
   einLetter: FleetDocument | null; // 11. EIN Letter / W9
 }

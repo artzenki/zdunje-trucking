@@ -30,6 +30,8 @@ import {
   Link as LinkIcon,
   FlaskConical,
   Award,
+  ShieldCheck,
+  Calendar,
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
@@ -47,6 +49,8 @@ function DriversContent() {
     removeDriverDocument,
     addDriverDrugTestResult,
     removeDriverDrugTestResult,
+    addDriverDotRecord,
+    removeDriverDotRecord,
     updateDriverApplicationLink,
   } = useFleet();
 
@@ -56,7 +60,7 @@ function DriversContent() {
 
   // Active Folder Tab in Driver View
   const [activeFolderTab, setActiveFolderTab] = useState<
-    "all" | "license" | "drug" | "safety" | "payroll"
+    "all" | "license" | "drug" | "safety" | "payroll" | "dot"
   >("all");
 
   // Modals
@@ -67,9 +71,13 @@ function DriversContent() {
   // Upload modal state
   const [uploadCategory, setUploadCategory] = useState<string | null>(null);
   const [uploadKey, setUploadKey] = useState<
-    keyof Omit<DriverType["documents"], "drugTestResults" | "applicationLink"> | null
+    keyof Omit<
+      DriverType["documents"],
+      "drugTestResults" | "applicationLink" | "dotRecords"
+    > | null
   >(null);
   const [isDrugTestUpload, setIsDrugTestUpload] = useState(false);
+  const [isDotRecordUpload, setIsDotRecordUpload] = useState(false);
   const [hasExpiration, setHasExpiration] = useState(false);
 
   // Form State
@@ -222,14 +230,19 @@ function DriversContent() {
 
   const openDocumentUploader = (
     categoryName: string,
-    key: keyof Omit<DriverType["documents"], "drugTestResults" | "applicationLink"> | null,
+    key: keyof Omit<
+      DriverType["documents"],
+      "drugTestResults" | "applicationLink" | "dotRecords"
+    > | null,
     expires = false,
-    isDrugTest = false
+    isDrugTest = false,
+    isDotRecord = false
   ) => {
     setUploadCategory(categoryName);
     setUploadKey(key);
     setHasExpiration(expires);
     setIsDrugTestUpload(isDrugTest);
+    setIsDotRecordUpload(isDotRecord);
   };
 
   return (
@@ -573,6 +586,16 @@ function DriversContent() {
                       }`}
                     >
                       Banking & EIN
+                    </button>
+                    <button
+                      onClick={() => setActiveFolderTab("dot")}
+                      className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                        activeFolderTab === "dot"
+                          ? "bg-amber-600 text-white"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      DOT Records ({(selectedDriver.documents.dotRecords || []).length})
                     </button>
                   </div>
                 </div>
@@ -1100,6 +1123,143 @@ function DriversContent() {
                       </div>
                     </div>
                   )}
+
+                  {/* FOLDER 5: DRIVER DOT RECORDS (ROADSIDE INSPECTIONS) */}
+                  {(activeFolderTab === "all" ||
+                    activeFolderTab === "dot") && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          <ShieldCheck className="w-4 h-4 text-amber-600" />
+                          <span>5. Driver DOT Roadside Inspection Records</span>
+                        </div>
+                        <button
+                          onClick={() =>
+                            openDocumentUploader(
+                              "Driver DOT Inspection Record",
+                              null,
+                              false,
+                              false,
+                              true
+                            )
+                          }
+                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-xs transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add DOT Record</span>
+                        </button>
+                      </div>
+
+                      <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h5 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                              State & Federal Roadside Inspection Vault
+                            </h5>
+                            <p className="text-[11px] text-slate-500">
+                              Highway patrol inspection reports, weigh station pull-ins, and safety violations or clean inspection records.
+                            </p>
+                          </div>
+                          <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-100 text-amber-800">
+                            {(selectedDriver.documents.dotRecords || []).length} Records Logged
+                          </span>
+                        </div>
+
+                        {(!selectedDriver.documents.dotRecords ||
+                          selectedDriver.documents.dotRecords.length === 0) ? (
+                          <div className="p-8 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-lg">
+                            <ShieldCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                            <p className="font-semibold text-slate-600">No Driver DOT Records On File</p>
+                            <p className="text-[11px] text-slate-400 mt-1">
+                              Click &ldquo;+ Add DOT Record&rdquo; above to attach roadside reports with inspection date and result.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {selectedDriver.documents.dotRecords.map(
+                              (dotDoc) => (
+                                <div
+                                  key={dotDoc.id}
+                                  className="p-3 bg-slate-50 hover:bg-slate-100/70 rounded-lg border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors"
+                                >
+                                  <div>
+                                    <div className="flex items-center space-x-2">
+                                      <span className="font-semibold text-slate-900 text-xs">
+                                        {dotDoc.name}
+                                      </span>
+                                      {dotDoc.inspectionLevel && (
+                                        <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-800">
+                                          {dotDoc.inspectionLevel}
+                                        </span>
+                                      )}
+                                      <span
+                                        className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                                          dotDoc.inspectionResult === "Violations Noted"
+                                            ? "bg-amber-100 text-amber-800"
+                                            : "bg-emerald-100 text-emerald-800"
+                                        }`}
+                                      >
+                                        {dotDoc.inspectionResult || "Clean / No Violations"}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center space-x-3 text-[11px] text-slate-500 mt-1">
+                                      <span className="flex items-center space-x-1">
+                                        <Calendar className="w-3 h-3 text-slate-400" />
+                                        <span>Inspection Date: <strong className="text-slate-700">{dotDoc.recordDate || "N/A"}</strong></span>
+                                      </span>
+                                      <span>•</span>
+                                      <span>Size: {(dotDoc.fileSize / 1024).toFixed(0)} KB</span>
+                                      {dotDoc.notes && (
+                                        <>
+                                          <span>•</span>
+                                          <span className="italic text-slate-600">{dotDoc.notes}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center space-x-1.5 self-end sm:self-center">
+                                    <button
+                                      onClick={() => setViewingDoc(dotDoc)}
+                                      className="inline-flex items-center space-x-1 px-2 py-1 text-xs font-medium text-slate-700 hover:text-blue-600 bg-white border border-slate-200 rounded-md"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      <span>View</span>
+                                    </button>
+                                    <button
+                                      onClick={() => downloadDocument(dotDoc)}
+                                      className="inline-flex items-center space-x-1 px-2 py-1 text-xs font-medium text-slate-700 hover:text-blue-600 bg-white border border-slate-200 rounded-md"
+                                    >
+                                      <Download className="w-3 h-3" />
+                                      <span>Download</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        if (
+                                          confirm(
+                                            `Delete DOT record ${dotDoc.name}?`
+                                          )
+                                        ) {
+                                          removeDriverDotRecord(
+                                            selectedDriver.id,
+                                            dotDoc.id
+                                          );
+                                        }
+                                      }}
+                                      className="p-1 text-slate-400 hover:text-red-600 rounded"
+                                      title="Delete DOT record"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
@@ -1440,14 +1600,18 @@ function DriversContent() {
             setUploadCategory(null);
             setUploadKey(null);
             setIsDrugTestUpload(false);
+            setIsDotRecordUpload(false);
           }}
           category={uploadCategory}
           targetName={`${selectedDriver.firstName} ${selectedDriver.lastName}`}
           hasExpiration={hasExpiration}
           isDrugTestResult={isDrugTestUpload}
+          isDotRecord={isDotRecordUpload}
           onUpload={(doc) => {
             if (isDrugTestUpload) {
               addDriverDrugTestResult(selectedDriver.id, doc);
+            } else if (isDotRecordUpload) {
+              addDriverDotRecord(selectedDriver.id, doc);
             } else if (uploadKey) {
               uploadDriverDocument(selectedDriver.id, uploadKey, doc);
             }
