@@ -493,9 +493,9 @@ function MaintenanceContent() {
 
       {/* Add / Edit Maintenance Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-[768px] max-h-[90vh] flex flex-col my-auto overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60 rounded-t-2xl">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">
                   {editingRecord ? "Edit Maintenance Record" : "Log Maintenance / Repair"}
@@ -506,7 +506,7 @@ function MaintenanceContent() {
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -514,309 +514,311 @@ function MaintenanceContent() {
 
             <form
               onSubmit={handleFormSubmit}
-              className="p-6 overflow-y-auto space-y-4"
+              className="flex flex-col flex-1 overflow-hidden"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Select Truck Unit <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    required
-                    value={formData.truckId}
-                    onChange={(e) => {
-                      const t = trucks.find((tr) => tr.id === e.target.value);
-                      setFormData({
-                        ...formData,
-                        truckId: e.target.value,
-                        odometer: t ? t.currentMileage : formData.odometer,
-                        nextServiceDueMileage: t
-                          ? t.currentMileage + 15000
-                          : formData.nextServiceDueMileage,
-                      });
-                    }}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  >
-                    {trucks.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        Unit #{t.unitNumber} ({t.make} {t.model})
-                      </option>
-                    ))}
-                  </select>
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Select Truck Unit <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={formData.truckId}
+                      onChange={(e) => {
+                        const t = trucks.find((tr) => tr.id === e.target.value);
+                        setFormData({
+                          ...formData,
+                          truckId: e.target.value,
+                          odometer: t ? t.currentMileage : formData.odometer,
+                          nextServiceDueMileage: t
+                            ? t.currentMileage + 15000
+                            : formData.nextServiceDueMileage,
+                        });
+                      }}
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    >
+                      {trucks.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          Unit #{t.unitNumber} ({t.make} {t.model})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Service Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.serviceDate}
+                      onChange={(e) =>
+                        setFormData({ ...formData, serviceDate: e.target.value })
+                      }
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Odometer (Miles)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.odometer}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          odometer: parseInt(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Service Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.serviceDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, serviceDate: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  />
+                {/* Service Type & Status */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Service Type
+                    </label>
+                    <select
+                      value={formData.serviceType}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          serviceType: e.target.value as MaintenanceServiceType,
+                        })
+                      }
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    >
+                      {SERVICE_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Work Order Status
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          status: e.target.value as MaintenanceStatus,
+                        })
+                      }
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    >
+                      <option value="Completed">Completed</option>
+                      <option value="In Progress">In Progress (Currently in Shop)</option>
+                      <option value="Scheduled">Scheduled for Later</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Odometer (Miles)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.odometer}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        odometer: parseInt(e.target.value) || 0,
-                      })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Service Type & Status */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Service Type
-                  </label>
-                  <select
-                    value={formData.serviceType}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        serviceType: e.target.value as MaintenanceServiceType,
-                      })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  >
-                    {SERVICE_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Work Order Status
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        status: e.target.value as MaintenanceStatus,
-                      })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  >
-                    <option value="Completed">Completed</option>
-                    <option value="In Progress">In Progress (Currently in Shop)</option>
-                    <option value="Scheduled">Scheduled for Later</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Shop / Vendor */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
-                    Choose from Truck Shop Directory
-                  </label>
-                  <select
-                    value={formData.shopId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, shopId: e.target.value })
-                    }
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">-- Other / Custom Vendor --</option>
-                    {shops.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.businessName} ({s.state})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {!formData.shopId && (
+                {/* Shop / Vendor */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
-                      Custom Vendor / Shop Name
+                      Choose from Truck Shop Directory
                     </label>
-                    <input
-                      type="text"
-                      value={formData.customShopName}
+                    <select
+                      value={formData.shopId}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          customShopName: e.target.value,
-                        })
+                        setFormData({ ...formData, shopId: e.target.value })
                       }
-                      placeholder="e.g. Cummins Central Indiana"
-                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
+                      className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    >
+                      <option value="">-- Other / Custom Vendor --</option>
+                      {shops.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.businessName} ({s.state})
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                )}
-              </div>
 
-              {/* Costs Breakdown */}
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Cost Breakdown ($ USD)
-                  </h4>
-                  <span className="text-xs font-extrabold text-slate-900">
-                    Total: $
-                    {(
-                      Number(formData.laborCost) +
-                      Number(formData.partsCost) +
-                      Number(formData.calloutFee)
-                    ).toLocaleString()}
-                  </span>
+                  {!formData.shopId && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
+                        Custom Vendor / Shop Name
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.customShopName}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customShopName: e.target.value,
+                          })
+                        }
+                        placeholder="e.g. Cummins Central Indiana"
+                        className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                {/* Costs Breakdown */}
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Cost Breakdown ($ USD)
+                    </h4>
+                    <span className="text-xs font-extrabold text-slate-900">
+                      Total: $
+                      {(
+                        Number(formData.laborCost) +
+                        Number(formData.partsCost) +
+                        Number(formData.calloutFee)
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Labor Cost
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.laborCost}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            laborCost: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Parts Cost
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.partsCost}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            partsCost: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Callout / Towing
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.calloutFee}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            calloutFee: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Invoice #
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.invoiceNumber}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            invoiceNumber: e.target.value,
+                          })
+                        }
+                        placeholder="INV-99210"
+                        className="w-full h-10 px-3 text-sm font-mono bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Next Service Due */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Labor Cost
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Next Service Due (Mileage)
                     </label>
                     <input
                       type="number"
-                      value={formData.laborCost}
+                      value={formData.nextServiceDueMileage}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          laborCost: parseFloat(e.target.value) || 0,
+                          nextServiceDueMileage: parseInt(e.target.value) || 0,
                         })
                       }
-                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Parts Cost
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Next Service Due (Target Date)
                     </label>
                     <input
-                      type="number"
-                      value={formData.partsCost}
+                      type="date"
+                      value={formData.nextServiceDueDate}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          partsCost: parseFloat(e.target.value) || 0,
+                          nextServiceDueDate: e.target.value,
                         })
                       }
-                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Callout / Towing
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.calloutFee}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          calloutFee: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Invoice #
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.invoiceNumber}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          invoiceNumber: e.target.value,
-                        })
-                      }
-                      placeholder="INV-99210"
-                      className="w-full px-2.5 py-1.5 text-xs font-mono bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
                 </div>
-              </div>
 
-              {/* Next Service Due */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Work Description */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Next Service Due (Mileage)
+                    Description of Repairs & Parts Replaced
                   </label>
-                  <input
-                    type="number"
-                    value={formData.nextServiceDueMileage}
+                  <textarea
+                    rows={3}
+                    value={formData.description}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        nextServiceDueMileage: parseInt(e.target.value) || 0,
-                      })
+                      setFormData({ ...formData, description: e.target.value })
                     }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Next Service Due (Target Date)
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.nextServiceDueDate}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        nextServiceDueDate: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    placeholder="Detail work performed: oil brand, filter parts numbers, brake lining measurements, tire dot codes, technician comments..."
+                    className="w-full p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
 
-              {/* Work Description */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                  Description of Repairs & Parts Replaced
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  placeholder="Detail work performed: oil brand, filter parts numbers, brake lining measurements, tire dot codes, technician comments..."
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+              <div className="shrink-0 flex items-center justify-end space-x-3 px-6 py-4 border-t border-slate-100 bg-slate-50/80 rounded-b-2xl">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+                  className="h-10 px-4 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm"
+                  className="h-10 px-5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors"
                 >
                   {editingRecord ? "Update Record" : "Save Work Order"}
                 </button>

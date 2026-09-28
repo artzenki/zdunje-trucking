@@ -123,10 +123,10 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-[768px] max-h-[90vh] flex flex-col my-auto overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60 rounded-t-2xl">
           <div>
             <h3 className="font-semibold text-slate-900 text-lg">
               Upload {category}
@@ -144,221 +144,223 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* File Picker Box */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-              Select Document File (PDF, PNG, JPG)
-            </label>
-            <label className="relative flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50/70 hover:bg-blue-50/20 rounded-xl p-6 cursor-pointer transition-all">
-              <input
-                type="file"
-                className="sr-only"
-                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                onChange={handleFileChange}
-              />
-              <div className="p-3 bg-white rounded-full shadow-sm border border-slate-200 text-blue-600 mb-2">
-                <Upload className="w-5 h-5" />
-              </div>
-              {selectedFile ? (
-                <div className="text-center">
-                  <p className="text-sm font-semibold text-slate-800 flex items-center justify-center space-x-1">
-                    <File className="w-4 h-4 text-blue-600" />
-                    <span className="truncate max-w-xs">{selectedFile.name}</span>
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {(selectedFile.size / 1024).toFixed(0)} KB • Click to change
-                  </p>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <p className="text-sm font-medium text-slate-700">
-                    Click to browse or drop file here
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Supports PDF, scanned images, documents up to 25MB
-                  </p>
-                </div>
-              )}
-            </label>
-          </div>
-
-          {/* Document Title */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Document Display Name
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={docName}
-                onChange={(e) => setDocName(e.target.value)}
-                placeholder={`e.g. ${category}_2026.pdf`}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Drug Test Specific Inputs */}
-          {isDrugTestResult && (
-            <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Test Category / Pool
-                </label>
-                <select
-                  value={testType}
-                  onChange={(e) =>
-                    setTestType(
-                      e.target.value as
-                        | "Random FMCSA"
-                        | "Pre-Employment"
-                        | "Post-Accident"
-                        | "Reasonable Suspicion"
-                    )
-                  }
-                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Random FMCSA">Random FMCSA Pool</option>
-                  <option value="Pre-Employment">Pre-Employment Test</option>
-                  <option value="Post-Accident">Post-Accident</option>
-                  <option value="Reasonable Suspicion">Reasonable Suspicion</option>
-                  <option value="Return-to-Duty">Return-to-Duty</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Test Date
-                </label>
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="p-6 overflow-y-auto space-y-4 flex-1">
+            {/* File Picker Box */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+                Select Document File (PDF, PNG, JPG)
+              </label>
+              <label className="relative flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50/70 hover:bg-blue-50/20 rounded-xl p-6 cursor-pointer transition-all">
                 <input
-                  type="date"
-                  value={testDate}
-                  onChange={(e) => setTestDate(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  type="file"
+                  className="sr-only"
+                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                  onChange={handleFileChange}
                 />
-              </div>
+                <div className="p-3 bg-white rounded-full shadow-sm border border-slate-200 text-blue-600 mb-2">
+                  <Upload className="w-5 h-5" />
+                </div>
+                {selectedFile ? (
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-slate-800 flex items-center justify-center space-x-1">
+                      <File className="w-4 h-4 text-blue-600" />
+                      <span className="truncate max-w-xs">{selectedFile.name}</span>
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {(selectedFile.size / 1024).toFixed(0)} KB • Click to change
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-slate-700">
+                      Click to browse or drop file here
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Supports PDF, scanned images, documents up to 25MB
+                    </p>
+                  </div>
+                )}
+              </label>
             </div>
-          )}
 
-          {/* DOT Roadside Record Specific Inputs */}
-          {isDotRecord && (
-            <div className="space-y-3 p-3.5 bg-amber-50/70 rounded-xl border border-amber-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Inspection Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={recordDate}
-                    onChange={(e) => setRecordDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    Date roadside inspection occurred
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Inspection Level
-                  </label>
-                  <select
-                    value={inspectionLevel}
-                    onChange={(e) => setInspectionLevel(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="Level 1 (Full Inspection)">Level 1 (Full Vehicle & Driver)</option>
-                    <option value="Level 2 (Walk-Around)">Level 2 (Walk-Around & Driver)</option>
-                    <option value="Level 3 (Driver-Only)">Level 3 (Driver-Only / Credentials / Log)</option>
-                    <option value="Level 4 (Special Inspection)">Level 4 (Special Study)</option>
-                    <option value="Level 5 (Vehicle-Only)">Level 5 (Vehicle-Only)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Inspection Finding / Result
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setInspectionResult("Clean / No Violations")}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border text-center transition-all ${
-                      inspectionResult === "Clean / No Violations"
-                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                        : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                    }`}
-                  >
-                    ✓ Clean / No Violations
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInspectionResult("Violations Noted")}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border text-center transition-all ${
-                      inspectionResult === "Violations Noted"
-                        ? "bg-amber-600 text-white border-amber-600 shadow-xs"
-                        : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                    }`}
-                  >
-                    ⚠ Violations Noted
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Expiration Date Tracker */}
-          {hasExpiration && (
+            {/* Document Title */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Expiration / Renewal Date <span className="text-red-500">*</span>
+                Document Display Name
               </label>
               <div className="relative">
                 <input
-                  type="date"
-                  required
-                  value={expirationDate}
-                  onChange={(e) => setExpirationDate(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  type="text"
+                  value={docName}
+                  onChange={(e) => setDocName(e.target.value)}
+                  placeholder={`e.g. ${category}_2026.pdf`}
+                  className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                The platform will automatically alert safety managers 30 days before this date.
-              </p>
             </div>
-          )}
 
-          {/* Notes */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Notes / Audit Remarks (Optional)
-            </label>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Certificate #, issuing clinic, doctor name, or special conditions..."
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+            {/* Drug Test Specific Inputs */}
+            {isDrugTestResult && (
+              <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Test Category / Pool
+                  </label>
+                  <select
+                    value={testType}
+                    onChange={(e) =>
+                      setTestType(
+                        e.target.value as
+                          | "Random FMCSA"
+                          | "Pre-Employment"
+                          | "Post-Accident"
+                          | "Reasonable Suspicion"
+                      )
+                    }
+                    className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Random FMCSA">Random FMCSA Pool</option>
+                    <option value="Pre-Employment">Pre-Employment Test</option>
+                    <option value="Post-Accident">Post-Accident</option>
+                    <option value="Reasonable Suspicion">Reasonable Suspicion</option>
+                    <option value="Return-to-Duty">Return-to-Duty</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Test Date
+                  </label>
+                  <input
+                    type="date"
+                    value={testDate}
+                    onChange={(e) => setTestDate(e.target.value)}
+                    className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* DOT Roadside Record Specific Inputs */}
+            {isDotRecord && (
+              <div className="space-y-3 p-3.5 bg-amber-50/70 rounded-xl border border-amber-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Inspection Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={recordDate}
+                      onChange={(e) => setRecordDate(e.target.value)}
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      Date roadside inspection occurred
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Inspection Level
+                    </label>
+                    <select
+                      value={inspectionLevel}
+                      onChange={(e) => setInspectionLevel(e.target.value)}
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="Level 1 (Full Inspection)">Level 1 (Full Vehicle & Driver)</option>
+                      <option value="Level 2 (Walk-Around)">Level 2 (Walk-Around & Driver)</option>
+                      <option value="Level 3 (Driver-Only)">Level 3 (Driver-Only / Credentials / Log)</option>
+                      <option value="Level 4 (Special Inspection)">Level 4 (Special Study)</option>
+                      <option value="Level 5 (Vehicle-Only)">Level 5 (Vehicle-Only)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Inspection Finding / Result
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setInspectionResult("Clean / No Violations")}
+                      className={`h-10 px-3 text-xs font-semibold rounded-lg border text-center transition-all ${
+                        inspectionResult === "Clean / No Violations"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                          : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      ✓ Clean / No Violations
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInspectionResult("Violations Noted")}
+                      className={`h-10 px-3 text-xs font-semibold rounded-lg border text-center transition-all ${
+                        inspectionResult === "Violations Noted"
+                          ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                          : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      ⚠ Violations Noted
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Expiration Date Tracker */}
+            {hasExpiration && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  Expiration / Renewal Date <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    required
+                    value={expirationDate}
+                    onChange={(e) => setExpirationDate(e.target.value)}
+                    className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  The platform will automatically alert safety managers 30 days before this date.
+                </p>
+              </div>
+            )}
+
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                Notes / Audit Remarks (Optional)
+              </label>
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. Certificate #, issuing clinic, doctor name, or special conditions..."
+                className="w-full p-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+          <div className="shrink-0 flex items-center justify-end space-x-3 px-6 py-4 border-t border-slate-100 bg-slate-50/80 rounded-b-2xl">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              className="h-10 px-4 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center space-x-2 px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+              className="h-10 inline-flex items-center space-x-2 px-5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
             >
               <Upload className="w-4 h-4" />
               <span>{isSubmitting ? "Uploading..." : "Save Document"}</span>

@@ -1583,9 +1583,9 @@ function DriversContent() {
 
       {/* Add / Edit Driver Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-[768px] max-h-[90vh] flex flex-col my-auto overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60 rounded-t-2xl">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">
                   {editingDriver
@@ -1598,7 +1598,7 @@ function DriversContent() {
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1606,278 +1606,280 @@ function DriversContent() {
 
             <form
               onSubmit={handleFormSubmit}
-              className="p-6 overflow-y-auto space-y-4"
+              className="flex flex-col flex-1 overflow-hidden"
             >
-              {/* Name Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    First Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.firstName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Middle Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.middleName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, middleName: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Last Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.lastName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* DOB, Phone, State, License */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Date of Birth
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={(e) =>
-                      setFormData({ ...formData, dateOfBirth: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    placeholder="(312) 555-0100"
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    CDL State
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={2}
-                    value={formData.state}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        state: e.target.value.toUpperCase(),
-                      })
-                    }
-                    placeholder="IL"
-                    className="w-full px-3 py-2 text-sm uppercase font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    License # (CDL)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.licenseNumber}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        licenseNumber: e.target.value,
-                      })
-                    }
-                    placeholder="M1234567"
-                    className="w-full px-3 py-2 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Status & Assigned Truck */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Driver Status
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        status: e.target.value as DriverStatus,
-                      })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  >
-                    <option value="Active">Active / On Duty</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="On Leave">On Leave</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Assigned Power Unit (Truck)
-                  </label>
-                  <select
-                    value={formData.assignedTruckId}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        assignedTruckId: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  >
-                    <option value="">-- No Truck Assigned --</option>
-                    {trucks.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        Unit #{t.unitNumber} ({t.make} {t.model})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Bank Info Fields */}
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
-                  <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Direct Deposit & Banking Information</span>
-                </h4>
-
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                {/* Name Fields */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Bank Name
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      First Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      value={formData.bankName}
+                      required
+                      value={formData.firstName}
                       onChange={(e) =>
-                        setFormData({ ...formData, bankName: e.target.value })
+                        setFormData({ ...formData, firstName: e.target.value })
                       }
-                      placeholder="Chase, BofA, etc."
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Routing Number (9 Digits)
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Middle Name
                     </label>
                     <input
                       type="text"
-                      value={formData.routingNumber}
+                      value={formData.middleName}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          routingNumber: e.target.value,
-                        })
+                        setFormData({ ...formData, middleName: e.target.value })
                       }
-                      placeholder="071000013"
-                      className="w-full px-3 py-1.5 text-xs font-mono bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Account Number
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Last Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      value={formData.accountNumber}
+                      required
+                      value={formData.lastName}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          accountNumber: e.target.value,
-                        })
+                        setFormData({ ...formData, lastName: e.target.value })
                       }
-                      placeholder="4829104829"
-                      className="w-full px-3 py-1.5 text-xs font-mono bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
                 </div>
-              </div>
 
-              {/* Application Link */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                  Driver Application Portal Link
-                </label>
-                <input
-                  type="url"
-                  value={formData.applicationLink}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      applicationLink: e.target.value,
-                    })
-                  }
-                  placeholder="https://..."
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
+                {/* DOB, Phone, State, License */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Date of Birth
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dateOfBirth}
+                      onChange={(e) =>
+                        setFormData({ ...formData, dateOfBirth: e.target.value })
+                      }
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
 
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                  Notes
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  placeholder="Safety record notes, preferred lanes, emergency contact..."
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                      placeholder="(312) 555-0100"
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      CDL State
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={2}
+                      value={formData.state}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          state: e.target.value.toUpperCase(),
+                        })
+                      }
+                      placeholder="IL"
+                      className="w-full h-10 px-3 text-sm uppercase font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      License # (CDL)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.licenseNumber}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          licenseNumber: e.target.value,
+                        })
+                      }
+                      placeholder="M1234567"
+                      className="w-full h-10 px-3 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Status & Assigned Truck */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Driver Status
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          status: e.target.value as DriverStatus,
+                        })
+                      }
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    >
+                      <option value="Active">Active / On Duty</option>
+                      <option value="Inactive">Inactive</option>
+                      <option value="On Leave">On Leave</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Assigned Power Unit (Truck)
+                    </label>
+                    <select
+                      value={formData.assignedTruckId}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          assignedTruckId: e.target.value,
+                        })
+                      }
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    >
+                      <option value="">-- No Truck Assigned --</option>
+                      {trucks.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          Unit #{t.unitNumber} ({t.make} {t.model})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Bank Info Fields */}
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Direct Deposit & Banking Information</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Bank Name
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.bankName}
+                        onChange={(e) =>
+                          setFormData({ ...formData, bankName: e.target.value })
+                        }
+                        placeholder="Chase, BofA, etc."
+                        className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Routing Number (9 Digits)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.routingNumber}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            routingNumber: e.target.value,
+                          })
+                        }
+                        placeholder="071000013"
+                        className="w-full h-10 px-3 text-sm font-mono bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Account Number
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.accountNumber}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            accountNumber: e.target.value,
+                          })
+                        }
+                        placeholder="4829104829"
+                        className="w-full h-10 px-3 text-sm font-mono bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Application Link */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                    Driver Application Portal Link
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.applicationLink}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        applicationLink: e.target.value,
+                      })
+                    }
+                    placeholder="https://..."
+                    className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formData.notes}
+                    onChange={(e) =>
+                      setFormData({ ...formData, notes: e.target.value })
+                    }
+                    placeholder="Safety record notes, preferred lanes, emergency contact..."
+                    className="w-full p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+              <div className="shrink-0 flex items-center justify-end space-x-3 px-6 py-4 border-t border-slate-100 bg-slate-50/80 rounded-b-2xl">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+                  className="h-10 px-4 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm"
+                  className="h-10 px-5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors"
                 >
                   {editingDriver ? "Update Driver" : "Save Driver"}
                 </button>

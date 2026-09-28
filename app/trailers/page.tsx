@@ -657,9 +657,9 @@ function TrailersContent() {
 
       {/* Add / Edit Trailer Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-[768px] max-h-[90vh] flex flex-col my-auto overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60 rounded-t-2xl">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">
                   {editingTrailer
@@ -672,7 +672,7 @@ function TrailersContent() {
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -680,217 +680,219 @@ function TrailersContent() {
 
             <form
               onSubmit={handleFormSubmit}
-              className="p-6 overflow-y-auto space-y-4"
+              className="flex flex-col flex-1 overflow-hidden"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Unit Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.unitNumber}
-                    onChange={(e) =>
-                      setFormData({ ...formData, unitNumber: e.target.value })
-                    }
-                    placeholder="e.g. TR-5320"
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Make
-                  </label>
-                  <select
-                    value={formData.make}
-                    onChange={(e) =>
-                      setFormData({ ...formData, make: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  >
-                    <option value="Great Dane">Great Dane</option>
-                    <option value="Utility">Utility</option>
-                    <option value="Wabash">Wabash</option>
-                    <option value="Hyundai Translead">Hyundai Translead</option>
-                    <option value="Vanguard">Vanguard</option>
-                    <option value="Stoughton">Stoughton</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Model & Year
-                  </label>
-                  <div className="flex space-x-2">
-                    <input
-                      type="number"
-                      value={formData.year}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          year: parseInt(e.target.value) || 2024,
-                        })
-                      }
-                      className="w-20 px-2 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                    />
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Unit Number <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
-                      value={formData.model}
+                      required
+                      value={formData.unitNumber}
                       onChange={(e) =>
-                        setFormData({ ...formData, model: e.target.value })
+                        setFormData({ ...formData, unitNumber: e.target.value })
                       }
-                      placeholder="e.g. 53' Dry Van"
-                      className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      placeholder="e.g. TR-5320"
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
                     />
                   </div>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    VIN
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.vin}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        vin: e.target.value.toUpperCase(),
-                      })
-                    }
-                    placeholder="1GRAN532..."
-                    className="w-full px-3 py-2 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    License Plate & Temp Check
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={formData.plateNumber}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Make
+                    </label>
+                    <select
+                      value={formData.make}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          plateNumber: e.target.value.toUpperCase(),
-                        })
+                        setFormData({ ...formData, make: e.target.value })
                       }
-                      placeholder="e.g. TL-78201"
-                      className="flex-1 px-3 py-2 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                    />
-                    <label className="flex items-center space-x-1.5 text-xs text-slate-700 whitespace-nowrap cursor-pointer bg-slate-50 px-2.5 py-2 border border-slate-200 rounded-lg">
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    >
+                      <option value="Great Dane">Great Dane</option>
+                      <option value="Utility">Utility</option>
+                      <option value="Wabash">Wabash</option>
+                      <option value="Hyundai Translead">Hyundai Translead</option>
+                      <option value="Vanguard">Vanguard</option>
+                      <option value="Stoughton">Stoughton</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Model & Year
+                    </label>
+                    <div className="flex space-x-2">
                       <input
-                        type="checkbox"
-                        checked={formData.isTemporaryPlate}
+                        type="number"
+                        value={formData.year}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            isTemporaryPlate: e.target.checked,
+                            year: parseInt(e.target.value) || 2024,
                           })
                         }
-                        className="rounded text-purple-600 focus:ring-purple-500"
+                        className="w-20 h-10 px-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
                       />
-                      <span>Temp Plate?</span>
-                    </label>
+                      <input
+                        type="text"
+                        value={formData.model}
+                        onChange={(e) =>
+                          setFormData({ ...formData, model: e.target.value })
+                        }
+                        placeholder="e.g. 53' Dry Van"
+                        className="flex-1 h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Ownership Type
-                  </label>
-                  <select
-                    value={formData.ownershipType}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        ownershipType: e.target.value as OwnershipType,
-                      })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  >
-                    <option value="Own">Company Owned</option>
-                    <option value="Lease">Leased</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      VIN
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.vin}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          vin: e.target.value.toUpperCase(),
+                        })
+                      }
+                      placeholder="1GRAN532..."
+                      className="w-full h-10 px-3 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      License Plate & Temp Check
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={formData.plateNumber}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            plateNumber: e.target.value.toUpperCase(),
+                          })
+                        }
+                        placeholder="e.g. TL-78201"
+                        className="flex-1 h-10 px-3 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      />
+                      <label className="flex items-center space-x-2 text-xs font-medium text-slate-700 whitespace-nowrap cursor-pointer bg-slate-50 px-3 h-10 border border-slate-200 rounded-lg">
+                        <input
+                          type="checkbox"
+                          checked={formData.isTemporaryPlate}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              isTemporaryPlate: e.target.checked,
+                            })
+                          }
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span>Temp Plate?</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Ownership Type
+                    </label>
+                    <select
+                      value={formData.ownershipType}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          ownershipType: e.target.value as OwnershipType,
+                        })
+                      }
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    >
+                      <option value="Own">Company Owned</option>
+                      <option value="Lease">Leased</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Trailer Value ($ USD)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.trailerValue}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          trailerValue: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      placeholder="45000"
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Assigned Truck
+                    </label>
+                    <select
+                      value={formData.assignedTruckId}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          assignedTruckId: e.target.value,
+                        })
+                      }
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    >
+                      <option value="">-- Uncoupled / Staged in Yard --</option>
+                      {trucks.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          Unit #{t.unitNumber} ({t.make} {t.model})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Trailer Value ($ USD)
+                    Trailer Notes
                   </label>
-                  <input
-                    type="number"
-                    value={formData.trailerValue}
+                  <textarea
+                    rows={2}
+                    value={formData.notes}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        trailerValue: parseFloat(e.target.value) || 0,
-                      })
+                      setFormData({ ...formData, notes: e.target.value })
                     }
-                    placeholder="45000"
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    placeholder="e.g. Reefer unit hours, side skirts, tire inflation system, terminal location..."
+                    className="w-full p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Assigned Truck
-                  </label>
-                  <select
-                    value={formData.assignedTruckId}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        assignedTruckId: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  >
-                    <option value="">-- Uncoupled / Staged in Yard --</option>
-                    {trucks.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        Unit #{t.unitNumber} ({t.make} {t.model})
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                  Trailer Notes
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  placeholder="e.g. Reefer unit hours, side skirts, tire inflation system, terminal location..."
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+              <div className="shrink-0 flex items-center justify-end space-x-3 px-6 py-4 border-t border-slate-100 bg-slate-50/80 rounded-b-2xl">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+                  className="h-10 px-4 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-sm"
+                  className="h-10 px-5 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-sm transition-colors"
                 >
                   {editingTrailer ? "Update Trailer" : "Save Trailer"}
                 </button>

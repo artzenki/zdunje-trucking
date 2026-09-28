@@ -415,9 +415,9 @@ function ShopsContent() {
 
       {/* Add / Edit Shop Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-[768px] max-h-[90vh] flex flex-col my-auto overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60 rounded-t-2xl">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">
                   {editingShop
@@ -430,7 +430,7 @@ function ShopsContent() {
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -438,245 +438,247 @@ function ShopsContent() {
 
             <form
               onSubmit={handleFormSubmit}
-              className="p-6 overflow-y-auto space-y-4"
+              className="flex flex-col flex-1 overflow-hidden"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Business Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.businessName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, businessName: e.target.value })
-                    }
-                    placeholder="e.g. TA Truck Service - Gary"
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  />
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Business Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.businessName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, businessName: e.target.value })
+                      }
+                      placeholder="e.g. TA Truck Service - Gary"
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                      placeholder="(219) 555-0199"
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Phone Number
+                    Business Address & State
                   </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    placeholder="(219) 555-0199"
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  />
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={formData.businessAddress}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          businessAddress: e.target.value,
+                        })
+                      }
+                      placeholder="Street, City, State ZIP (e.g. 1201 Ripon Dr, Lake Station, IN 46405)"
+                      className="flex-1 h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      maxLength={2}
+                      value={formData.state}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          state: e.target.value.toUpperCase(),
+                        })
+                      }
+                      placeholder="IN"
+                      className="w-16 h-10 px-2 text-sm font-mono text-center uppercase border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                  Business Address & State
-                </label>
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={formData.businessAddress}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        businessAddress: e.target.value,
-                      })
-                    }
-                    placeholder="Street, City, State ZIP (e.g. 1201 Ripon Dr, Lake Station, IN 46405)"
-                    className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    maxLength={2}
-                    value={formData.state}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        state: e.target.value.toUpperCase(),
-                      })
-                    }
-                    placeholder="IN"
-                    className="w-16 px-2 py-2 text-sm font-mono text-center uppercase border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  />
+                {/* Shop Type & Pricing & Star Rating */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
+                      Facility Type
+                    </label>
+                    <select
+                      value={formData.shopType}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          shopType: e.target.value as ShopType,
+                        })
+                      }
+                      className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    >
+                      <option value="Both">Both (Shop & Roadside)</option>
+                      <option value="Shop">Shop Only</option>
+                      <option value="Roadside">Roadside Service Only</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
+                      Labor Rate ($/hr)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.laborRatePerHour}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          laborRatePerHour: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      placeholder="140"
+                      className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
+                      Callout Fee ($)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.calloutFee}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          calloutFee: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      placeholder="150"
+                      className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
+                      Star Rating (1-5)
+                    </label>
+                    <select
+                      value={formData.rating}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          rating: parseInt(e.target.value) || 5,
+                        })
+                      }
+                      className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    >
+                      <option value={5}>⭐⭐⭐⭐⭐ (5 Stars)</option>
+                      <option value={4}>⭐⭐⭐⭐ (4 Stars)</option>
+                      <option value={3}>⭐⭐⭐ (3 Stars)</option>
+                      <option value={2}>⭐⭐ (2 Stars)</option>
+                      <option value={1}>⭐ (1 Star)</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
 
-              {/* Shop Type & Pricing & Star Rating */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                {/* Google Maps Link */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
-                    Facility Type
-                  </label>
-                  <select
-                    value={formData.shopType}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        shopType: e.target.value as ShopType,
-                      })
-                    }
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="Both">Both (Shop & Roadside)</option>
-                    <option value="Shop">Shop Only</option>
-                    <option value="Roadside">Roadside Service Only</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
-                    Labor Rate ($/hr)
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                    Google Maps URL
                   </label>
                   <input
-                    type="number"
-                    value={formData.laborRatePerHour}
+                    type="url"
+                    value={formData.googleMapsUrl}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        laborRatePerHour: parseFloat(e.target.value) || 0,
-                      })
+                      setFormData({ ...formData, googleMapsUrl: e.target.value })
                     }
-                    placeholder="140"
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                    placeholder="https://maps.google.com/?q=..."
+                    className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
                   />
                 </div>
 
+                {/* Repair Categories Multi-tags */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
-                    Callout Fee ($)
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1.5">
+                    Kind of Work They Do (Click to Select)
                   </label>
-                  <input
-                    type="number"
-                    value={formData.calloutFee}
+                  <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    {COMMON_REPAIR_CATEGORIES.map((cat) => {
+                      const isSelected =
+                        formData.repairCategories.includes(cat);
+                      return (
+                        <button
+                          type="button"
+                          key={cat}
+                          onClick={() => toggleCategory(cat)}
+                          className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all ${
+                            isSelected
+                              ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                              : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                          }`}
+                        >
+                          {isSelected ? "✓ " : "+ "}
+                          {cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Detailed Description */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                    Detailed Description of Services & Capability
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formData.descriptionOfWork}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        calloutFee: parseFloat(e.target.value) || 0,
+                        descriptionOfWork: e.target.value,
                       })
                     }
-                    placeholder="150"
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                    placeholder="e.g. 12 bays, Detroit Diesel diagnostics, trailer alignments, reefer certified, 24/7 service..."
+                    className="w-full p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
                   />
                 </div>
 
+                {/* Notes */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1">
-                    Star Rating (1-5)
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                    Dispatcher Notes & Recommendations
                   </label>
-                  <select
-                    value={formData.rating}
+                  <textarea
+                    rows={2}
+                    value={formData.notes}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        rating: parseInt(e.target.value) || 5,
-                      })
+                      setFormData({ ...formData, notes: e.target.value })
                     }
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value={5}>⭐⭐⭐⭐⭐ (5 Stars)</option>
-                    <option value={4}>⭐⭐⭐⭐ (4 Stars)</option>
-                    <option value={3}>⭐⭐⭐ (3 Stars)</option>
-                    <option value={2}>⭐⭐ (2 Stars)</option>
-                    <option value={1}>⭐ (1 Star)</option>
-                  </select>
+                    placeholder="e.g. Ask for Dave the manager, bilingual dispatch, fast tire replacement..."
+                    className="w-full p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  />
                 </div>
               </div>
 
-              {/* Google Maps Link */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                  Google Maps URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.googleMapsUrl}
-                  onChange={(e) =>
-                    setFormData({ ...formData, googleMapsUrl: e.target.value })
-                  }
-                  placeholder="https://maps.google.com/?q=..."
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
-              </div>
-
-              {/* Repair Categories Multi-tags */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1.5">
-                  Kind of Work They Do (Click to Select)
-                </label>
-                <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  {COMMON_REPAIR_CATEGORIES.map((cat) => {
-                    const isSelected =
-                      formData.repairCategories.includes(cat);
-                    return (
-                      <button
-                        type="button"
-                        key={cat}
-                        onClick={() => toggleCategory(cat)}
-                        className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all ${
-                          isSelected
-                            ? "bg-amber-600 text-white border-amber-600 shadow-xs"
-                            : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
-                        }`}
-                      >
-                        {isSelected ? "✓ " : "+ "}
-                        {cat}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Detailed Description */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                  Detailed Description of Services & Capability
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.descriptionOfWork}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      descriptionOfWork: e.target.value,
-                    })
-                  }
-                  placeholder="e.g. 12 bays, Detroit Diesel diagnostics, trailer alignments, reefer certified, 24/7 service..."
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                  Dispatcher Notes & Recommendations
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  placeholder="e.g. Ask for Dave the manager, bilingual dispatch, fast tire replacement..."
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+              <div className="shrink-0 flex items-center justify-end space-x-3 px-6 py-4 border-t border-slate-100 bg-slate-50/80 rounded-b-2xl">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+                  className="h-10 px-4 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-sm"
+                  className="h-10 px-5 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-sm transition-colors"
                 >
                   {editingShop ? "Update Shop" : "Save Shop"}
                 </button>

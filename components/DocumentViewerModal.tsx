@@ -53,10 +53,10 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     doc.name.endsWith(".jpeg");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-[768px] max-h-[90vh] flex flex-col my-auto overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
           <div className="flex items-center space-x-3">
             <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
               <FileText className="w-5 h-5" />
@@ -219,7 +219,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-200 bg-white flex items-center justify-between">
+        <div className="shrink-0 px-6 py-3.5 border-t border-slate-200 bg-white flex items-center justify-between rounded-b-2xl">
           <div className="flex items-center space-x-2 text-xs text-slate-500">
             <Tag className="w-3.5 h-3.5 text-slate-400" />
             <span>Format: {doc.fileType || "Document"}</span>
@@ -227,13 +227,13 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
           <div className="flex items-center space-x-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              className="h-9 px-4 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
             >
               Close
             </button>
             <button
               onClick={() => downloadDocument(doc)}
-              className="inline-flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+              className="h-9 inline-flex items-center space-x-2 px-4 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
             >
               <Download className="w-4 h-4" />
               <span>Download File</span>
