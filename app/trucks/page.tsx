@@ -130,7 +130,7 @@ function TrucksContent() {
   }, [searchParams, trucks, selectedTruckId]);
 
   const selectedTruck = useMemo(
-    () => trucks.find((t) => t.id === selectedTruckId) || trucks[0],
+    () => trucks.find((t) => t.id === selectedTruckId) || (trucks.length > 0 ? trucks[0] : null),
     [trucks, selectedTruckId]
   );
 

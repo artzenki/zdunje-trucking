@@ -631,18 +631,18 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setShops((prev) => prev.filter((s) => s.id !== id));
   };
 
-  // Reset to initial demo data
+  // Reset to clean slate (all data cleared)
   const resetDataToDemo = () => {
-    setTrucks(initialTrucks);
-    setTrailers(initialTrailers);
-    setDrivers(initialDrivers);
-    setShops(initialShops);
-    setMaintenanceRecords(initialMaintenanceRecords);
-    localStorage.removeItem("zdunje_trucks");
-    localStorage.removeItem("zdunje_trailers");
-    localStorage.removeItem("zdunje_drivers");
-    localStorage.removeItem("zdunje_shops");
-    localStorage.removeItem("zdunje_maintenance");
+    setTrucks([]);
+    setTrailers([]);
+    setDrivers([]);
+    setShops([]);
+    setMaintenanceRecords([]);
+    localStorage.setItem("zdunje_trucks", JSON.stringify([]));
+    localStorage.setItem("zdunje_trailers", JSON.stringify([]));
+    localStorage.setItem("zdunje_drivers", JSON.stringify([]));
+    localStorage.setItem("zdunje_shops", JSON.stringify([]));
+    localStorage.setItem("zdunje_maintenance", JSON.stringify([]));
   };
 
   return (

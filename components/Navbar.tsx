@@ -64,14 +64,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
 
       {/* Right controls */}
       <div className="flex items-center space-x-3 ml-4">
-        {/* Reset Demo Data Button */}
+        {/* Clear All Data Button */}
         <button
           onClick={handleReset}
-          title="Reset to demo data"
-          className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 rounded-lg transition-colors"
+          title="Clear all fleet data"
+          className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span className="hidden md:inline">Reset Demo</span>
+          <span className="hidden md:inline">Clear All Data</span>
         </button>
 
         {/* Quick Add Dropdown */}

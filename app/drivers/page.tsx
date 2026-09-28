@@ -182,7 +182,7 @@ function DriversContent() {
   }, [searchParams, drivers, selectedDriverId]);
 
   const selectedDriver = useMemo(
-    () => drivers.find((d) => d.id === selectedDriverId) || drivers[0],
+    () => drivers.find((d) => d.id === selectedDriverId) || (drivers.length > 0 ? drivers[0] : null),
     [drivers, selectedDriverId]
   );
 

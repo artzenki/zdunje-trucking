@@ -129,7 +129,7 @@ function TrailersContent() {
   }, [searchParams, trailers, selectedTrailerId]);
 
   const selectedTrailer = useMemo(
-    () => trailers.find((tr) => tr.id === selectedTrailerId) || trailers[0],
+    () => trailers.find((tr) => tr.id === selectedTrailerId) || (trailers.length > 0 ? trailers[0] : null),
     [trailers, selectedTrailerId]
   );
 
