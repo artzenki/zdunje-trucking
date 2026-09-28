@@ -11,6 +11,8 @@ import {
   TruckDocumentKey,
   TrailerDocumentKey,
   ComplianceAlert,
+  AppUser,
+  UserStatus,
 } from "@/types/fleet";
 import {
   initialTrucks,
@@ -18,6 +20,7 @@ import {
   initialDrivers,
   initialShops,
   initialMaintenanceRecords,
+  initialUsers,
 } from "@/lib/mockData";
 
 interface FleetContextType {
@@ -97,6 +100,14 @@ interface FleetContextType {
   bulkAddDrivers: (drivers: Omit<Driver, "id" | "documents">[]) => void;
   bulkAddShops: (shops: Omit<TruckShop, "id">[]) => void;
 
+  // Users & Permissions
+  users: AppUser[];
+  addUser: (user: Omit<AppUser, "id" | "createdAt">) => void;
+  updateUser: (id: string, user: Partial<AppUser>) => void;
+  deleteUser: (id: string) => void;
+  toggleUserStatus: (id: string, status: UserStatus) => void;
+  resetUsers: () => void;
+
   // Reset
   resetDataToDemo: () => void;
 }
@@ -113,6 +124,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
   const [maintenanceRecords, setMaintenanceRecords] = useState<
     MaintenanceRecord[]
   >([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load from LocalStorage or initialize with mock data
@@ -123,6 +135,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       const savedDrivers = localStorage.getItem("zdunje_drivers");
       const savedShops = localStorage.getItem("zdunje_shops");
       const savedMaint = localStorage.getItem("zdunje_maintenance");
+      const savedUsers = localStorage.getItem("zdunje_users");
 
       if (savedTrucks) setTrucks(JSON.parse(savedTrucks));
       else setTrucks(initialTrucks);
@@ -155,12 +168,16 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (savedMaint) setMaintenanceRecords(JSON.parse(savedMaint));
       else setMaintenanceRecords(initialMaintenanceRecords);
+
+      if (savedUsers) setUsers(JSON.parse(savedUsers));
+      else setUsers(initialUsers);
     } catch {
       setTrucks(initialTrucks);
       setTrailers(initialTrailers);
       setDrivers(initialDrivers);
       setShops(initialShops);
       setMaintenanceRecords(initialMaintenanceRecords);
+      setUsers(initialUsers);
     } finally {
       setIsLoaded(true);
     }
@@ -178,10 +195,11 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         "zdunje_maintenance",
         JSON.stringify(maintenanceRecords)
       );
+      localStorage.setItem("zdunje_users", JSON.stringify(users));
     } catch (e) {
       console.error("Failed to save to localStorage", e);
     }
-  }, [trucks, trailers, drivers, shops, maintenanceRecords, isLoaded]);
+  }, [trucks, trailers, drivers, shops, maintenanceRecords, users, isLoaded]);
 
   // Compute Alerts
   const alerts: ComplianceAlert[] = React.useMemo(() => {
@@ -708,6 +726,38 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setShops((prev) => [...newShops, ...prev]);
   };
 
+  // User Management
+  const addUser = (newUser: Omit<AppUser, "id" | "createdAt">) => {
+    const user: AppUser = {
+      ...newUser,
+      id: `usr_${Date.now()}`,
+      createdAt: new Date().toISOString().split("T")[0],
+      lastActive: "Never",
+    };
+    setUsers((prev) => [user, ...prev]);
+  };
+
+  const updateUser = (id: string, updatedFields: Partial<AppUser>) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, ...updatedFields } : u))
+    );
+  };
+
+  const deleteUser = (id: string) => {
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+  };
+
+  const toggleUserStatus = (id: string, status: UserStatus) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, status } : u))
+    );
+  };
+
+  const resetUsers = () => {
+    setUsers(initialUsers);
+    localStorage.setItem("zdunje_users", JSON.stringify(initialUsers));
+  };
+
   // Reset to clean slate (all data cleared)
   const resetDataToDemo = () => {
     setTrucks([]);
@@ -731,6 +781,12 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         shops,
         maintenanceRecords,
         alerts,
+        users,
+        addUser,
+        updateUser,
+        deleteUser,
+        toggleUserStatus,
+        resetUsers,
         addTruck,
         updateTruck,
         deleteTruck,

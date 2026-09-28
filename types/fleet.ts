@@ -178,3 +178,145 @@ export interface ComplianceAlert {
   daysRemaining: number;
   status: "expired" | "urgent" | "upcoming"; // <=0 days: expired, <=15: urgent, <=30: upcoming
 }
+
+// User & Role-Based Access Control Types
+export type UserRole =
+  | "Super Admin"
+  | "Safety Manager"
+  | "Dispatcher"
+  | "Maintenance Tech"
+  | "Auditor"
+  | "Custom";
+
+export type UserStatus = "Active" | "Invited" | "Suspended";
+
+export type AppModule =
+  | "trucks"
+  | "trailers"
+  | "drivers"
+  | "maintenance"
+  | "shops"
+  | "documents"
+  | "users"
+  | "settings";
+
+export interface PermissionLevel {
+  view: boolean;
+  create: boolean;
+  edit: boolean;
+  delete: boolean;
+}
+
+export type ModulePermissions = Record<AppModule, PermissionLevel>;
+
+export interface AppUser {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: UserRole;
+  status: UserStatus;
+  department: string;
+  lastActive?: string;
+  createdAt: string;
+  permissions: ModulePermissions;
+  notes?: string;
+}
+
+export const MODULE_NAMES: Record<AppModule, { label: string; description: string }> = {
+  trucks: {
+    label: "Trucks & Power Units",
+    description: "Manage truck equipment, BestPass tags, and specs",
+  },
+  trailers: {
+    label: "Trailers & Equipment",
+    description: "Manage 53' vans, reefers, and staging",
+  },
+  drivers: {
+    label: "Drivers & Qualification",
+    description: "Manage CDL drivers, direct deposit, and DOT onboarding",
+  },
+  maintenance: {
+    label: "Maintenance & Work Orders",
+    description: "Log PM services, repair invoices, and due reminders",
+  },
+  shops: {
+    label: "Truck Shops & Roadside",
+    description: "Vendor directory, hourly rates, and roadside contacts",
+  },
+  documents: {
+    label: "Documents Vault",
+    description: "Access and upload compliance files and audit certificates",
+  },
+  users: {
+    label: "Users & Permissions",
+    description: "Manage team member access, roles, and administrative rights",
+  },
+  settings: {
+    label: "Settings & Cloud Sync",
+    description: "Database sync, CSV bulk data imports, and system reset",
+  },
+};
+
+export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
+  "Super Admin": {
+    trucks: { view: true, create: true, edit: true, delete: true },
+    trailers: { view: true, create: true, edit: true, delete: true },
+    drivers: { view: true, create: true, edit: true, delete: true },
+    maintenance: { view: true, create: true, edit: true, delete: true },
+    shops: { view: true, create: true, edit: true, delete: true },
+    documents: { view: true, create: true, edit: true, delete: true },
+    users: { view: true, create: true, edit: true, delete: true },
+    settings: { view: true, create: true, edit: true, delete: true },
+  },
+  "Safety Manager": {
+    trucks: { view: true, create: false, edit: false, delete: false },
+    trailers: { view: true, create: false, edit: false, delete: false },
+    drivers: { view: true, create: true, edit: true, delete: false },
+    maintenance: { view: true, create: false, edit: false, delete: false },
+    shops: { view: true, create: false, edit: false, delete: false },
+    documents: { view: true, create: true, edit: true, delete: false },
+    users: { view: true, create: false, edit: false, delete: false },
+    settings: { view: false, create: false, edit: false, delete: false },
+  },
+  Dispatcher: {
+    trucks: { view: true, create: true, edit: true, delete: false },
+    trailers: { view: true, create: true, edit: true, delete: false },
+    drivers: { view: true, create: false, edit: true, delete: false },
+    maintenance: { view: true, create: false, edit: false, delete: false },
+    shops: { view: true, create: true, edit: true, delete: false },
+    documents: { view: true, create: true, edit: false, delete: false },
+    users: { view: false, create: false, edit: false, delete: false },
+    settings: { view: false, create: false, edit: false, delete: false },
+  },
+  "Maintenance Tech": {
+    trucks: { view: true, create: false, edit: true, delete: false },
+    trailers: { view: true, create: false, edit: true, delete: false },
+    drivers: { view: false, create: false, edit: false, delete: false },
+    maintenance: { view: true, create: true, edit: true, delete: false },
+    shops: { view: true, create: true, edit: true, delete: false },
+    documents: { view: true, create: true, edit: false, delete: false },
+    users: { view: false, create: false, edit: false, delete: false },
+    settings: { view: false, create: false, edit: false, delete: false },
+  },
+  Auditor: {
+    trucks: { view: true, create: false, edit: false, delete: false },
+    trailers: { view: true, create: false, edit: false, delete: false },
+    drivers: { view: true, create: false, edit: false, delete: false },
+    maintenance: { view: true, create: false, edit: false, delete: false },
+    shops: { view: true, create: false, edit: false, delete: false },
+    documents: { view: true, create: false, edit: false, delete: false },
+    users: { view: false, create: false, edit: false, delete: false },
+    settings: { view: false, create: false, edit: false, delete: false },
+  },
+  Custom: {
+    trucks: { view: true, create: false, edit: false, delete: false },
+    trailers: { view: true, create: false, edit: false, delete: false },
+    drivers: { view: true, create: false, edit: false, delete: false },
+    maintenance: { view: true, create: false, edit: false, delete: false },
+    shops: { view: true, create: false, edit: false, delete: false },
+    documents: { view: true, create: false, edit: false, delete: false },
+    users: { view: false, create: false, edit: false, delete: false },
+    settings: { view: false, create: false, edit: false, delete: false },
+  },
+};

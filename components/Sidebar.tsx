@@ -13,11 +13,12 @@ import {
   FolderLock,
   Container,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
-  const { trucks, trailers, drivers, alerts } = useFleet();
+  const { trucks, trailers, drivers, alerts, users } = useFleet();
 
   const activeTrucks = trucks.filter((t) => t.status === "Active").length;
   const activeDrivers = drivers.filter((d) => d.status === "Active").length;
@@ -68,6 +69,12 @@ export const Sidebar: React.FC = () => {
       icon: FolderLock,
       badge: urgentAlerts > 0 ? `${urgentAlerts} due` : null,
       badgeColor: "bg-red-500 text-white",
+    },
+    {
+      name: "Users & Roles",
+      href: "/users",
+      icon: ShieldCheck,
+      badge: users.length,
     },
     {
       name: "Settings & Import",
