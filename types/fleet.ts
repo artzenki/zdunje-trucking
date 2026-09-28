@@ -1,5 +1,5 @@
 export type OwnershipType = "Lease" | "Own";
-export type EquipmentStatus = "Active" | "In Shop" | "Out of Service" | "Available";
+export type EquipmentStatus = "Active" | "Inactive" | "In Shop" | "Out of Service" | "Available";
 export type DriverStatus = "Active" | "Inactive" | "On Leave";
 export type ShopType = "Shop" | "Roadside" | "Both";
 export type MaintenanceStatus = "Completed" | "In Progress" | "Scheduled";

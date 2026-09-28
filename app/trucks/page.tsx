@@ -300,6 +300,16 @@ function TrucksContent() {
                 Active
               </button>
               <button
+                onClick={() => setStatusFilter("Inactive")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  statusFilter === "Inactive"
+                    ? "bg-slate-700 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Inactive
+              </button>
+              <button
                 onClick={() => setStatusFilter("In Shop")}
                 className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
                   statusFilter === "In Shop"
@@ -349,6 +359,8 @@ function TrucksContent() {
                           className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
                             truck.status === "Active"
                               ? "bg-emerald-100 text-emerald-800"
+                              : truck.status === "Inactive"
+                              ? "bg-slate-200 text-slate-700"
                               : "bg-amber-100 text-amber-800"
                           }`}
                         >
@@ -419,6 +431,8 @@ function TrucksContent() {
                             className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
                               selectedTruck.status === "Active"
                                 ? "bg-emerald-100 text-emerald-800"
+                                : selectedTruck.status === "Inactive"
+                                ? "bg-slate-200 text-slate-700"
                                 : "bg-amber-100 text-amber-800"
                             }`}
                           >
@@ -440,6 +454,32 @@ function TrucksContent() {
                   </div>
 
                   <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() =>
+                        updateTruck(selectedTruck.id, {
+                          status:
+                            selectedTruck.status === "Inactive"
+                              ? "Active"
+                              : "Inactive",
+                        })
+                      }
+                      className={`inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                        selectedTruck.status === "Inactive"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                          : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+                      }`}
+                      title={
+                        selectedTruck.status === "Inactive"
+                          ? "Set truck to Active"
+                          : "Set truck to Inactive"
+                      }
+                    >
+                      <span>
+                        {selectedTruck.status === "Inactive"
+                          ? "Activate Unit"
+                          : "Mark as Inactive"}
+                      </span>
+                    </button>
                     <button
                       onClick={() => openEditModal(selectedTruck)}
                       className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-blue-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
@@ -692,7 +732,7 @@ function TrucksContent() {
       {/* Add / Edit Truck Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-[768px] max-h-[90vh] flex flex-col my-auto overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[90vh] flex flex-col my-auto overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 rounded-t-2xl shrink-0">
               <div>
@@ -940,9 +980,33 @@ function TrucksContent() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1.5">
-                      Operational Status
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-700 uppercase">
+                        Operational Status
+                      </label>
+                      <label className="flex items-center space-x-1.5 text-xs font-medium cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={formData.status === "Inactive"}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              status: e.target.checked ? "Inactive" : "Active",
+                            })
+                          }
+                          className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
+                        />
+                        <span
+                          className={
+                            formData.status === "Inactive"
+                              ? "text-amber-700 font-bold"
+                              : "text-slate-500 hover:text-slate-700"
+                          }
+                        >
+                          Make Inactive
+                        </span>
+                      </label>
+                    </div>
                     <select
                       value={formData.status}
                       onChange={(e) =>
@@ -951,11 +1015,17 @@ function TrucksContent() {
                           status: e.target.value as EquipmentStatus,
                         })
                       }
-                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      className={`w-full h-10 px-3 text-sm border rounded-lg bg-white focus:ring-2 focus:outline-none ${
+                        formData.status === "Inactive"
+                          ? "border-amber-300 bg-amber-50/50 text-amber-900 font-semibold focus:ring-amber-500"
+                          : "border-slate-300 focus:ring-blue-500"
+                      }`}
                     >
                       <option value="Active">Active / On Road</option>
+                      <option value="Inactive">Inactive (Decommissioned / Off Fleet)</option>
                       <option value="In Shop">In Shop for Service</option>
                       <option value="Out of Service">Out of Service</option>
+                      <option value="Available">Available (Spare Unit)</option>
                     </select>
                   </div>
 
