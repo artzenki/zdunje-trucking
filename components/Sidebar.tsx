@@ -12,6 +12,7 @@ import {
   Store,
   FolderLock,
   Container,
+  Settings,
 } from "lucide-react";
 
 export const Sidebar: React.FC = () => {
@@ -67,6 +68,12 @@ export const Sidebar: React.FC = () => {
       icon: FolderLock,
       badge: urgentAlerts > 0 ? `${urgentAlerts} due` : null,
       badgeColor: "bg-red-500 text-white",
+    },
+    {
+      name: "Settings & Import",
+      href: "/settings",
+      icon: Settings,
+      badge: null,
     },
   ];
 

@@ -91,6 +91,12 @@ interface FleetContextType {
   updateShop: (id: string, shop: Partial<TruckShop>) => void;
   deleteShop: (id: string) => void;
 
+  // Bulk Import
+  bulkAddTrucks: (trucks: Omit<Truck, "id" | "documents">[]) => void;
+  bulkAddTrailers: (trailers: Omit<Trailer, "id" | "documents">[]) => void;
+  bulkAddDrivers: (drivers: Omit<Driver, "id" | "documents">[]) => void;
+  bulkAddShops: (shops: Omit<TruckShop, "id">[]) => void;
+
   // Reset
   resetDataToDemo: () => void;
 }
@@ -631,6 +637,77 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setShops((prev) => prev.filter((s) => s.id !== id));
   };
 
+  // Bulk Add Handlers
+  const bulkAddTrucks = (items: Omit<Truck, "id" | "documents">[]) => {
+    const timestamp = Date.now();
+    const newTrucks: Truck[] = items.map((data, idx) => ({
+      ...data,
+      id: `truck-${timestamp}-${idx}`,
+      documents: {
+        title: null,
+        tax2290: null,
+        dotInspection: null,
+        insurance: null,
+        cabCard: null,
+        leaseAgreement: null,
+      },
+    }));
+    setTrucks((prev) => [...newTrucks, ...prev]);
+  };
+
+  const bulkAddTrailers = (items: Omit<Trailer, "id" | "documents">[]) => {
+    const timestamp = Date.now();
+    const newTrailers: Trailer[] = items.map((data, idx) => ({
+      ...data,
+      id: `trailer-${timestamp}-${idx}`,
+      documents: {
+        title: null,
+        tax2290: null,
+        dotInspection: null,
+        insurance: null,
+        cabCard: null,
+        trailerAgreement: null,
+      },
+    }));
+    setTrailers((prev) => [...newTrailers, ...prev]);
+  };
+
+  const bulkAddDrivers = (items: Omit<Driver, "id" | "documents">[]) => {
+    const timestamp = Date.now();
+    const newDrivers: Driver[] = items.map((data, idx) => ({
+      ...data,
+      id: `driver-${timestamp}-${idx}`,
+      documents: {
+        mvr: null,
+        pspAuth: null,
+        pspReport: null,
+        cdl: null,
+        medCard: null,
+        clearingHouse: null,
+        applicationLink: "",
+        applicationFile: null,
+        drugCustodyForm: null,
+        drugPassport: null,
+        drugTestResults: [],
+        dotRecords: [],
+        bankInfoDoc: null,
+        einLetter: null,
+        onboardingDoc: null,
+        leaseAgreement: null,
+      },
+    }));
+    setDrivers((prev) => [...newDrivers, ...prev]);
+  };
+
+  const bulkAddShops = (items: Omit<TruckShop, "id">[]) => {
+    const timestamp = Date.now();
+    const newShops: TruckShop[] = items.map((data, idx) => ({
+      ...data,
+      id: `shop-${timestamp}-${idx}`,
+    }));
+    setShops((prev) => [...newShops, ...prev]);
+  };
+
   // Reset to clean slate (all data cleared)
   const resetDataToDemo = () => {
     setTrucks([]);
@@ -681,6 +758,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         addShop,
         updateShop,
         deleteShop,
+        bulkAddTrucks,
+        bulkAddTrailers,
+        bulkAddDrivers,
+        bulkAddShops,
         resetDataToDemo,
       }}
     >
