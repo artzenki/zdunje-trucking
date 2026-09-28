@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useFleet } from "@/context/FleetContext";
+import { supabase } from "@/lib/supabase";
 import {
   Settings,
   Upload,
@@ -15,8 +16,20 @@ import {
   Container,
   Store,
   HelpCircle,
+  Database,
+  RefreshCw,
+  CloudUpload,
+  CloudDownload,
 } from "lucide-react";
-import { OwnershipType, EquipmentStatus, DriverStatus, ShopType } from "@/types/fleet";
+import {
+  OwnershipType,
+  EquipmentStatus,
+  DriverStatus,
+  ShopType,
+  Truck as TruckType,
+  Trailer as TrailerType,
+  Driver as DriverType,
+} from "@/types/fleet";
 
 type ImportCategory = "trucks" | "trailers" | "drivers" | "shops";
 
@@ -39,6 +52,262 @@ export default function SettingsPage() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Supabase Sync States
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [supabaseStats, setSupabaseStats] = useState<{
+    trucks: number;
+    trailers: number;
+    drivers: number;
+    shops: number;
+  }>({ trucks: 0, trailers: 0, drivers: 0, shops: 0 });
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  // Check Supabase connection and stats
+  const checkSupabaseStatus = async () => {
+    if (!supabase) {
+      setIsSupabaseConnected(false);
+      return;
+    }
+    try {
+      const [tRes, trRes, dRes, sRes] = await Promise.all([
+        supabase.from("trucks").select("id", { count: "exact", head: true }),
+        supabase.from("trailers").select("id", { count: "exact", head: true }),
+        supabase.from("drivers").select("id", { count: "exact", head: true }),
+        supabase.from("shops").select("id", { count: "exact", head: true }),
+      ]);
+
+      setSupabaseStats({
+        trucks: tRes.count || 0,
+        trailers: trRes.count || 0,
+        drivers: dRes.count || 0,
+        shops: sRes.count || 0,
+      });
+      setIsSupabaseConnected(true);
+    } catch {
+      setIsSupabaseConnected(false);
+    }
+  };
+
+  useEffect(() => {
+    checkSupabaseStatus();
+  }, [trucks, trailers, drivers, shops]);
+
+  // Push local data to Supabase
+  const pushToSupabase = async () => {
+    if (!supabase) return;
+    setIsSyncing(true);
+    setSyncMessage(null);
+
+    try {
+      // Clean DB tables first for clean state
+      await Promise.all([
+        supabase.from("trucks").delete().neq("id", "0"),
+        supabase.from("trailers").delete().neq("id", "0"),
+        supabase.from("drivers").delete().neq("id", "0"),
+        supabase.from("shops").delete().neq("id", "0"),
+      ]);
+
+      if (trucks.length > 0) {
+        const payload = trucks.map((t) => ({
+          id: t.id,
+          unit_number: t.unitNumber,
+          make: t.make,
+          model: t.model,
+          year: t.year,
+          vin: t.vin,
+          plate_number: t.plateNumber,
+          is_temporary_plate: t.isTemporaryPlate,
+          ownership_type: t.ownershipType,
+          truck_value: t.truckValue,
+          best_pass_serial_number: t.bestPassSerialNumber,
+          is_best_pass_linked: t.isBestPassLinked,
+          assigned_driver_id: t.assignedDriverId,
+          status: t.status,
+          current_mileage: t.currentMileage,
+          notes: t.notes,
+          documents: t.documents,
+        }));
+        await supabase.from("trucks").insert(payload);
+      }
+
+      if (trailers.length > 0) {
+        const payload = trailers.map((tr) => ({
+          id: tr.id,
+          unit_number: tr.unitNumber,
+          make: tr.make,
+          model: tr.model,
+          year: tr.year,
+          vin: tr.vin,
+          plate_number: tr.plateNumber,
+          is_temporary_plate: tr.isTemporaryPlate,
+          ownership_type: tr.ownershipType,
+          trailer_value: tr.trailerValue,
+          status: tr.status,
+          assigned_truck_id: tr.assignedTruckId,
+          notes: tr.notes,
+          documents: tr.documents,
+        }));
+        await supabase.from("trailers").insert(payload);
+      }
+
+      if (drivers.length > 0) {
+        const payload = drivers.map((d) => ({
+          id: d.id,
+          first_name: d.firstName,
+          middle_name: d.middleName,
+          last_name: d.lastName,
+          date_of_birth: d.dateOfBirth,
+          phone: d.phone,
+          state: d.state,
+          license_number: d.licenseNumber,
+          status: d.status,
+          assigned_truck_id: d.assignedTruckId,
+          bank_info: d.bankInfo,
+          documents: d.documents,
+          skipped_documents: d.skippedDocuments || [],
+          hire_date: d.hireDate,
+          notes: d.notes,
+        }));
+        await supabase.from("drivers").insert(payload);
+      }
+
+      if (shops.length > 0) {
+        const payload = shops.map((s) => ({
+          id: s.id,
+          business_name: s.businessName,
+          business_address: s.businessAddress,
+          state: s.state,
+          phone: s.phone,
+          shop_type: s.shopType,
+          repair_categories: s.repairCategories,
+          description_of_work: s.descriptionOfWork,
+          google_maps_url: s.googleMapsUrl,
+          labor_rate_per_hour: s.laborRatePerHour,
+          callout_fee: s.calloutFee,
+          rating: s.rating,
+          notes: s.notes,
+        }));
+        await supabase.from("shops").insert(payload);
+      }
+
+      await checkSupabaseStatus();
+      setSyncMessage("Live sync complete: All fleet data saved to main Supabase cloud database!");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to sync to Supabase.";
+      setSyncMessage(`Error syncing to Supabase: ${message}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Pull from Supabase into local state
+  const pullFromSupabase = async () => {
+    if (!supabase) return;
+    setIsSyncing(true);
+    setSyncMessage(null);
+
+    try {
+      const [tRes, trRes, dRes, sRes] = await Promise.all([
+        supabase.from("trucks").select("*"),
+        supabase.from("trailers").select("*"),
+        supabase.from("drivers").select("*"),
+        supabase.from("shops").select("*"),
+      ]);
+
+      if (tRes.data && tRes.data.length > 0) {
+        const loadedTrucks = (tRes.data as Array<Record<string, unknown>>).map((t) => ({
+          id: String(t.id),
+          unitNumber: String(t.unit_number),
+          make: String(t.make),
+          model: String(t.model),
+          year: Number(t.year),
+          vin: String(t.vin),
+          plateNumber: String(t.plate_number),
+          isTemporaryPlate: Boolean(t.is_temporary_plate),
+          ownershipType: t.ownership_type as OwnershipType,
+          truckValue: Number(t.truck_value),
+          bestPassSerialNumber: String(t.best_pass_serial_number || ""),
+          isBestPassLinked: Boolean(t.is_best_pass_linked),
+          assignedDriverId: t.assigned_driver_id ? String(t.assigned_driver_id) : null,
+          status: t.status as EquipmentStatus,
+          currentMileage: Number(t.current_mileage || 0),
+          notes: String(t.notes || ""),
+          documents: (t.documents || {}) as TruckType["documents"],
+        }));
+        bulkAddTrucks(loadedTrucks);
+      }
+
+      if (trRes.data && trRes.data.length > 0) {
+        const loadedTrailers = (trRes.data as Array<Record<string, unknown>>).map((tr) => ({
+          id: String(tr.id),
+          unitNumber: String(tr.unit_number),
+          make: String(tr.make),
+          model: String(tr.model),
+          year: Number(tr.year),
+          vin: String(tr.vin),
+          plateNumber: String(tr.plate_number),
+          isTemporaryPlate: Boolean(tr.is_temporary_plate),
+          ownershipType: tr.ownership_type as OwnershipType,
+          trailerValue: Number(tr.trailer_value),
+          status: tr.status as EquipmentStatus,
+          assignedTruckId: tr.assigned_truck_id ? String(tr.assigned_truck_id) : null,
+          notes: String(tr.notes || ""),
+          documents: (tr.documents || {}) as TrailerType["documents"],
+        }));
+        bulkAddTrailers(loadedTrailers);
+      }
+
+      if (dRes.data && dRes.data.length > 0) {
+        const loadedDrivers = (dRes.data as Array<Record<string, unknown>>).map((d) => ({
+          id: String(d.id),
+          firstName: String(d.first_name),
+          middleName: String(d.middle_name || ""),
+          lastName: String(d.last_name),
+          dateOfBirth: String(d.date_of_birth),
+          phone: String(d.phone),
+          state: String(d.state),
+          licenseNumber: String(d.license_number),
+          status: d.status as DriverStatus,
+          assignedTruckId: d.assigned_truck_id ? String(d.assigned_truck_id) : null,
+          bankInfo: (d.bank_info || { accountNumber: "", routingNumber: "" }) as DriverType["bankInfo"],
+          documents: (d.documents || {}) as DriverType["documents"],
+          skippedDocuments: (d.skipped_documents || []) as string[],
+          hireDate: String(d.hire_date),
+          notes: String(d.notes || ""),
+        }));
+        bulkAddDrivers(loadedDrivers);
+      }
+
+      if (sRes.data && sRes.data.length > 0) {
+        const loadedShops = (sRes.data as Array<Record<string, unknown>>).map((s) => ({
+          id: String(s.id),
+          businessName: String(s.business_name),
+          businessAddress: String(s.business_address || ""),
+          state: String(s.state || "IL"),
+          phone: String(s.phone || ""),
+          shopType: (s.shop_type || "Both") as ShopType,
+          repairCategories: (s.repair_categories || []) as string[],
+          descriptionOfWork: String(s.description_of_work || ""),
+          googleMapsUrl: String(s.google_maps_url || ""),
+          laborRatePerHour: Number(s.labor_rate_per_hour || 0),
+          calloutFee: Number(s.callout_fee || 0),
+          rating: Number(s.rating || 5),
+          notes: String(s.notes || ""),
+        }));
+        bulkAddShops(loadedShops);
+      }
+
+      await checkSupabaseStatus();
+      setSyncMessage("Successfully refreshed data from main Supabase database!");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to load from Supabase.";
+      setSyncMessage(`Error fetching from Supabase: ${message}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // CSV Templates Definition
   const templates: Record<
@@ -177,7 +446,6 @@ export default function SettingsPage() {
     },
   };
 
-  // Helper to trigger file download
   const downloadCsvTemplate = (cat: ImportCategory) => {
     const t = templates[cat];
     const headerLine = t.headers.join(",");
@@ -197,7 +465,6 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Simple CSV parser supporting quotes
   const parseCSV = (text: string) => {
     const lines = text
       .split(/\r?\n/)
@@ -286,7 +553,7 @@ export default function SettingsPage() {
           notes: r.notes || "",
         }));
         bulkAddTrucks(items);
-        setImportSuccess(`Successfully imported ${items.length} trucks into Zdunje Trucking fleet!`);
+        setImportSuccess(`Successfully imported ${items.length} trucks! Click "Push to Cloud" to sync to Supabase.`);
       } else if (activeCategory === "trailers") {
         const items = parsedRows.map((r) => ({
           unitNumber: r.unitNumber || `TR-${Math.floor(Math.random() * 9000 + 1000)}`,
@@ -303,7 +570,7 @@ export default function SettingsPage() {
           notes: r.notes || "",
         }));
         bulkAddTrailers(items);
-        setImportSuccess(`Successfully imported ${items.length} trailers into inventory!`);
+        setImportSuccess(`Successfully imported ${items.length} trailers! Click "Push to Cloud" to sync to Supabase.`);
       } else if (activeCategory === "drivers") {
         const items = parsedRows.map((r) => ({
           firstName: r.firstName || "Driver",
@@ -324,7 +591,7 @@ export default function SettingsPage() {
           notes: r.notes || "",
         }));
         bulkAddDrivers(items);
-        setImportSuccess(`Successfully imported ${items.length} drivers with CDL & payroll records!`);
+        setImportSuccess(`Successfully imported ${items.length} drivers! Click "Push to Cloud" to sync to Supabase.`);
       } else if (activeCategory === "shops") {
         const items = parsedRows.map((r) => ({
           businessName: r.businessName || "Fleet Service Center",
@@ -343,7 +610,7 @@ export default function SettingsPage() {
           notes: r.notes || "",
         }));
         bulkAddShops(items);
-        setImportSuccess(`Successfully imported ${items.length} maintenance shops into vendor directory!`);
+        setImportSuccess(`Successfully imported ${items.length} shops! Click "Push to Cloud" to sync to Supabase.`);
       }
 
       setParsedRows([]);
@@ -355,14 +622,23 @@ export default function SettingsPage() {
     }
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (
       window.confirm(
-        "Are you sure you want to delete ALL fleet data? This will clear trucks, trailers, drivers, maintenance, and shops to a fresh empty state."
+        "Are you sure you want to delete ALL fleet data? This will clear trucks, trailers, drivers, maintenance, and shops across both local storage and the Supabase cloud database."
       )
     ) {
       resetDataToDemo();
-      setImportSuccess("All fleet data has been cleared to a clean slate.");
+      if (supabase) {
+        await Promise.all([
+          supabase.from("trucks").delete().neq("id", "0"),
+          supabase.from("trailers").delete().neq("id", "0"),
+          supabase.from("drivers").delete().neq("id", "0"),
+          supabase.from("shops").delete().neq("id", "0"),
+        ]);
+        await checkSupabaseStatus();
+      }
+      setImportSuccess("All fleet data has been cleared across both local and Supabase cloud database.");
     }
   };
 
@@ -377,23 +653,92 @@ export default function SettingsPage() {
             </div>
             <div>
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                Settings & Data Import
+                Settings & Database Hub
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
-                Bulk upload fleet inventory via CSV or Excel templates, and manage system database storage.
+                Bulk upload fleet inventory via CSV templates, and sync seamlessly with main Supabase PostgreSQL.
               </p>
             </div>
           </div>
         </div>
 
         {/* Database Status Pills */}
-        <div className="flex items-center space-x-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <Database className="w-3.5 h-3.5 text-blue-600" />
             <span className="font-semibold text-slate-700">
-              {trucks.length} Trucks • {trailers.length} Trailers • {drivers.length} Drivers
+              Local: {trucks.length} Trucks • {trailers.length} Trailers • {drivers.length} Drivers
             </span>
           </div>
+
+          <div
+            className={`px-3 py-1.5 border rounded-xl flex items-center space-x-2 ${
+              isSupabaseConnected
+                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                : "bg-amber-50 text-amber-800 border-amber-200"
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isSupabaseConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+              }`}
+            ></span>
+            <span className="font-bold">
+              {isSupabaseConnected
+                ? `Supabase Linked: ${supabaseStats.trucks} Trucks / ${supabaseStats.drivers} Drivers`
+                : "Supabase Connecting..."}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Supabase Cloud Sync Center Card */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 p-6 rounded-2xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 border border-slate-800">
+        <div className="space-y-1">
+          <div className="flex items-center space-x-2 text-blue-400 text-xs font-bold uppercase tracking-wider">
+            <Database className="w-4 h-4" />
+            <span>Main Supabase Database Connection</span>
+          </div>
+          <h2 className="text-lg font-bold text-white">
+            Cloud PostgreSQL Synchronization (`zdunje-trucking`)
+          </h2>
+          <p className="text-xs text-slate-300 max-w-xl">
+            Linked to: <span className="font-mono text-blue-300">https://xorhbiwezmireelklokq.supabase.co</span>.
+            Sync your local fleet changes to the cloud database or pull fresh records across dispatch computers.
+          </p>
+          {syncMessage && (
+            <p className="text-xs font-semibold text-emerald-300 pt-1 flex items-center space-x-1.5">
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span>{syncMessage}</span>
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center space-x-2.5 shrink-0">
+          <button
+            onClick={pushToSupabase}
+            disabled={isSyncing}
+            className="inline-flex items-center space-x-1.5 px-4 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-xl shadow-md shadow-blue-600/30 transition-all"
+          >
+            <CloudUpload className={`w-4 h-4 ${isSyncing ? "animate-bounce" : ""}`} />
+            <span>Push Local to Cloud</span>
+          </button>
+          <button
+            onClick={pullFromSupabase}
+            disabled={isSyncing}
+            className="inline-flex items-center space-x-1.5 px-4 py-2.5 text-xs font-bold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 disabled:opacity-50 border border-slate-700 rounded-xl transition-all"
+          >
+            <CloudDownload className="w-4 h-4" />
+            <span>Pull Cloud to Local</span>
+          </button>
+          <button
+            onClick={checkSupabaseStatus}
+            disabled={isSyncing}
+            className="p-2.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-colors"
+            title="Refresh DB connection"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
+          </button>
         </div>
       </div>
 
@@ -571,7 +916,7 @@ export default function SettingsPage() {
               <span>Reset & Clean Slate</span>
             </div>
             <p className="text-xs text-slate-500">
-              Need to clear test data and start fresh? This flushes all local data storage.
+              Need to clear test data and start fresh? This flushes both local storage and the Supabase cloud DB.
             </p>
             <button
               onClick={handleClearAll}
@@ -712,7 +1057,7 @@ export default function SettingsPage() {
               <li>Click <strong>Download Template</strong> on the left to get the official spreadsheet structure.</li>
               <li>Open in <strong>Excel</strong>, <strong>Google Sheets</strong>, or <strong>Numbers</strong>, paste your real company fleet info, and save as <strong>.CSV</strong>.</li>
               <li>Upload the CSV above. The system validates all columns and lets you review before adding.</li>
-              <li>Once imported, all trucks, trailers, drivers, and shops become immediately searchable across the platform and ready for correlated document uploads!</li>
+              <li>Click <strong>Push Local to Cloud</strong> to save your imported records straight into your Supabase database!</li>
             </ul>
           </div>
         </div>
