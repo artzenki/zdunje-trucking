@@ -36,6 +36,7 @@ import {
   Mail,
   UserX,
   UserCheck,
+  Save,
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
@@ -54,12 +55,10 @@ const DRIVER_REQUIRED_DOC_KEYS: {
   { key: "mvr", label: "Motor Vehicle Record (MVR)", category: "MVR" },
   { key: "pspAuth", label: "PSP Authorization", category: "PSP Authorization" },
   { key: "pspReport", label: "PSP Driver Report", category: "PSP Driver Report" },
-  { key: "clearingHouse", label: "FMCSA Clearinghouse", category: "Clearing House" },
   { key: "applicationFile", label: "Signed Driver Application", category: "Application Link" },
   { key: "onboardingDoc", label: "Onboarding Document / Handbook", category: "Onboarding Document" },
   { key: "drugCustodyForm", label: "Drug Custody Form (CCF)", category: "Drug Test Custody Form" },
   { key: "drugPassport", label: "Drug Test ePassport", category: "Drug Test ePassport" },
-  { key: "bankInfoDoc", label: "Bank Info / Voided Check", category: "Bank Information" },
   { key: "einLetter", label: "EIN Letter / W-9", category: "EIN Letter" },
   { key: "leaseAgreement", label: "Driver Lease Agreement", category: "Driver Lease Agreement" },
 ];
@@ -72,6 +71,7 @@ function getDriverCompliance(driver: DriverType) {
   let skippedCount = 0;
   const missingKeys: string[] = [];
 
+  // Check file-based required documents
   DRIVER_REQUIRED_DOC_KEYS.forEach(({ key }) => {
     const isSkipped = skipped.includes(key);
     const doc = driver.documents[key];
@@ -89,6 +89,34 @@ function getDriverCompliance(driver: DriverType) {
       }
     }
   });
+
+  // FMCSA Clearinghouse Query Checkbox
+  const clearingHouseSkipped = skipped.includes("clearingHouse");
+  if (clearingHouseSkipped) {
+    skippedCount++;
+  } else {
+    totalRequired++;
+    if (driver.clearingHouseQuery || driver.documents.clearingHouse) {
+      uploadedCount++;
+    } else {
+      missingCount++;
+      missingKeys.push("clearingHouse");
+    }
+  }
+
+  // Bank Info (Account & Routing Numbers)
+  const bankInfoSkipped = skipped.includes("bankInfo") || skipped.includes("bankInfoDoc");
+  if (bankInfoSkipped) {
+    skippedCount++;
+  } else {
+    totalRequired++;
+    if (driver.bankInfo?.accountNumber?.trim() && driver.bankInfo?.routingNumber?.trim()) {
+      uploadedCount++;
+    } else {
+      missingCount++;
+      missingKeys.push("bankInfo");
+    }
+  }
 
   const percentage =
     totalRequired > 0 ? Math.round((uploadedCount / totalRequired) * 100) : 100;
@@ -189,6 +217,41 @@ function DriversContent() {
     () => drivers.find((d) => d.id === selectedDriverId) || (drivers.length > 0 ? drivers[0] : null),
     [drivers, selectedDriverId]
   );
+
+  // Quick-edit Bank Info State for selected driver
+  const [quickBank, setQuickBank] = useState({
+    accountNumber: "",
+    routingNumber: "",
+    bankInfo: "",
+  });
+  const [bankSavedNotification, setBankSavedNotification] = useState(false);
+
+  useEffect(() => {
+    if (selectedDriver) {
+      setQuickBank({
+        accountNumber: selectedDriver.bankInfo?.accountNumber || "",
+        routingNumber: selectedDriver.bankInfo?.routingNumber || "",
+        bankInfo:
+          selectedDriver.bankInfo?.bankInfo ||
+          selectedDriver.bankInfo?.bankName ||
+          "",
+      });
+    }
+  }, [selectedDriver]);
+
+  const handleSaveQuickBank = () => {
+    if (!selectedDriver) return;
+    updateDriver(selectedDriver.id, {
+      bankInfo: {
+        accountNumber: quickBank.accountNumber.trim(),
+        routingNumber: quickBank.routingNumber.trim(),
+        bankInfo: quickBank.bankInfo.trim(),
+        bankName: quickBank.bankInfo.trim(),
+      },
+    });
+    setBankSavedNotification(true);
+    setTimeout(() => setBankSavedNotification(false), 2500);
+  };
 
   const selectedCompliance = useMemo(
     () => (selectedDriver ? getDriverCompliance(selectedDriver) : null),
@@ -729,21 +792,21 @@ function DriversContent() {
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                       <div>
-                        <span className="text-slate-400">Bank: </span>
+                        <span className="text-slate-400">1. Account #: </span>
+                        <strong className="text-slate-800 font-mono">
+                          {selectedDriver.bankInfo?.accountNumber || "Not recorded"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">2. Routing #: </span>
+                        <strong className="text-slate-800 font-mono">
+                          {selectedDriver.bankInfo?.routingNumber || "Not recorded"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">3. Bank Info: </span>
                         <strong className="text-slate-800">
-                          {selectedDriver.bankInfo.bankName || "Primary Bank"}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Routing #: </span>
-                        <strong className="text-slate-800 font-mono">
-                          {selectedDriver.bankInfo.routingNumber || "Not recorded"}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Account #: </span>
-                        <strong className="text-slate-800 font-mono">
-                          {selectedDriver.bankInfo.accountNumber || "Not recorded"}
+                          {selectedDriver.bankInfo?.bankInfo || selectedDriver.bankInfo?.bankName || "Not recorded"}
                         </strong>
                       </div>
                     </div>
@@ -1006,35 +1069,96 @@ function DriversContent() {
                           }
                         />
 
-                        {/* 5. Clearinghouse */}
-                        <DocumentCard
-                          title="5. FMCSA Clearinghouse Query"
-                          description="Annual query / Pre-employment electronic consent record"
-                          doc={selectedDriver.documents.clearingHouse}
-                          isSkipped={selectedDriver.skippedDocuments?.includes("clearingHouse")}
-                          onToggleSkip={() =>
-                            toggleDriverDocumentSkip(
-                              selectedDriver.id,
-                              "clearingHouse"
-                            )
-                          }
-                          onPreview={() =>
-                            setViewingDoc(selectedDriver.documents.clearingHouse)
-                          }
-                          onDownload={() =>
-                            downloadDocument(selectedDriver.documents.clearingHouse!)
-                          }
-                          onUpload={() =>
-                            openDocumentUploader(
-                              "FMCSA Clearinghouse Record",
-                              "clearingHouse",
-                              false
-                            )
-                          }
-                          onRemove={() =>
-                            removeDriverDocument(selectedDriver.id, "clearingHouse")
-                          }
-                        />
+                        {/* 5. FMCSA Clearinghouse Query - Checkbox Only (No File Upload Needed) */}
+                        <div
+                          className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                            selectedDriver.clearingHouseQuery || selectedDriver.documents.clearingHouse
+                              ? "bg-white border-emerald-300 shadow-xs"
+                              : selectedDriver.skippedDocuments?.includes("clearingHouse")
+                              ? "bg-slate-50/70 border-dashed border-slate-300 opacity-80"
+                              : "bg-red-50/20 border-dashed border-red-300 hover:border-red-400 shadow-xs"
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center space-x-2.5 min-w-0">
+                                <div
+                                  className={`p-2 rounded-lg shrink-0 ${
+                                    selectedDriver.clearingHouseQuery || selectedDriver.documents.clearingHouse
+                                      ? "bg-emerald-50 text-emerald-600"
+                                      : selectedDriver.skippedDocuments?.includes("clearingHouse")
+                                      ? "bg-slate-200 text-slate-500"
+                                      : "bg-red-100 text-red-600"
+                                  }`}
+                                >
+                                  <ShieldCheck className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="font-semibold text-slate-900 text-sm">
+                                    5. FMCSA Clearinghouse Query
+                                  </h4>
+                                  <p className="text-[11px] text-slate-400">
+                                    Annual query & pre-employment consent verified in FMCSA Clearinghouse
+                                  </p>
+                                </div>
+                              </div>
+
+                              {selectedDriver.clearingHouseQuery || selectedDriver.documents.clearingHouse ? (
+                                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full flex items-center space-x-1 shrink-0">
+                                  <CheckCircle className="w-3 h-3 mr-0.5" />
+                                  <span>Verified</span>
+                                </span>
+                              ) : selectedDriver.skippedDocuments?.includes("clearingHouse") ? (
+                                <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-600 rounded-full shrink-0">
+                                  ⚪ Skipped (N/A)
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full flex items-center space-x-1 shrink-0">
+                                  <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                  <span>Query Pending</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Interactive Checkbox */}
+                            <label className="mt-4 flex items-start space-x-3 p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100/80 cursor-pointer transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={!!(selectedDriver.clearingHouseQuery || selectedDriver.documents.clearingHouse)}
+                                onChange={(e) => {
+                                  updateDriver(selectedDriver.id, {
+                                    clearingHouseQuery: e.target.checked,
+                                  });
+                                }}
+                                className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                              />
+                              <div className="text-xs">
+                                <span className="font-medium text-slate-800 block">
+                                  FMCSA Clearinghouse Query Conducted / Verified
+                                </span>
+                                <span className="text-[11px] text-slate-500">
+                                  Check to verify annual query results or electronic consent (no file upload required).
+                                </span>
+                              </div>
+                            </label>
+                          </div>
+
+                          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span className="text-[11px] text-slate-400">
+                              Status:{" "}
+                              <strong className={selectedDriver.clearingHouseQuery || selectedDriver.documents.clearingHouse ? "text-emerald-700" : "text-amber-600"}>
+                                {selectedDriver.clearingHouseQuery || selectedDriver.documents.clearingHouse ? "Query Completed" : "Not Conducted"}
+                              </strong>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleDriverDocumentSkip(selectedDriver.id, "clearingHouse")}
+                              className="text-[11px] text-slate-400 hover:text-slate-600 font-medium"
+                            >
+                              {selectedDriver.skippedDocuments?.includes("clearingHouse") ? "Require" : "Skip / N/A"}
+                            </button>
+                          </div>
+                        </div>
 
                         {/* 2. PSP Authorization */}
                         <DocumentCard
@@ -1442,37 +1566,118 @@ function DriversContent() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* 10. Bank Information Doc */}
-                        <DocumentCard
-                          title="10. Bank Information / Voided Check"
-                          description="Direct deposit authorization form or voided check for payroll"
-                          doc={selectedDriver.documents.bankInfoDoc}
-                          isSkipped={selectedDriver.skippedDocuments?.includes("bankInfoDoc")}
-                          onToggleSkip={() =>
-                            toggleDriverDocumentSkip(selectedDriver.id, "bankInfoDoc")
-                          }
-                          onPreview={() =>
-                            setViewingDoc(selectedDriver.documents.bankInfoDoc)
-                          }
-                          onDownload={() =>
-                            downloadDocument(
-                              selectedDriver.documents.bankInfoDoc!
-                            )
-                          }
-                          onUpload={() =>
-                            openDocumentUploader(
-                              "Bank Information Document",
-                              "bankInfoDoc",
-                              false
-                            )
-                          }
-                          onRemove={() =>
-                            removeDriverDocument(
-                              selectedDriver.id,
-                              "bankInfoDoc"
-                            )
-                          }
-                        />
+                        {/* 10. Direct Deposit & Bank Information (3 inputs: Account #, Routing #, Bank Info) */}
+                        <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center space-x-2.5 min-w-0">
+                                <div className="p-2 rounded-lg bg-teal-50 text-teal-600 shrink-0">
+                                  <CreditCard className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="font-semibold text-slate-900 text-sm">
+                                    Direct Deposit & Bank Information
+                                  </h4>
+                                  <p className="text-[11px] text-slate-400">
+                                    Payroll direct deposit banking details (no file upload required)
+                                  </p>
+                                </div>
+                              </div>
+
+                              {quickBank.accountNumber && quickBank.routingNumber ? (
+                                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full flex items-center space-x-1 shrink-0">
+                                  <CheckCircle className="w-3 h-3 mr-0.5" />
+                                  <span>Recorded</span>
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full flex items-center space-x-1 shrink-0">
+                                  <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                  <span>Incomplete</span>
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-4 space-y-3">
+                              {/* 1. Account Number */}
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                  1. Account Number
+                                </label>
+                                <input
+                                  type="text"
+                                  value={quickBank.accountNumber}
+                                  onChange={(e) =>
+                                    setQuickBank((prev) => ({
+                                      ...prev,
+                                      accountNumber: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="e.g. 123456789"
+                                  className="w-full h-9 px-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                                />
+                              </div>
+
+                              {/* 2. Routing Number */}
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                  2. Routing Number (9 Digits)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={quickBank.routingNumber}
+                                  onChange={(e) =>
+                                    setQuickBank((prev) => ({
+                                      ...prev,
+                                      routingNumber: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="e.g. 071000013"
+                                  className="w-full h-9 px-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                                />
+                              </div>
+
+                              {/* 3. Bank Info */}
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                  3. Bank Info
+                                </label>
+                                <input
+                                  type="text"
+                                  value={quickBank.bankInfo}
+                                  onChange={(e) =>
+                                    setQuickBank((prev) => ({
+                                      ...prev,
+                                      bankInfo: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="e.g. Chase Bank, Chicago IL"
+                                  className="w-full h-9 px-3 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                            {bankSavedNotification ? (
+                              <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                <span>Banking Saved!</span>
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">
+                                Updates auto-sync to database
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={handleSaveQuickBank}
+                              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors shadow-xs"
+                            >
+                              <Save className="w-3.5 h-3.5" />
+                              <span>Save Banking</span>
+                            </button>
+                          </div>
+                        </div>
 
                         {/* 11. EIN Letter */}
                         <DocumentCard
@@ -1939,22 +2144,25 @@ function DriversContent() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Bank Name
+                        1. Account Number
                       </label>
                       <input
                         type="text"
-                        value={formData.bankName}
+                        value={formData.accountNumber}
                         onChange={(e) =>
-                          setFormData({ ...formData, bankName: e.target.value })
+                          setFormData({
+                            ...formData,
+                            accountNumber: e.target.value,
+                          })
                         }
-                        placeholder="Chase, BofA, etc."
-                        className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        placeholder="4829104829"
+                        className="w-full h-10 px-3 text-sm font-mono bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       />
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Routing Number (9 Digits)
+                        2. Routing Number (9 Digits)
                       </label>
                       <input
                         type="text"
@@ -1972,19 +2180,16 @@ function DriversContent() {
 
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Account Number
+                        3. Bank Info
                       </label>
                       <input
                         type="text"
-                        value={formData.accountNumber}
+                        value={formData.bankName}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            accountNumber: e.target.value,
-                          })
+                          setFormData({ ...formData, bankName: e.target.value })
                         }
-                        placeholder="4829104829"
-                        className="w-full h-10 px-3 text-sm font-mono bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        placeholder="Chase, BofA, etc."
+                        className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       />
                     </div>
                   </div>

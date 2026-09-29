@@ -94,6 +94,7 @@ export interface Trailer {
 export interface DriverBankInfo {
   accountNumber: string;
   routingNumber: string;
+  bankInfo?: string;
   bankName?: string;
 }
 
@@ -129,6 +130,7 @@ export interface Driver {
   status: DriverStatus;
   assignedTruckId: string | null;
   bankInfo: DriverBankInfo;
+  clearingHouseQuery?: boolean; // FMCSA Clearinghouse query verified checkbox
   documents: DriverDocuments;
   skippedDocuments?: string[]; // Keys of documents marked as "Skipped / Not Required" (e.g. leaseAgreement for company drivers)
   hireDate: string;

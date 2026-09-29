@@ -132,31 +132,56 @@ export const driverToRow = (d: Driver) => ({
   license_number: d.licenseNumber || "",
   status: d.status || "Active",
   assigned_truck_id: d.assignedTruckId || null,
-  bank_info: d.bankInfo || null,
-  documents: d.documents || {},
+  bank_info: d.bankInfo
+    ? {
+        accountNumber: d.bankInfo.accountNumber || "",
+        routingNumber: d.bankInfo.routingNumber || "",
+        bankInfo: d.bankInfo.bankInfo || d.bankInfo.bankName || "",
+        bankName: d.bankInfo.bankName || d.bankInfo.bankInfo || "",
+      }
+    : null,
+  documents: {
+    ...(d.documents || {}),
+    clearingHouseQuery: !!d.clearingHouseQuery,
+  },
   skipped_documents: d.skippedDocuments || [],
   hire_date: sanitizeDate(d.hireDate),
   notes: d.notes || "",
 });
 
-export const rowToDriver = (d: Record<string, unknown>): Driver => ({
-  id: String(d.id),
-  firstName: String(d.first_name),
-  middleName: String(d.middle_name || ""),
-  lastName: String(d.last_name),
-  dateOfBirth: String(d.date_of_birth),
-  email: String(d.email || ""),
-  phone: String(d.phone),
-  state: String(d.state),
-  licenseNumber: String(d.license_number),
-  status: d.status as DriverStatus,
-  assignedTruckId: d.assigned_truck_id ? String(d.assigned_truck_id) : null,
-  bankInfo: (d.bank_info || { accountNumber: "", routingNumber: "" }) as Driver["bankInfo"],
-  documents: (d.documents || {}) as Driver["documents"],
-  skippedDocuments: ((d.skipped_documents || d.skippedDocuments || []) as string[]),
-  hireDate: String(d.hire_date),
-  notes: String(d.notes || ""),
-});
+export const rowToDriver = (d: Record<string, unknown>): Driver => {
+  const rawBank = (d.bank_info || {}) as Record<string, unknown>;
+  const rawDocs = (d.documents || {}) as Record<string, unknown>;
+  const clearingHouseQueryVal =
+    Boolean(d.clearing_house_query) ||
+    Boolean(d.clearingHouseQuery) ||
+    Boolean(rawDocs.clearingHouseQuery);
+
+  return {
+    id: String(d.id),
+    firstName: String(d.first_name),
+    middleName: String(d.middle_name || ""),
+    lastName: String(d.last_name),
+    dateOfBirth: String(d.date_of_birth),
+    email: String(d.email || ""),
+    phone: String(d.phone),
+    state: String(d.state),
+    licenseNumber: String(d.license_number),
+    status: d.status as DriverStatus,
+    assignedTruckId: d.assigned_truck_id ? String(d.assigned_truck_id) : null,
+    bankInfo: {
+      accountNumber: String(rawBank.accountNumber || ""),
+      routingNumber: String(rawBank.routingNumber || ""),
+      bankInfo: String(rawBank.bankInfo || rawBank.bankName || ""),
+      bankName: String(rawBank.bankName || rawBank.bankInfo || ""),
+    },
+    clearingHouseQuery: clearingHouseQueryVal,
+    documents: (d.documents || {}) as Driver["documents"],
+    skippedDocuments: ((d.skipped_documents || d.skippedDocuments || []) as string[]),
+    hireDate: String(d.hire_date),
+    notes: String(d.notes || ""),
+  };
+};
 
 export const shopToRow = (s: TruckShop) => ({
   id: s.id,
