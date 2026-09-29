@@ -34,6 +34,8 @@ import {
   Calendar,
   AlertTriangle,
   Mail,
+  UserX,
+  UserCheck,
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
@@ -478,6 +480,8 @@ function DriversContent() {
                           className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
                             driver.status === "Active"
                               ? "bg-emerald-100 text-emerald-800"
+                              : driver.status === "Inactive"
+                              ? "bg-amber-100 text-amber-800 border border-amber-200"
                               : "bg-slate-100 text-slate-700"
                           }`}
                         >
@@ -563,6 +567,8 @@ function DriversContent() {
                           className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
                             selectedDriver.status === "Active"
                               ? "bg-emerald-100 text-emerald-800"
+                              : selectedDriver.status === "Inactive"
+                              ? "bg-amber-100 text-amber-800 border border-amber-300"
                               : "bg-slate-100 text-slate-700"
                           }`}
                         >
@@ -605,6 +611,38 @@ function DriversContent() {
 
                   <div className="flex items-center space-x-2">
                     <button
+                      onClick={() =>
+                        updateDriver(selectedDriver.id, {
+                          status:
+                            selectedDriver.status === "Inactive"
+                              ? "Active"
+                              : "Inactive",
+                        })
+                      }
+                      className={`inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                        selectedDriver.status === "Inactive"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                          : "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
+                      }`}
+                      title={
+                        selectedDriver.status === "Inactive"
+                          ? "Set driver to Active"
+                          : "Set driver to Inactive"
+                      }
+                    >
+                      {selectedDriver.status === "Inactive" ? (
+                        <>
+                          <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Activate Driver</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserX className="w-3.5 h-3.5 text-amber-700" />
+                          <span>Make Inactive</span>
+                        </>
+                      )}
+                    </button>
+                    <button
                       onClick={() => openEditModal(selectedDriver)}
                       className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-emerald-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
                     >
@@ -625,6 +663,23 @@ function DriversContent() {
                     </button>
                   </div>
                 </div>
+
+                {selectedDriver.status === "Inactive" && (
+                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-900">
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>
+                        <strong>Driver is currently Inactive:</strong> Not available for dispatch or load assignments.
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => updateDriver(selectedDriver.id, { status: "Active" })}
+                      className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shrink-0 transition-colors shadow-xs"
+                    >
+                      Reactivate Driver
+                    </button>
+                  </div>
+                )}
 
                 {/* Specs & Bank Info Row */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5">
@@ -1803,9 +1858,33 @@ function DriversContent() {
                 {/* Status & Assigned Truck */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                      Driver Status
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-700 uppercase">
+                        Driver Status
+                      </label>
+                      <label className="flex items-center space-x-1.5 text-xs font-medium cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={formData.status === "Inactive"}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              status: e.target.checked ? "Inactive" : "Active",
+                            })
+                          }
+                          className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
+                        />
+                        <span
+                          className={
+                            formData.status === "Inactive"
+                              ? "text-amber-700 font-bold"
+                              : "text-slate-500 hover:text-slate-700"
+                          }
+                        >
+                          Make Inactive
+                        </span>
+                      </label>
+                    </div>
                     <select
                       value={formData.status}
                       onChange={(e) =>
@@ -1814,11 +1893,15 @@ function DriversContent() {
                           status: e.target.value as DriverStatus,
                         })
                       }
-                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      className={`w-full h-10 px-3 text-sm border rounded-lg bg-white focus:ring-2 focus:outline-none ${
+                        formData.status === "Inactive"
+                          ? "border-amber-300 bg-amber-50/50 text-amber-900 font-semibold focus:ring-amber-500"
+                          : "border-slate-300 focus:ring-emerald-500"
+                      }`}
                     >
                       <option value="Active">Active / On Duty</option>
-                      <option value="Inactive">Inactive</option>
-                      <option value="On Leave">On Leave</option>
+                      <option value="Inactive">Inactive (Off Roster / Not Driving)</option>
+                      <option value="On Leave">On Leave / Vacation</option>
                     </select>
                   </div>
 
