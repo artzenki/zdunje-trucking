@@ -668,33 +668,29 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Database Status Pills */}
+        {/* Real-time Cloud Database Status Pills */}
         <div className="flex flex-col gap-2 text-xs">
-          <div className="px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2 shadow-2xs">
-            <Database className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-            <span className="font-semibold text-slate-700">
-              <span className="text-slate-900 font-bold">Local:</span>{" "}
-              {trucks.length} Trucks · {trailers.length} Trailers · {drivers.length} Drivers · {shops.length} Shops · {maintenanceRecords.length} Work Orders · {reminders.length} Reminders · {users.length} Staff
-            </span>
-          </div>
-
           <div
-            className={`px-3.5 py-1.5 border rounded-xl flex items-center space-x-2 shadow-2xs ${
+            className={`px-4 py-2 border rounded-xl flex items-center space-x-2.5 shadow-sm ${
               isSupabaseConnected
-                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                : "bg-amber-50 text-amber-800 border-amber-200"
+                ? "bg-emerald-50 text-emerald-900 border-emerald-300"
+                : "bg-amber-50 text-amber-900 border-amber-300"
             }`}
           >
             <span
-              className={`w-2 h-2 rounded-full shrink-0 ${
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                 isSupabaseConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
               }`}
             ></span>
-            <span className="font-bold">
-              {isSupabaseConnected
-                ? `Supabase Linked: ${supabaseStats.trucks} Trucks · ${supabaseStats.trailers} Trailers · ${supabaseStats.drivers} Drivers · ${supabaseStats.shops} Shops · ${supabaseStats.maintenance} Work Orders · ${supabaseStats.reminders} Reminders · ${supabaseStats.users} Staff`
-                : "Supabase Connecting..."}
-            </span>
+            <div className="flex flex-col">
+              <span className="font-bold flex items-center space-x-1.5">
+                <span>{isSupabaseConnected ? "Supabase Cloud: Live & Auto-Synced" : "Supabase: Connecting..."}</span>
+                <span className="px-1.5 py-0.2 bg-emerald-200/60 text-emerald-800 text-[10px] rounded uppercase tracking-wider font-extrabold">Instant Real-Time</span>
+              </span>
+              <span className="text-[11px] text-emerald-700/90 font-medium">
+                Cloud Synced: {supabaseStats.trucks || trucks.length} Trucks · {supabaseStats.trailers || trailers.length} Trailers · {supabaseStats.drivers || drivers.length} Drivers · {supabaseStats.shops || shops.length} Shops · {supabaseStats.maintenance || maintenanceRecords.length} Work Orders · {supabaseStats.reminders || reminders.length} Reminders · {supabaseStats.users || users.length} Staff
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -704,14 +700,14 @@ export default function SettingsPage() {
         <div className="space-y-1">
           <div className="flex items-center space-x-2 text-blue-400 text-xs font-bold uppercase tracking-wider">
             <Database className="w-4 h-4" />
-            <span>Main Supabase Database Connection</span>
+            <span>Real-Time Cloud Backend (`zdunje-trucking`)</span>
           </div>
           <h2 className="text-lg font-bold text-white">
-            Cloud PostgreSQL Synchronization (`zdunje-trucking`)
+            Single Source of Truth: Supabase PostgreSQL & Storage
           </h2>
           <p className="text-xs text-slate-300 max-w-xl">
-            Linked to: <span className="font-mono text-blue-300">https://xorhbiwezmireelklokq.supabase.co</span>.
-            Sync your local fleet changes to the cloud database or pull fresh records across dispatch computers.
+            Connected to <span className="font-mono text-blue-300">https://xorhbiwezmireelklokq.supabase.co</span>.
+            All fleet records, driver credentials, and uploaded files are automatically saved directly to Supabase cloud database & storage as soon as any change is made.
           </p>
           {syncMessage && (
             <p className="text-xs font-semibold text-emerald-300 pt-1 flex items-center space-x-1.5">

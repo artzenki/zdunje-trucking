@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/lib/supabase";
 import {
   Truck,
@@ -39,27 +40,46 @@ export const truckToRow = (t: Truck) => ({
   current_mileage: t.currentMileage || 0,
   notes: t.notes || "",
   documents: t.documents || {},
+  custom_documents: t.customDocuments || [],
 });
 
-export const rowToTruck = (t: Record<string, unknown>): Truck => ({
-  id: String(t.id),
-  unitNumber: String(t.unit_number),
-  make: String(t.make),
-  model: String(t.model),
-  year: Number(t.year),
-  vin: String(t.vin),
-  plateNumber: String(t.plate_number),
-  isTemporaryPlate: Boolean(t.is_temporary_plate),
-  ownershipType: t.ownership_type as OwnershipType,
-  truckValue: Number(t.truck_value),
-  bestPassSerialNumber: String(t.best_pass_serial_number || ""),
-  isBestPassLinked: Boolean(t.is_best_pass_linked),
-  assignedDriverId: t.assigned_driver_id ? String(t.assigned_driver_id) : null,
-  status: t.status as EquipmentStatus,
-  currentMileage: Number(t.current_mileage || 0),
-  notes: String(t.notes || ""),
-  documents: (t.documents || {}) as Truck["documents"],
-});
+export const rowToTruck = (t: Record<string, unknown>): Truck => {
+  const rawDocs = (t.documents || {}) as Record<string, unknown>;
+  const customDocs = Array.isArray(t.custom_documents)
+    ? t.custom_documents
+    : Array.isArray(t.customDocuments)
+    ? t.customDocuments
+    : [];
+
+  return {
+    id: String(t.id),
+    unitNumber: String(t.unit_number),
+    make: String(t.make),
+    model: String(t.model),
+    year: Number(t.year),
+    vin: String(t.vin),
+    plateNumber: String(t.plate_number),
+    isTemporaryPlate: Boolean(t.is_temporary_plate),
+    ownershipType: t.ownership_type as OwnershipType,
+    truckValue: Number(t.truck_value),
+    bestPassSerialNumber: String(t.best_pass_serial_number || ""),
+    isBestPassLinked: Boolean(t.is_best_pass_linked),
+    assignedDriverId: t.assigned_driver_id ? String(t.assigned_driver_id) : null,
+    status: t.status as EquipmentStatus,
+    currentMileage: Number(t.current_mileage || 0),
+    notes: String(t.notes || ""),
+    documents: {
+      title: null,
+      tax2290: null,
+      dotInspection: null,
+      insurance: null,
+      cabCard: null,
+      leaseAgreement: null,
+      ...(rawDocs as any),
+    },
+    customDocuments: customDocs as any,
+  };
+};
 
 export const trailerToRow = (tr: Trailer) => ({
   id: tr.id,
@@ -76,24 +96,43 @@ export const trailerToRow = (tr: Trailer) => ({
   assigned_truck_id: tr.assignedTruckId || null,
   notes: tr.notes || "",
   documents: tr.documents || {},
+  custom_documents: tr.customDocuments || [],
 });
 
-export const rowToTrailer = (tr: Record<string, unknown>): Trailer => ({
-  id: String(tr.id),
-  unitNumber: String(tr.unit_number),
-  make: String(tr.make),
-  model: String(tr.model),
-  year: Number(tr.year),
-  vin: String(tr.vin),
-  plateNumber: String(tr.plate_number),
-  isTemporaryPlate: Boolean(tr.is_temporary_plate),
-  ownershipType: tr.ownership_type as OwnershipType,
-  trailerValue: Number(tr.trailer_value),
-  status: tr.status as EquipmentStatus,
-  assignedTruckId: tr.assigned_truck_id ? String(tr.assigned_truck_id) : null,
-  notes: String(tr.notes || ""),
-  documents: (tr.documents || {}) as Trailer["documents"],
-});
+export const rowToTrailer = (tr: Record<string, unknown>): Trailer => {
+  const rawDocs = (tr.documents || {}) as Record<string, unknown>;
+  const customDocs = Array.isArray(tr.custom_documents)
+    ? tr.custom_documents
+    : Array.isArray(tr.customDocuments)
+    ? tr.customDocuments
+    : [];
+
+  return {
+    id: String(tr.id),
+    unitNumber: String(tr.unit_number),
+    make: String(tr.make),
+    model: String(tr.model),
+    year: Number(tr.year),
+    vin: String(tr.vin),
+    plateNumber: String(tr.plate_number),
+    isTemporaryPlate: Boolean(tr.is_temporary_plate),
+    ownershipType: tr.ownership_type as OwnershipType,
+    trailerValue: Number(tr.trailer_value),
+    status: tr.status as EquipmentStatus,
+    assignedTruckId: tr.assigned_truck_id ? String(tr.assigned_truck_id) : null,
+    notes: String(tr.notes || ""),
+    documents: {
+      title: null,
+      tax2290: null,
+      dotInspection: null,
+      insurance: null,
+      cabCard: null,
+      trailerAgreement: null,
+      ...(rawDocs as any),
+    },
+    customDocuments: customDocs as any,
+  };
+};
 
 /* Helper to guarantee valid PostgreSQL DATE or null */
 export const sanitizeDate = (val?: string | null): string | null => {
@@ -176,9 +215,27 @@ export const rowToDriver = (d: Record<string, unknown>): Driver => {
       bankName: String(rawBank.bankName || rawBank.bankInfo || ""),
     },
     clearingHouseQuery: clearingHouseQueryVal,
-    documents: (d.documents || {}) as Driver["documents"],
+    documents: {
+      mvr: null,
+      pspAuth: null,
+      pspReport: null,
+      cdl: null,
+      medCard: null,
+      clearingHouse: null,
+      applicationLink: "",
+      applicationFile: null,
+      drugCustodyForm: null,
+      drugPassport: null,
+      bankInfoDoc: null,
+      einLetter: null,
+      onboardingDoc: null,
+      leaseAgreement: null,
+      ...(rawDocs as any),
+      drugTestResults: Array.isArray(rawDocs.drugTestResults) ? rawDocs.drugTestResults : [],
+      dotRecords: Array.isArray(rawDocs.dotRecords) ? rawDocs.dotRecords : [],
+    },
     skippedDocuments: ((d.skipped_documents || d.skippedDocuments || []) as string[]),
-    hireDate: String(d.hire_date),
+    hireDate: String(d.hire_date || ""),
     notes: String(d.notes || ""),
   };
 };

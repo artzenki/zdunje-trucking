@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { FleetDocument } from "@/types/fleet";
-import { fileToBase64 } from "@/lib/documentUtils";
-import { Upload, X, File, FileText } from "lucide-react";
+import { uploadFileToSupabaseStorage } from "@/lib/documentStorage";
+import { Upload, X, File, FileText, Loader2 } from "lucide-react";
 
 interface CustomDocumentUploadModalProps {
   isOpen: boolean;
@@ -82,7 +82,19 @@ export const CustomDocumentUploadModal: React.FC<CustomDocumentUploadModalProps>
       const fileSize = selectedFile.size;
       const fileType = selectedFile.type || "application/pdf";
 
-      fileData = await fileToBase64(selectedFile);
+      const folder: "drivers" | "trucks" | "trailers" | "general" =
+        targetName.toLowerCase().includes("trailer")
+          ? "trailers"
+          : targetName.toLowerCase().includes("driver")
+          ? "drivers"
+          : "trucks";
+
+      const uploadResult = await uploadFileToSupabaseStorage(
+        selectedFile,
+        docName.trim(),
+        folder
+      );
+      fileData = uploadResult.fileUrl;
 
       const newDoc: FleetDocument = {
         id: `custom-doc-${Date.now()}`,
@@ -255,8 +267,12 @@ export const CustomDocumentUploadModal: React.FC<CustomDocumentUploadModalProps>
               disabled={isSubmitting || !selectedFile || !docName.trim()}
               className="h-10 inline-flex items-center space-x-2 px-5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
             >
-              <Upload className="w-4 h-4" />
-              <span>{isSubmitting ? "Uploading..." : "Upload Document"}</span>
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              <span>{isSubmitting ? "Uploading to Cloud..." : "Upload Document"}</span>
             </button>
           </div>
         </form>

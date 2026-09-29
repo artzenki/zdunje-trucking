@@ -44,7 +44,8 @@ import {
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
-import { downloadDocument, fileToBase64 } from "@/lib/documentUtils";
+import { downloadDocument } from "@/lib/documentUtils";
+import { uploadFileToSupabaseStorage } from "@/lib/documentStorage";
 
 const DRIVER_REQUIRED_DOC_KEYS: {
   key: keyof Omit<
@@ -409,7 +410,11 @@ function DriversContent() {
   ) => {
     if (!selectedDriver) return;
     try {
-      const fileData = await fileToBase64(file);
+      const uploadRes = await uploadFileToSupabaseStorage(
+        file,
+        file.name,
+        "drivers"
+      );
       const newDoc: FleetDocument = {
         id: `doc-${Date.now()}`,
         name: file.name,
@@ -417,7 +422,7 @@ function DriversContent() {
         fileType: file.type || "application/pdf",
         fileSize: file.size,
         uploadedAt: new Date().toISOString(),
-        fileData,
+        fileData: uploadRes.fileUrl,
         isCurrent: true,
         status: "current",
       };

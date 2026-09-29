@@ -27,12 +27,19 @@ import {
 import { supabase } from "@/lib/supabase";
 import {
   truckToRow,
+  rowToTruck,
   trailerToRow,
+  rowToTrailer,
   driverToRow,
+  rowToDriver,
   shopToRow,
+  rowToShop,
   maintenanceToRow,
+  rowToMaintenance,
   reminderToRow,
+  rowToReminder,
   userToRow,
+  rowToUser,
   cloudUpsert,
   cloudDelete,
 } from "@/lib/supabaseSync";
@@ -173,8 +180,9 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const isInitialMount = React.useRef(true);
 
-  // Load from LocalStorage or initialize with mock data
+  // 1. Initial Load: Read localStorage cache for instant render, then immediately fetch live from Supabase
   useEffect(() => {
+    // Phase 1: fast cache hydration
     try {
       const savedTrucks = localStorage.getItem("zdunje_trucks");
       const savedTrailers = localStorage.getItem("zdunje_trailers");
@@ -184,114 +192,124 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       const savedUsers = localStorage.getItem("zdunje_users");
       const savedReminders = localStorage.getItem("zdunje_reminders");
 
-      if (savedTrucks) {
-        const parsed = JSON.parse(savedTrucks);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setTrucks(parsed.map((t: any) => ({
-          ...t,
-          status: t.status || "Active",
-          documents: {
-            title: null,
-            tax2290: null,
-            dotInspection: null,
-            insurance: null,
-            cabCard: null,
-            leaseAgreement: null,
-            ...(t.documents || {}),
-          },
-          customDocuments: t.customDocuments || [],
-        })));
-      } else {
-        setTrucks(initialTrucks);
-      }
-
-      if (savedTrailers) {
-        const parsed = JSON.parse(savedTrailers);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setTrailers(parsed.map((tr: any) => ({
-          ...tr,
-          status: tr.status || "Active",
-          documents: {
-            title: null,
-            tax2290: null,
-            dotInspection: null,
-            insurance: null,
-            cabCard: null,
-            trailerAgreement: null,
-            ...(tr.documents || {}),
-          },
-          customDocuments: tr.customDocuments || [],
-        })));
-      } else {
-        setTrailers(initialTrailers);
-      }
-
-      if (savedDrivers) {
-        const parsed = JSON.parse(savedDrivers);
-        setDrivers(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          parsed.map((d: any) => ({
-            ...d,
-            email: d.email || "",
-            skippedDocuments: d.skippedDocuments || [],
-            documents: {
-              mvr: null,
-              pspAuth: null,
-              pspReport: null,
-              cdl: null,
-              medCard: null,
-              clearingHouse: null,
-              applicationFile: null,
-              applicationLink: "",
-              drugCustodyForm: null,
-              drugPassport: null,
-              bankInfoDoc: null,
-              einLetter: null,
-              onboardingDoc: null,
-              leaseAgreement: null,
-              ...(d.documents || {}),
-              drugTestResults: d.documents?.drugTestResults || [],
-              dotRecords: d.documents?.dotRecords || [],
-            },
-          }))
-        );
-      } else {
-        setDrivers(initialDrivers);
-      }
-
+      if (savedTrucks) setTrucks(JSON.parse(savedTrucks));
+      if (savedTrailers) setTrailers(JSON.parse(savedTrailers));
+      if (savedDrivers) setDrivers(JSON.parse(savedDrivers));
       if (savedShops) setShops(JSON.parse(savedShops));
-      else setShops(initialShops);
-
       if (savedMaint) setMaintenanceRecords(JSON.parse(savedMaint));
-      else setMaintenanceRecords(initialMaintenanceRecords);
+      if (savedUsers) setUsers(JSON.parse(savedUsers));
+      if (savedReminders) setReminders(JSON.parse(savedReminders));
+    } catch (e) {
+      console.warn("Could not read localStorage cache:", e);
+    }
 
-      if (savedUsers) {
-        const parsedU = JSON.parse(savedUsers);
-        const cleanU = Array.isArray(parsedU)
-          ? parsedU.filter((u: AppUser) => !["usr_002", "usr_003", "usr_004"].includes(u.id))
-          : initialUsers;
-        setUsers(cleanU.length > 0 ? cleanU : initialUsers);
-      } else {
-        setUsers(initialUsers);
+    // Phase 2: Live Supabase Fetch (Single Source of Truth)
+    const loadFromSupabase = async () => {
+      if (!supabase) {
+        setIsLoaded(true);
+        return;
       }
 
-      // Clear calendar reminders completely
-      setReminders([]);
-      localStorage.setItem("zdunje_reminders", JSON.stringify([]));
-    } catch {
-      setTrucks(initialTrucks);
-      setTrailers(initialTrailers);
-      setDrivers(initialDrivers);
-      setShops(initialShops);
-      setMaintenanceRecords(initialMaintenanceRecords);
-      setUsers(initialUsers);
-      setReminders(initialReminders);
-    } finally {
-      setIsLoaded(true);
-    }
+      setCloudSyncStatus("syncing");
+      try {
+        const [tRes, trRes, dRes, sRes, mRes, uRes, rRes] = await Promise.all([
+          supabase.from("trucks").select("*"),
+          supabase.from("trailers").select("*"),
+          supabase.from("drivers").select("*"),
+          supabase.from("shops").select("*"),
+          supabase.from("maintenance_records").select("*"),
+          supabase.from("user_profiles").select("*"),
+          supabase.from("payment_reminders").select("*"),
+        ]);
+
+        // Trucks: live from Supabase
+        if (tRes.data && tRes.data.length > 0) {
+          const remoteTrucks = tRes.data.map(rowToTruck);
+          setTrucks(remoteTrucks);
+          localStorage.setItem("zdunje_trucks", JSON.stringify(remoteTrucks));
+        } else if (initialTrucks.length > 0) {
+          await cloudUpsert("trucks", initialTrucks.map(truckToRow));
+          setTrucks(initialTrucks);
+          localStorage.setItem("zdunje_trucks", JSON.stringify(initialTrucks));
+        }
+
+        // Drivers: live from Supabase
+        if (dRes.data && dRes.data.length > 0) {
+          const remoteDrivers = dRes.data.map(rowToDriver);
+          setDrivers(remoteDrivers);
+          localStorage.setItem("zdunje_drivers", JSON.stringify(remoteDrivers));
+        } else if (initialDrivers.length > 0) {
+          await cloudUpsert("drivers", initialDrivers.map(driverToRow));
+          setDrivers(initialDrivers);
+          localStorage.setItem("zdunje_drivers", JSON.stringify(initialDrivers));
+        }
+
+        // Trailers: live from Supabase
+        if (trRes.data && trRes.data.length > 0) {
+          const remoteTrailers = trRes.data.map(rowToTrailer);
+          setTrailers(remoteTrailers);
+          localStorage.setItem("zdunje_trailers", JSON.stringify(remoteTrailers));
+        } else if (initialTrailers.length > 0) {
+          await cloudUpsert("trailers", initialTrailers.map(trailerToRow));
+          setTrailers(initialTrailers);
+          localStorage.setItem("zdunje_trailers", JSON.stringify(initialTrailers));
+        }
+
+        // Shops: live from Supabase
+        if (sRes.data && sRes.data.length > 0) {
+          const remoteShops = sRes.data.map(rowToShop);
+          setShops(remoteShops);
+          localStorage.setItem("zdunje_shops", JSON.stringify(remoteShops));
+        } else if (initialShops.length > 0) {
+          await cloudUpsert("shops", initialShops.map(shopToRow));
+          setShops(initialShops);
+          localStorage.setItem("zdunje_shops", JSON.stringify(initialShops));
+        }
+
+        // Maintenance Records: live from Supabase
+        if (mRes.data && mRes.data.length > 0) {
+          const remoteMaint = mRes.data.map(rowToMaintenance);
+          setMaintenanceRecords(remoteMaint);
+          localStorage.setItem("zdunje_maintenance", JSON.stringify(remoteMaint));
+        } else if (initialMaintenanceRecords.length > 0) {
+          await cloudUpsert("maintenance_records", initialMaintenanceRecords.map(maintenanceToRow));
+          setMaintenanceRecords(initialMaintenanceRecords);
+          localStorage.setItem("zdunje_maintenance", JSON.stringify(initialMaintenanceRecords));
+        }
+
+        // User Profiles: live from Supabase
+        if (uRes.data && uRes.data.length > 0) {
+          const remoteUsers = uRes.data.map(rowToUser);
+          setUsers(remoteUsers);
+          localStorage.setItem("zdunje_users", JSON.stringify(remoteUsers));
+        } else if (initialUsers.length > 0) {
+          await cloudUpsert("user_profiles", initialUsers.map(userToRow));
+          setUsers(initialUsers);
+          localStorage.setItem("zdunje_users", JSON.stringify(initialUsers));
+        }
+
+        // Payment Reminders: live from Supabase
+        if (rRes.data && rRes.data.length > 0) {
+          const remoteReminders = rRes.data.map(rowToReminder);
+          setReminders(remoteReminders);
+          localStorage.setItem("zdunje_reminders", JSON.stringify(remoteReminders));
+        }
+
+        const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        setLastSyncTime(timeStr);
+        setCloudSyncStatus("synced");
+      } catch (err) {
+        console.warn("[Supabase Initial Load] Error fetching from Supabase:", err);
+        setCloudSyncStatus("error");
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    loadFromSupabase();
   }, []);
 
-  // Save to LocalStorage
+  // Save to LocalStorage cache
   useEffect(() => {
     if (!isLoaded) return;
     try {
@@ -299,18 +317,15 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       localStorage.setItem("zdunje_trailers", JSON.stringify(trailers));
       localStorage.setItem("zdunje_drivers", JSON.stringify(drivers));
       localStorage.setItem("zdunje_shops", JSON.stringify(shops));
-      localStorage.setItem(
-        "zdunje_maintenance",
-        JSON.stringify(maintenanceRecords)
-      );
+      localStorage.setItem("zdunje_maintenance", JSON.stringify(maintenanceRecords));
       localStorage.setItem("zdunje_users", JSON.stringify(users));
       localStorage.setItem("zdunje_reminders", JSON.stringify(reminders));
     } catch (e) {
-      console.error("Failed to save to localStorage", e);
+      console.error("Failed to save to localStorage cache", e);
     }
   }, [trucks, trailers, drivers, shops, maintenanceRecords, users, reminders, isLoaded]);
 
-  // Explicit Cloud Sync Function
+  // Explicit Full Cloud Sync Function
   const syncWithCloud = async (): Promise<{ success: boolean; message: string }> => {
     if (!supabase) return { success: false, message: "Supabase client not initialized" };
     setCloudSyncStatus("syncing");
@@ -336,47 +351,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const hasReconciled = React.useRef(false);
-
-  // Initial startup sync reconciliation
-  useEffect(() => {
-    if (!isLoaded) return;
-    const client = supabase;
-    if (!client) return;
-
-    const initialSync = async () => {
-      try {
-        setCloudSyncStatus("syncing");
-        const { count: remoteDrivers } = await client
-          .from("drivers")
-          .select("id", { count: "exact", head: true });
-
-        // If local has drivers but remote is 0 (or empty), push local data to Supabase
-        if ((remoteDrivers === 0 || remoteDrivers === null) && drivers.length > 0 && !hasReconciled.current) {
-          hasReconciled.current = true;
-          console.log(`[Supabase Auto-Sync] Reconciling ${drivers.length} drivers and fleet into Supabase...`);
-          await Promise.all([
-            trucks.length > 0 ? cloudUpsert("trucks", trucks.map(truckToRow)) : Promise.resolve(),
-            trailers.length > 0 ? cloudUpsert("trailers", trailers.map(trailerToRow)) : Promise.resolve(),
-            drivers.length > 0 ? cloudUpsert("drivers", drivers.map(driverToRow)) : Promise.resolve(),
-            shops.length > 0 ? cloudUpsert("shops", shops.map(shopToRow)) : Promise.resolve(),
-            maintenanceRecords.length > 0 ? cloudUpsert("maintenance_records", maintenanceRecords.map(maintenanceToRow)) : Promise.resolve(),
-            reminders.length > 0 ? cloudUpsert("payment_reminders", reminders.map(reminderToRow)) : Promise.resolve(),
-            users.length > 0 ? cloudUpsert("user_profiles", users.map(userToRow)) : Promise.resolve(),
-          ]);
-        }
-        const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        setLastSyncTime(timeStr);
-        setCloudSyncStatus("synced");
-      } catch (e) {
-        console.warn("[Supabase Auto-Sync] Initial sync exception:", e);
-        setCloudSyncStatus("error");
-      }
-    };
-    initialSync();
-  }, [isLoaded, drivers.length]);
-
-  // Immediate or debounced auto-sync to Supabase on any change
+  // Debounced backup sync across fleet on state modifications
   useEffect(() => {
     if (!isLoaded || !supabase) return;
     if (isInitialMount.current) {
@@ -530,13 +505,20 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         cabCard: null,
         leaseAgreement: null,
       },
+      customDocuments: [],
     };
     setTrucks((prev) => [newTruck, ...prev]);
+    cloudUpsert("trucks", truckToRow(newTruck));
   };
 
   const updateTruck = (id: string, updated: Partial<Truck>) => {
     setTrucks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...updated } : t))
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        const newT = { ...t, ...updated };
+        cloudUpsert("trucks", truckToRow(newT));
+        return newT;
+      })
     );
   };
 
@@ -571,13 +553,15 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           status: "current",
           history: newHistory,
         };
-        return {
+        const updatedTruck: Truck = {
           ...t,
           documents: {
             ...t.documents,
             [key]: newCurrentDoc,
           },
         };
+        cloudUpsert("trucks", truckToRow(updatedTruck));
+        return updatedTruck;
       })
     );
   };
@@ -589,10 +573,11 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         const currentDoc = t.documents ? t.documents[key] : null;
         if (!currentDoc) return t;
 
+        let updatedTruck: Truck;
         // If removing a specific historical / expired file:
         if (historyDocId) {
           const updatedHistory = (currentDoc.history || []).filter((h) => h.id !== historyDocId);
-          return {
+          updatedTruck = {
             ...t,
             documents: {
               ...t.documents,
@@ -602,35 +587,35 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
               },
             },
           };
-        }
-
-        // If removing the current active file:
-        const remainingHistory = currentDoc.history || [];
-        if (remainingHistory.length > 0) {
-          // Promote the most recent historical file as current or keep slot with remaining history
-          const [nextCurrent, ...restHistory] = remainingHistory;
-          return {
-            ...t,
-            documents: {
-              ...t.documents,
-              [key]: {
-                ...nextCurrent,
-                isCurrent: true,
-                status: "current",
-                history: restHistory,
+        } else {
+          // If removing the current active file:
+          const remainingHistory = currentDoc.history || [];
+          if (remainingHistory.length > 0) {
+            const [nextCurrent, ...restHistory] = remainingHistory;
+            updatedTruck = {
+              ...t,
+              documents: {
+                ...t.documents,
+                [key]: {
+                  ...nextCurrent,
+                  isCurrent: true,
+                  status: "current",
+                  history: restHistory,
+                },
               },
-            },
-          };
+            };
+          } else {
+            updatedTruck = {
+              ...t,
+              documents: {
+                ...t.documents,
+                [key]: null,
+              },
+            };
+          }
         }
-
-        // Completely empty
-        return {
-          ...t,
-          documents: {
-            ...t.documents,
-            [key]: null,
-          },
-        };
+        cloudUpsert("trucks", truckToRow(updatedTruck));
+        return updatedTruck;
       })
     );
   };
@@ -643,10 +628,12 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       prev.map((t) => {
         if (t.id !== truckId) return t;
         const customDocs = t.customDocuments || [];
-        return {
+        const updatedTruck: Truck = {
           ...t,
           customDocuments: [document, ...customDocs],
         };
+        cloudUpsert("trucks", truckToRow(updatedTruck));
+        return updatedTruck;
       })
     );
   };
@@ -658,12 +645,14 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setTrucks((prev) =>
       prev.map((t) => {
         if (t.id !== truckId) return t;
-        return {
+        const updatedTruck: Truck = {
           ...t,
           customDocuments: (t.customDocuments || []).filter(
             (d) => d.id !== documentId
           ),
         };
+        cloudUpsert("trucks", truckToRow(updatedTruck));
+        return updatedTruck;
       })
     );
   };
@@ -681,13 +670,20 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         cabCard: null,
         trailerAgreement: null,
       },
+      customDocuments: [],
     };
     setTrailers((prev) => [newTrailer, ...prev]);
+    cloudUpsert("trailers", trailerToRow(newTrailer));
   };
 
   const updateTrailer = (id: string, updated: Partial<Trailer>) => {
     setTrailers((prev) =>
-      prev.map((tr) => (tr.id === id ? { ...tr, ...updated } : tr))
+      prev.map((tr) => {
+        if (tr.id !== id) return tr;
+        const newTr = { ...tr, ...updated };
+        cloudUpsert("trailers", trailerToRow(newTr));
+        return newTr;
+      })
     );
   };
 
@@ -722,13 +718,15 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           status: "current",
           history: newHistory,
         };
-        return {
+        const updatedTrailer: Trailer = {
           ...tr,
           documents: {
             ...tr.documents,
             [key]: newCurrentDoc,
           },
         };
+        cloudUpsert("trailers", trailerToRow(updatedTrailer));
+        return updatedTrailer;
       })
     );
   };
@@ -744,9 +742,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         const currentDoc = tr.documents ? tr.documents[key] : null;
         if (!currentDoc) return tr;
 
+        let updatedTrailer: Trailer;
         if (historyDocId) {
           const updatedHistory = (currentDoc.history || []).filter((h) => h.id !== historyDocId);
-          return {
+          updatedTrailer = {
             ...tr,
             documents: {
               ...tr.documents,
@@ -756,32 +755,34 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
               },
             },
           };
-        }
-
-        const remainingHistory = currentDoc.history || [];
-        if (remainingHistory.length > 0) {
-          const [nextCurrent, ...restHistory] = remainingHistory;
-          return {
-            ...tr,
-            documents: {
-              ...tr.documents,
-              [key]: {
-                ...nextCurrent,
-                isCurrent: true,
-                status: "current",
-                history: restHistory,
+        } else {
+          const remainingHistory = currentDoc.history || [];
+          if (remainingHistory.length > 0) {
+            const [nextCurrent, ...restHistory] = remainingHistory;
+            updatedTrailer = {
+              ...tr,
+              documents: {
+                ...tr.documents,
+                [key]: {
+                  ...nextCurrent,
+                  isCurrent: true,
+                  status: "current",
+                  history: restHistory,
+                },
               },
-            },
-          };
+            };
+          } else {
+            updatedTrailer = {
+              ...tr,
+              documents: {
+                ...tr.documents,
+                [key]: null,
+              },
+            };
+          }
         }
-
-        return {
-          ...tr,
-          documents: {
-            ...tr.documents,
-            [key]: null,
-          },
-        };
+        cloudUpsert("trailers", trailerToRow(updatedTrailer));
+        return updatedTrailer;
       })
     );
   };
@@ -794,10 +795,12 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       prev.map((tr) => {
         if (tr.id !== trailerId) return tr;
         const customDocs = tr.customDocuments || [];
-        return {
+        const updatedTrailer: Trailer = {
           ...tr,
           customDocuments: [document, ...customDocs],
         };
+        cloudUpsert("trailers", trailerToRow(updatedTrailer));
+        return updatedTrailer;
       })
     );
   };
@@ -809,12 +812,14 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setTrailers((prev) =>
       prev.map((tr) => {
         if (tr.id !== trailerId) return tr;
-        return {
+        const updatedTrailer: Trailer = {
           ...tr,
           customDocuments: (tr.customDocuments || []).filter(
             (d) => d.id !== documentId
           ),
         };
+        cloudUpsert("trailers", trailerToRow(updatedTrailer));
+        return updatedTrailer;
       })
     );
   };
@@ -845,11 +850,17 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       skippedDocuments: [],
     };
     setDrivers((prev) => [newDriver, ...prev]);
+    cloudUpsert("drivers", driverToRow(newDriver));
   };
 
   const updateDriver = (id: string, updated: Partial<Driver>) => {
     setDrivers((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, ...updated } : d))
+      prev.map((d) => {
+        if (d.id !== id) return d;
+        const newD = { ...d, ...updated };
+        cloudUpsert("drivers", driverToRow(newD));
+        return newD;
+      })
     );
   };
 
@@ -887,13 +898,15 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           status: "current",
           history: newHistory,
         };
-        return {
+        const updatedDriver: Driver = {
           ...d,
           documents: {
             ...d.documents,
             [categoryKey]: newCurrentDoc,
           },
         };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
       })
     );
   };
@@ -912,9 +925,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         const currentDoc = d.documents ? (d.documents[categoryKey] as FleetDocument | null) : null;
         if (!currentDoc) return d;
 
+        let updatedDriver: Driver;
         if (historyDocId) {
           const updatedHistory = (currentDoc.history || []).filter((h) => h.id !== historyDocId);
-          return {
+          updatedDriver = {
             ...d,
             documents: {
               ...d.documents,
@@ -924,32 +938,34 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
               },
             },
           };
-        }
-
-        const remainingHistory = currentDoc.history || [];
-        if (remainingHistory.length > 0) {
-          const [nextCurrent, ...restHistory] = remainingHistory;
-          return {
-            ...d,
-            documents: {
-              ...d.documents,
-              [categoryKey]: {
-                ...nextCurrent,
-                isCurrent: true,
-                status: "current",
-                history: restHistory,
+        } else {
+          const remainingHistory = currentDoc.history || [];
+          if (remainingHistory.length > 0) {
+            const [nextCurrent, ...restHistory] = remainingHistory;
+            updatedDriver = {
+              ...d,
+              documents: {
+                ...d.documents,
+                [categoryKey]: {
+                  ...nextCurrent,
+                  isCurrent: true,
+                  status: "current",
+                  history: restHistory,
+                },
               },
-            },
-          };
+            };
+          } else {
+            updatedDriver = {
+              ...d,
+              documents: {
+                ...d.documents,
+                [categoryKey]: null,
+              },
+            };
+          }
         }
-
-        return {
-          ...d,
-          documents: {
-            ...d.documents,
-            [categoryKey]: null,
-          },
-        };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
       })
     );
   };
@@ -961,13 +977,15 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setDrivers((prev) =>
       prev.map((d) => {
         if (d.id !== driverId) return d;
-        return {
+        const updatedDriver: Driver = {
           ...d,
           documents: {
             ...d.documents,
             drugTestResults: [document, ...(d.documents.drugTestResults || [])],
           },
         };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
       })
     );
   };
@@ -979,7 +997,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setDrivers((prev) =>
       prev.map((d) => {
         if (d.id !== driverId) return d;
-        return {
+        const updatedDriver: Driver = {
           ...d,
           documents: {
             ...d.documents,
@@ -988,6 +1006,8 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
             ),
           },
         };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
       })
     );
   };
@@ -996,13 +1016,15 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setDrivers((prev) =>
       prev.map((d) => {
         if (d.id !== driverId) return d;
-        return {
+        const updatedDriver: Driver = {
           ...d,
           documents: {
             ...d.documents,
             dotRecords: [document, ...(d.documents.dotRecords || [])],
           },
         };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
       })
     );
   };
@@ -1011,7 +1033,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setDrivers((prev) =>
       prev.map((d) => {
         if (d.id !== driverId) return d;
-        return {
+        const updatedDriver: Driver = {
           ...d,
           documents: {
             ...d.documents,
@@ -1020,6 +1042,8 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
             ),
           },
         };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
       })
     );
   };
@@ -1028,13 +1052,15 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setDrivers((prev) =>
       prev.map((d) => {
         if (d.id !== driverId) return d;
-        return {
+        const updatedDriver: Driver = {
           ...d,
           documents: {
             ...d.documents,
             applicationLink: link,
           },
         };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
       })
     );
   };
@@ -1045,12 +1071,14 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         if (d.id !== driverId) return d;
         const currentSkipped = d.skippedDocuments || [];
         const isAlreadySkipped = currentSkipped.includes(documentKey);
-        return {
+        const updatedDriver: Driver = {
           ...d,
           skippedDocuments: isAlreadySkipped
             ? currentSkipped.filter((k) => k !== documentKey)
             : [...currentSkipped, documentKey],
         };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
       })
     );
   };
@@ -1062,6 +1090,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       id: `maint-${Date.now()}`,
     };
     setMaintenanceRecords((prev) => [newRecord, ...prev]);
+    cloudUpsert("maintenance_records", maintenanceToRow(newRecord));
   };
 
   const updateMaintenanceRecord = (
@@ -1069,7 +1098,12 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     updated: Partial<MaintenanceRecord>
   ) => {
     setMaintenanceRecords((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, ...updated } : m))
+      prev.map((m) => {
+        if (m.id !== id) return m;
+        const newM = { ...m, ...updated };
+        cloudUpsert("maintenance_records", maintenanceToRow(newM));
+        return newM;
+      })
     );
   };
 
@@ -1085,11 +1119,17 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       id: `shop-${Date.now()}`,
     };
     setShops((prev) => [newShop, ...prev]);
+    cloudUpsert("shops", shopToRow(newShop));
   };
 
   const updateShop = (id: string, updated: Partial<TruckShop>) => {
     setShops((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...updated } : s))
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        const newS = { ...s, ...updated };
+        cloudUpsert("shops", shopToRow(newS));
+        return newS;
+      })
     );
   };
 
@@ -1114,6 +1154,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       },
     }));
     setTrucks((prev) => [...newTrucks, ...prev]);
+    cloudUpsert("trucks", newTrucks.map(truckToRow));
   };
 
   const bulkAddTrailers = (items: Omit<Trailer, "id" | "documents">[]) => {
@@ -1131,6 +1172,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       },
     }));
     setTrailers((prev) => [...newTrailers, ...prev]);
+    cloudUpsert("trailers", newTrailers.map(trailerToRow));
   };
 
   const bulkAddDrivers = (items: Omit<Driver, "id" | "documents">[]) => {
@@ -1158,6 +1200,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       },
     }));
     setDrivers((prev) => [...newDrivers, ...prev]);
+    cloudUpsert("drivers", newDrivers.map(driverToRow));
   };
 
   const bulkAddShops = (items: Omit<TruckShop, "id">[]) => {
@@ -1167,6 +1210,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       id: `shop-${timestamp}-${idx}`,
     }));
     setShops((prev) => [...newShops, ...prev]);
+    cloudUpsert("shops", newShops.map(shopToRow));
   };
 
   // User Management
@@ -1178,11 +1222,17 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       lastActive: "Never",
     };
     setUsers((prev) => [user, ...prev]);
+    cloudUpsert("user_profiles", userToRow(user));
   };
 
   const updateUser = (id: string, updatedFields: Partial<AppUser>) => {
     setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, ...updatedFields } : u))
+      prev.map((u) => {
+        if (u.id !== id) return u;
+        const newU = { ...u, ...updatedFields };
+        cloudUpsert("user_profiles", userToRow(newU));
+        return newU;
+      })
     );
   };
 
@@ -1193,13 +1243,19 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const toggleUserStatus = (id: string, status: UserStatus) => {
     setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, status } : u))
+      prev.map((u) => {
+        if (u.id !== id) return u;
+        const newU = { ...u, status };
+        cloudUpsert("user_profiles", userToRow(newU));
+        return newU;
+      })
     );
   };
 
   const resetUsers = () => {
     setUsers(initialUsers);
     localStorage.setItem("zdunje_users", JSON.stringify(initialUsers));
+    cloudUpsert("user_profiles", initialUsers.map(userToRow));
   };
 
   // Payment & Calendar Reminders Handlers
@@ -1210,11 +1266,17 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       createdAt: new Date().toISOString().split("T")[0],
     };
     setReminders((prev) => [newReminder, ...prev]);
+    cloudUpsert("payment_reminders", reminderToRow(newReminder));
   };
 
   const updateReminder = (id: string, patch: Partial<PaymentReminder>) => {
     setReminders((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const newR = { ...r, ...patch };
+        cloudUpsert("payment_reminders", reminderToRow(newR));
+        return newR;
+      })
     );
   };
 
@@ -1229,11 +1291,13 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         if (r.id !== id) return r;
         const newStatus: PaymentReminder["status"] =
           r.status === "Completed" ? "Pending" : "Completed";
-        return {
+        const updated: PaymentReminder = {
           ...r,
           status: newStatus,
           completedAt: newStatus === "Completed" ? new Date().toISOString() : null,
         };
+        cloudUpsert("payment_reminders", reminderToRow(updated));
+        return updated;
       })
     );
   };

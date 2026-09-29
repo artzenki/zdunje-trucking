@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { FleetDocument } from "@/types/fleet";
-import { fileToBase64 } from "@/lib/documentUtils";
-import { Upload, X, File } from "lucide-react";
+import { uploadFileToSupabaseStorage } from "@/lib/documentStorage";
+import { Upload, X, File, Loader2 } from "lucide-react";
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -94,18 +94,51 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       let fileSize = 250000;
       let fileType = "application/pdf";
 
-      if (selectedFile) {
-        fileSize = selectedFile.size;
-        fileType = selectedFile.type || "application/pdf";
-        // Convert to base64 for local persistence
-        fileData = await fileToBase64(selectedFile);
-      }
-
       const finalName =
         docName.trim() ||
         (selectedFile
           ? selectedFile.name
           : `${category.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`);
+
+      // Determine appropriate storage folder
+      let folder: "drivers" | "trucks" | "trailers" | "maintenance" | "general" = "general";
+      const targetLower = (targetName + " " + category).toLowerCase();
+      if (
+        targetLower.includes("driver") ||
+        targetLower.includes("cdl") ||
+        targetLower.includes("mvr") ||
+        targetLower.includes("medcard") ||
+        targetLower.includes("drug") ||
+        targetLower.includes("psp")
+      ) {
+        folder = "drivers";
+      } else if (
+        targetLower.includes("truck") ||
+        targetLower.includes("cab card") ||
+        targetLower.includes("2290")
+      ) {
+        folder = "trucks";
+      } else if (targetLower.includes("trailer")) {
+        folder = "trailers";
+      } else if (
+        targetLower.includes("maintenance") ||
+        targetLower.includes("work order") ||
+        targetLower.includes("repair")
+      ) {
+        folder = "maintenance";
+      }
+
+      if (selectedFile) {
+        fileSize = selectedFile.size;
+        fileType = selectedFile.type || "application/pdf";
+        // Upload directly to Supabase Storage bucket 'documents'
+        const uploadResult = await uploadFileToSupabaseStorage(
+          selectedFile,
+          finalName,
+          folder
+        );
+        fileData = uploadResult.fileUrl;
+      }
 
       const newDoc: FleetDocument = {
         id: `doc-${Date.now()}`,
@@ -403,8 +436,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               disabled={isSubmitting}
               className="h-10 inline-flex items-center space-x-2 px-5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
             >
-              <Upload className="w-4 h-4" />
-              <span>{isSubmitting ? "Uploading..." : "Save Document"}</span>
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              <span>{isSubmitting ? "Uploading to Cloud..." : "Save Document"}</span>
             </button>
           </div>
         </form>

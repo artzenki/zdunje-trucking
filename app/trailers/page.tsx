@@ -32,7 +32,8 @@ import {
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
 import { CustomDocumentUploadModal } from "@/components/CustomDocumentUploadModal";
-import { downloadDocument, fileToBase64 } from "@/lib/documentUtils";
+import { downloadDocument } from "@/lib/documentUtils";
+import { uploadFileToSupabaseStorage } from "@/lib/documentStorage";
 
 const TRAILER_DOCUMENTS: {
   key: TrailerDocumentKey;
@@ -241,7 +242,11 @@ function TrailersContent() {
   ) => {
     if (!selectedTrailer) return;
     try {
-      const fileData = await fileToBase64(file);
+      const uploadRes = await uploadFileToSupabaseStorage(
+        file,
+        file.name,
+        "trailers"
+      );
       const newDoc: FleetDocument = {
         id: `trailer-doc-${Date.now()}`,
         name: file.name,
@@ -249,7 +254,7 @@ function TrailersContent() {
         fileType: file.type || "application/pdf",
         fileSize: file.size,
         uploadedAt: new Date().toISOString(),
-        fileData,
+        fileData: uploadRes.fileUrl,
         isCurrent: true,
         status: "current",
       };
