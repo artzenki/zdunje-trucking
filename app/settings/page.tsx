@@ -49,6 +49,7 @@ export default function SettingsPage() {
     trucks,
     trailers,
     drivers,
+    applicants,
     shops,
     maintenanceRecords,
     users,
@@ -81,6 +82,7 @@ export default function SettingsPage() {
     maintenance: number;
     reminders: number;
     users: number;
+    applicants: number;
   }>({
     trucks: 0,
     trailers: 0,
@@ -89,6 +91,7 @@ export default function SettingsPage() {
     maintenance: 0,
     reminders: 0,
     users: 0,
+    applicants: 0,
   });
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
@@ -99,7 +102,7 @@ export default function SettingsPage() {
       return;
     }
     try {
-      const [tRes, trRes, dRes, sRes, mRes, remRes, uRes] = await Promise.all([
+      const [tRes, trRes, dRes, sRes, mRes, remRes, uRes, appRes] = await Promise.all([
         supabase.from("trucks").select("id", { count: "exact", head: true }),
         supabase.from("trailers").select("id", { count: "exact", head: true }),
         supabase.from("drivers").select("id", { count: "exact", head: true }),
@@ -107,6 +110,7 @@ export default function SettingsPage() {
         supabase.from("maintenance_records").select("id", { count: "exact", head: true }),
         supabase.from("payment_reminders").select("id", { count: "exact", head: true }),
         supabase.from("user_profiles").select("id", { count: "exact", head: true }),
+        supabase.from("applicants").select("id", { count: "exact", head: true }),
       ]);
 
       setSupabaseStats({
@@ -117,6 +121,7 @@ export default function SettingsPage() {
         maintenance: mRes.count || 0,
         reminders: remRes.count || 0,
         users: uRes.count || 0,
+        applicants: appRes.count || 0,
       });
       setIsSupabaseConnected(true);
     } catch {
@@ -688,7 +693,7 @@ export default function SettingsPage() {
                 <span className="px-1.5 py-0.2 bg-emerald-200/60 text-emerald-800 text-[10px] rounded uppercase tracking-wider font-extrabold">Instant Real-Time</span>
               </span>
               <span className="text-[11px] text-emerald-700/90 font-medium">
-                Cloud Synced: {supabaseStats.trucks || trucks.length} Trucks · {supabaseStats.trailers || trailers.length} Trailers · {supabaseStats.drivers || drivers.length} Drivers · {supabaseStats.shops || shops.length} Shops · {supabaseStats.maintenance || maintenanceRecords.length} Work Orders · {supabaseStats.reminders || reminders.length} Reminders · {supabaseStats.users || users.length} Staff
+                Cloud Synced: {supabaseStats.trucks || trucks.length} Trucks · {supabaseStats.trailers || trailers.length} Trailers · {supabaseStats.drivers || drivers.length} Drivers · {supabaseStats.applicants || (applicants || []).length} Applicants · {supabaseStats.shops || shops.length} Shops · {supabaseStats.maintenance || maintenanceRecords.length} Work Orders · {supabaseStats.reminders || reminders.length} Reminders · {supabaseStats.users || users.length} Staff
               </span>
             </div>
           </div>

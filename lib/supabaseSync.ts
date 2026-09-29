@@ -4,6 +4,9 @@ import {
   Truck,
   Trailer,
   Driver,
+  Applicant,
+  ApplicantStatus,
+  FleetDocument,
   TruckShop,
   MaintenanceRecord,
   PaymentReminder,
@@ -237,6 +240,45 @@ export const rowToDriver = (d: Record<string, unknown>): Driver => {
     skippedDocuments: ((d.skipped_documents || d.skippedDocuments || []) as string[]),
     hireDate: String(d.hire_date || ""),
     notes: String(d.notes || ""),
+  };
+};
+
+export const applicantToRow = (a: Applicant) => ({
+  id: a.id,
+  first_name: a.firstName || "Applicant",
+  middle_name: a.middleName || "",
+  last_name: a.lastName || "",
+  phone: a.phone || "",
+  date_of_birth: sanitizeDate(a.dateOfBirth),
+  state: a.state || "IL",
+  license_number: a.licenseNumber || "",
+  email: a.email || "",
+  status: a.status || "Under Review",
+  applied_date: sanitizeDate(a.appliedDate) || new Date().toISOString().split("T")[0],
+  documents: a.documents || { mvr: null, pspAuth: null, pspReport: null },
+  notes: a.notes || "",
+});
+
+export const rowToApplicant = (a: Record<string, unknown>): Applicant => {
+  const rawDocs = (a.documents || {}) as Record<string, unknown>;
+  return {
+    id: String(a.id),
+    firstName: String(a.first_name || ""),
+    middleName: String(a.middle_name || ""),
+    lastName: String(a.last_name || ""),
+    phone: String(a.phone || ""),
+    dateOfBirth: String(a.date_of_birth || ""),
+    state: String(a.state || "IL"),
+    licenseNumber: String(a.license_number || ""),
+    email: String(a.email || ""),
+    status: (a.status || "Under Review") as ApplicantStatus,
+    appliedDate: String(a.applied_date || a.created_at || new Date().toISOString().split("T")[0]),
+    documents: {
+      mvr: (rawDocs.mvr as FleetDocument) || null,
+      pspAuth: (rawDocs.pspAuth as FleetDocument) || null,
+      pspReport: (rawDocs.pspReport as FleetDocument) || null,
+    },
+    notes: String(a.notes || ""),
   };
 };
 

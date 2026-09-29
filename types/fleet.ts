@@ -140,6 +140,32 @@ export interface Driver {
   notes: string;
 }
 
+export type ApplicantDocumentKey = "mvr" | "pspAuth" | "pspReport";
+
+export interface ApplicantDocuments {
+  mvr: FleetDocument | null;
+  pspAuth: FleetDocument | null;
+  pspReport: FleetDocument | null;
+}
+
+export type ApplicantStatus = "Under Review" | "Approved" | "Rejected" | "Hired";
+
+export interface Applicant {
+  id: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  phone: string;
+  dateOfBirth: string; // YYYY-MM-DD
+  state: string;
+  licenseNumber: string;
+  email?: string;
+  status: ApplicantStatus;
+  appliedDate: string;
+  documents: ApplicantDocuments;
+  notes?: string;
+}
+
 export interface MaintenanceRecord {
   id: string;
   truckId: string;
@@ -233,6 +259,7 @@ export type AppModule =
   | "trucks"
   | "trailers"
   | "drivers"
+  | "applicants"
   | "maintenance"
   | "shops"
   | "documents"
@@ -277,6 +304,10 @@ export const MODULE_NAMES: Record<AppModule, { label: string; description: strin
     label: "Drivers & Qualification",
     description: "Manage CDL drivers, direct deposit, and DOT onboarding",
   },
+  applicants: {
+    label: "Driver Applicants",
+    description: "Pre-hire onboarding, MVR driving checks, and PSP safety authorization",
+  },
   maintenance: {
     label: "Maintenance & Work Orders",
     description: "Log PM services, repair invoices, and due reminders",
@@ -308,6 +339,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     trucks: { view: true, create: true, edit: true, delete: true },
     trailers: { view: true, create: true, edit: true, delete: true },
     drivers: { view: true, create: true, edit: true, delete: true },
+    applicants: { view: true, create: true, edit: true, delete: true },
     maintenance: { view: true, create: true, edit: true, delete: true },
     shops: { view: true, create: true, edit: true, delete: true },
     documents: { view: true, create: true, edit: true, delete: true },
@@ -319,6 +351,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     trucks: { view: true, create: false, edit: false, delete: false },
     trailers: { view: true, create: false, edit: false, delete: false },
     drivers: { view: true, create: true, edit: true, delete: false },
+    applicants: { view: true, create: true, edit: true, delete: true },
     maintenance: { view: true, create: false, edit: false, delete: false },
     shops: { view: true, create: false, edit: false, delete: false },
     documents: { view: true, create: true, edit: true, delete: false },
@@ -330,6 +363,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     trucks: { view: true, create: true, edit: true, delete: false },
     trailers: { view: true, create: true, edit: true, delete: false },
     drivers: { view: true, create: false, edit: true, delete: false },
+    applicants: { view: true, create: true, edit: true, delete: false },
     maintenance: { view: true, create: false, edit: false, delete: false },
     shops: { view: true, create: true, edit: true, delete: false },
     documents: { view: true, create: true, edit: false, delete: false },
@@ -341,6 +375,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     trucks: { view: true, create: false, edit: true, delete: false },
     trailers: { view: true, create: false, edit: true, delete: false },
     drivers: { view: false, create: false, edit: false, delete: false },
+    applicants: { view: false, create: false, edit: false, delete: false },
     maintenance: { view: true, create: true, edit: true, delete: false },
     shops: { view: true, create: true, edit: true, delete: false },
     documents: { view: true, create: true, edit: false, delete: false },
@@ -352,6 +387,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     trucks: { view: true, create: false, edit: false, delete: false },
     trailers: { view: true, create: false, edit: false, delete: false },
     drivers: { view: true, create: false, edit: false, delete: false },
+    applicants: { view: true, create: false, edit: false, delete: false },
     maintenance: { view: true, create: false, edit: false, delete: false },
     shops: { view: true, create: false, edit: false, delete: false },
     documents: { view: true, create: false, edit: false, delete: false },
@@ -363,6 +399,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     trucks: { view: true, create: false, edit: false, delete: false },
     trailers: { view: true, create: false, edit: false, delete: false },
     drivers: { view: true, create: false, edit: false, delete: false },
+    applicants: { view: true, create: false, edit: false, delete: false },
     maintenance: { view: true, create: false, edit: false, delete: false },
     shops: { view: true, create: false, edit: false, delete: false },
     documents: { view: true, create: false, edit: false, delete: false },

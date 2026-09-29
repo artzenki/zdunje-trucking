@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useFleet } from "@/context/FleetContext";
 import {
@@ -142,6 +143,7 @@ function DriversContent() {
   const searchParams = useSearchParams();
   const {
     drivers,
+    applicants,
     trucks,
     addDriver,
     updateDriver,
@@ -458,6 +460,32 @@ function DriversContent() {
           <Plus className="w-4 h-4" />
           <span>Add New Driver</span>
         </button>
+      </div>
+
+      {/* Driver / Applicant Tab Switcher */}
+      <div className="flex items-center space-x-3 border-b border-slate-200 pb-2">
+        <Link
+          href="/drivers"
+          className="flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-bold bg-slate-900 text-white shadow-xs"
+        >
+          <Users className="w-4 h-4" />
+          <span>Active Fleet Drivers</span>
+          <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-slate-800 text-emerald-400 font-extrabold">
+            {drivers.length}
+          </span>
+        </Link>
+        <Link
+          href="/applicants"
+          className="flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+        >
+          <UserCheck className="w-4 h-4 text-blue-600" />
+          <span>Driver Applicants (Onboarding & MVR / PSP)</span>
+          {(applicants || []).length > 0 && (
+            <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 font-extrabold">
+              {(applicants || []).length}
+            </span>
+          )}
+        </Link>
       </div>
 
       {/* Main Grid */}

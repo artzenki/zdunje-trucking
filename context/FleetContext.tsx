@@ -5,6 +5,8 @@ import {
   Truck,
   Trailer,
   Driver,
+  Applicant,
+  ApplicantDocumentKey,
   MaintenanceRecord,
   TruckShop,
   FleetDocument,
@@ -32,6 +34,8 @@ import {
   rowToTrailer,
   driverToRow,
   rowToDriver,
+  applicantToRow,
+  rowToApplicant,
   shopToRow,
   rowToShop,
   maintenanceToRow,
@@ -105,6 +109,23 @@ interface FleetContextType {
   updateDriverApplicationLink: (driverId: string, link: string) => void;
   toggleDriverDocumentSkip: (driverId: string, documentKey: string) => void;
 
+  // Applicants
+  applicants: Applicant[];
+  addApplicant: (applicant: Omit<Applicant, "id" | "documents">) => void;
+  updateApplicant: (id: string, patch: Partial<Applicant>) => void;
+  deleteApplicant: (id: string) => void;
+  uploadApplicantDocument: (
+    applicantId: string,
+    key: ApplicantDocumentKey,
+    document: FleetDocument
+  ) => void;
+  removeApplicantDocument: (
+    applicantId: string,
+    key: ApplicantDocumentKey,
+    historyDocId?: string
+  ) => void;
+  convertApplicantToDriver: (applicantId: string) => void;
+
   // Maintenance
   addMaintenanceRecord: (
     record: Omit<MaintenanceRecord, "id">
@@ -169,6 +190,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
   const [trucks, setTrucks] = useState<Truck[]>([]);
   const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [shops, setShops] = useState<TruckShop[]>([]);
   const [maintenanceRecords, setMaintenanceRecords] = useState<
     MaintenanceRecord[]
@@ -187,6 +209,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       const savedTrucks = localStorage.getItem("zdunje_trucks");
       const savedTrailers = localStorage.getItem("zdunje_trailers");
       const savedDrivers = localStorage.getItem("zdunje_drivers");
+      const savedApplicants = localStorage.getItem("zdunje_applicants");
       const savedShops = localStorage.getItem("zdunje_shops");
       const savedMaint = localStorage.getItem("zdunje_maintenance");
       const savedUsers = localStorage.getItem("zdunje_users");
@@ -195,6 +218,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       if (savedTrucks) setTrucks(JSON.parse(savedTrucks));
       if (savedTrailers) setTrailers(JSON.parse(savedTrailers));
       if (savedDrivers) setDrivers(JSON.parse(savedDrivers));
+      if (savedApplicants) setApplicants(JSON.parse(savedApplicants));
       if (savedShops) setShops(JSON.parse(savedShops));
       if (savedMaint) setMaintenanceRecords(JSON.parse(savedMaint));
       if (savedUsers) setUsers(JSON.parse(savedUsers));
@@ -212,10 +236,11 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setCloudSyncStatus("syncing");
       try {
-        const [tRes, trRes, dRes, sRes, mRes, uRes, rRes] = await Promise.all([
+        const [tRes, trRes, dRes, appRes, sRes, mRes, uRes, rRes] = await Promise.all([
           supabase.from("trucks").select("*"),
           supabase.from("trailers").select("*"),
           supabase.from("drivers").select("*"),
+          supabase.from("applicants").select("*"),
           supabase.from("shops").select("*"),
           supabase.from("maintenance_records").select("*"),
           supabase.from("user_profiles").select("*"),
@@ -242,6 +267,13 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           await cloudUpsert("drivers", initialDrivers.map(driverToRow));
           setDrivers(initialDrivers);
           localStorage.setItem("zdunje_drivers", JSON.stringify(initialDrivers));
+        }
+
+        // Applicants: live from Supabase
+        if (appRes.data && appRes.data.length > 0) {
+          const remoteApplicants = appRes.data.map(rowToApplicant);
+          setApplicants(remoteApplicants);
+          localStorage.setItem("zdunje_applicants", JSON.stringify(remoteApplicants));
         }
 
         // Trailers: live from Supabase
@@ -316,6 +348,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       localStorage.setItem("zdunje_trucks", JSON.stringify(trucks));
       localStorage.setItem("zdunje_trailers", JSON.stringify(trailers));
       localStorage.setItem("zdunje_drivers", JSON.stringify(drivers));
+      localStorage.setItem("zdunje_applicants", JSON.stringify(applicants));
       localStorage.setItem("zdunje_shops", JSON.stringify(shops));
       localStorage.setItem("zdunje_maintenance", JSON.stringify(maintenanceRecords));
       localStorage.setItem("zdunje_users", JSON.stringify(users));
@@ -323,7 +356,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (e) {
       console.error("Failed to save to localStorage cache", e);
     }
-  }, [trucks, trailers, drivers, shops, maintenanceRecords, users, reminders, isLoaded]);
+  }, [trucks, trailers, drivers, applicants, shops, maintenanceRecords, users, reminders, isLoaded]);
 
   // Explicit Full Cloud Sync Function
   const syncWithCloud = async (): Promise<{ success: boolean; message: string }> => {
@@ -334,6 +367,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         trucks.length > 0 ? cloudUpsert("trucks", trucks.map(truckToRow)) : Promise.resolve(),
         trailers.length > 0 ? cloudUpsert("trailers", trailers.map(trailerToRow)) : Promise.resolve(),
         drivers.length > 0 ? cloudUpsert("drivers", drivers.map(driverToRow)) : Promise.resolve(),
+        applicants.length > 0 ? cloudUpsert("applicants", applicants.map(applicantToRow)) : Promise.resolve(),
         shops.length > 0 ? cloudUpsert("shops", shops.map(shopToRow)) : Promise.resolve(),
         maintenanceRecords.length > 0 ? cloudUpsert("maintenance_records", maintenanceRecords.map(maintenanceToRow)) : Promise.resolve(),
         reminders.length > 0 ? cloudUpsert("payment_reminders", reminders.map(reminderToRow)) : Promise.resolve(),
@@ -366,6 +400,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           trucks.length > 0 ? cloudUpsert("trucks", trucks.map(truckToRow)) : Promise.resolve(),
           trailers.length > 0 ? cloudUpsert("trailers", trailers.map(trailerToRow)) : Promise.resolve(),
           drivers.length > 0 ? cloudUpsert("drivers", drivers.map(driverToRow)) : Promise.resolve(),
+          applicants.length > 0 ? cloudUpsert("applicants", applicants.map(applicantToRow)) : Promise.resolve(),
           shops.length > 0 ? cloudUpsert("shops", shops.map(shopToRow)) : Promise.resolve(),
           maintenanceRecords.length > 0 ? cloudUpsert("maintenance_records", maintenanceRecords.map(maintenanceToRow)) : Promise.resolve(),
           reminders.length > 0 ? cloudUpsert("payment_reminders", reminders.map(reminderToRow)) : Promise.resolve(),
@@ -1083,6 +1118,184 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  // Applicant Handlers
+  const addApplicant = (applicant: Omit<Applicant, "id" | "documents">) => {
+    const newApplicant: Applicant = {
+      ...applicant,
+      id: `app-${Date.now()}`,
+      appliedDate: applicant.appliedDate || new Date().toISOString().split("T")[0],
+      documents: {
+        mvr: null,
+        pspAuth: null,
+        pspReport: null,
+      },
+    };
+    setApplicants((prev) => [newApplicant, ...prev]);
+    cloudUpsert("applicants", applicantToRow(newApplicant));
+  };
+
+  const updateApplicant = (id: string, patch: Partial<Applicant>) => {
+    setApplicants((prev) =>
+      prev.map((app) => {
+        if (app.id !== id) return app;
+        const updated = { ...app, ...patch };
+        cloudUpsert("applicants", applicantToRow(updated));
+        return updated;
+      })
+    );
+  };
+
+  const deleteApplicant = (id: string) => {
+    setApplicants((prev) => prev.filter((app) => app.id !== id));
+    cloudDelete("applicants", id);
+  };
+
+  const uploadApplicantDocument = (
+    applicantId: string,
+    key: ApplicantDocumentKey,
+    document: FleetDocument
+  ) => {
+    setApplicants((prev) =>
+      prev.map((app) => {
+        if (app.id !== applicantId) return app;
+        const currentDoc = app.documents[key];
+        const newDoc: FleetDocument = {
+          ...document,
+          isCurrent: true,
+          status: "current",
+        };
+
+        if (currentDoc) {
+          const existingHistory = currentDoc.history || [];
+          const { history: _, ...archiveCopy } = currentDoc;
+          newDoc.history = [
+            { ...archiveCopy, isCurrent: false, status: "archived" },
+            ...existingHistory,
+          ];
+        }
+
+        const updated: Applicant = {
+          ...app,
+          documents: {
+            ...app.documents,
+            [key]: newDoc,
+          },
+        };
+        cloudUpsert("applicants", applicantToRow(updated));
+        return updated;
+      })
+    );
+  };
+
+  const removeApplicantDocument = (
+    applicantId: string,
+    key: ApplicantDocumentKey,
+    historyDocId?: string
+  ) => {
+    setApplicants((prev) =>
+      prev.map((app) => {
+        if (app.id !== applicantId) return app;
+        const currentDoc = app.documents[key];
+        if (!currentDoc) return app;
+
+        let updated: Applicant;
+        if (historyDocId) {
+          const filteredHistory = (currentDoc.history || []).filter((h) => h.id !== historyDocId);
+          updated = {
+            ...app,
+            documents: {
+              ...app.documents,
+              [key]: {
+                ...currentDoc,
+                history: filteredHistory,
+              },
+            },
+          };
+        } else {
+          // deleting current active doc; promote previous if available
+          const [nextCurrent, ...restHistory] = currentDoc.history || [];
+          if (nextCurrent) {
+            updated = {
+              ...app,
+              documents: {
+                ...app.documents,
+                [key]: {
+                  ...nextCurrent,
+                  isCurrent: true,
+                  status: "current",
+                  history: restHistory,
+                },
+              },
+            };
+          } else {
+            updated = {
+              ...app,
+              documents: {
+                ...app.documents,
+                [key]: null,
+              },
+            };
+          }
+        }
+        cloudUpsert("applicants", applicantToRow(updated));
+        return updated;
+      })
+    );
+  };
+
+  const convertApplicantToDriver = (applicantId: string) => {
+    const applicant = applicants.find((a) => a.id === applicantId);
+    if (!applicant) return;
+
+    const newDriver: Driver = {
+      id: `driver-${Date.now()}`,
+      firstName: applicant.firstName,
+      middleName: applicant.middleName || "",
+      lastName: applicant.lastName,
+      dateOfBirth: applicant.dateOfBirth,
+      email: applicant.email || "",
+      phone: applicant.phone,
+      state: applicant.state,
+      licenseNumber: applicant.licenseNumber,
+      status: "Active",
+      assignedTruckId: null,
+      bankInfo: {
+        accountNumber: "",
+        routingNumber: "",
+        bankInfo: "",
+      },
+      clearingHouseQuery: false,
+      hireDate: new Date().toISOString().split("T")[0],
+      notes: applicant.notes ? `Promoted from applicant on ${new Date().toLocaleDateString()}. Notes: ${applicant.notes}` : "",
+      documents: {
+        cdl: null,
+        medCard: null,
+        mvr: applicant.documents.mvr || null,
+        pspAuth: applicant.documents.pspAuth || null,
+        pspReport: applicant.documents.pspReport || null,
+        clearingHouse: null,
+        applicationLink: "",
+        applicationFile: null,
+        drugCustodyForm: null,
+        drugPassport: null,
+        drugTestResults: [],
+        dotRecords: [],
+        bankInfoDoc: null,
+        einLetter: null,
+        onboardingDoc: null,
+        leaseAgreement: null,
+      },
+    };
+
+    // Add driver
+    setDrivers((prev) => [newDriver, ...prev]);
+    cloudUpsert("drivers", driverToRow(newDriver));
+
+    // Remove or mark applicant as Hired
+    setApplicants((prev) => prev.filter((a) => a.id !== applicantId));
+    cloudDelete("applicants", applicantId);
+  };
+
   // Maintenance Handlers
   const addMaintenanceRecord = (record: Omit<MaintenanceRecord, "id">) => {
     const newRecord: MaintenanceRecord = {
@@ -1365,6 +1578,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         trucks,
         trailers,
         drivers,
+        applicants,
         shops,
         maintenanceRecords,
         alerts,
@@ -1404,6 +1618,12 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         removeDriverDotRecord,
         updateDriverApplicationLink,
         toggleDriverDocumentSkip,
+        addApplicant,
+        updateApplicant,
+        deleteApplicant,
+        uploadApplicantDocument,
+        removeApplicantDocument,
+        convertApplicantToDriver,
         addMaintenanceRecord,
         updateMaintenanceRecord,
         deleteMaintenanceRecord,

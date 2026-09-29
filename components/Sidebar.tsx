@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Truck,
   Users,
+  UserCheck,
   Wrench,
   Store,
   FolderLock,
@@ -22,7 +23,7 @@ import {
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
-  const { trucks, trailers, drivers, alerts, users, reminders } = useFleet();
+  const { trucks, trailers, drivers, applicants, alerts, users, reminders } = useFleet();
   const { currentUser, hasPermission, logout } = useAuth();
 
   const activeTrucks = (trucks || []).filter((t) => t.status === "Active").length;
@@ -69,6 +70,14 @@ export const Sidebar: React.FC = () => {
       icon: Users,
       badge: (drivers || []).length,
       module: "drivers",
+    },
+    {
+      name: "Applicants",
+      href: "/applicants",
+      icon: UserCheck,
+      badge: (applicants || []).length > 0 ? (applicants || []).length : null,
+      badgeColor: "bg-blue-600 text-white",
+      module: "applicants",
     },
     {
       name: "Maintenance",
