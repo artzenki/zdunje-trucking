@@ -53,6 +53,15 @@ export default function DocumentsPage() {
           });
         }
       });
+      (t.customDocuments || []).forEach((doc) => {
+        list.push({
+          doc,
+          entityType: "truck",
+          entityId: t.id,
+          entityName: `Unit #${t.unitNumber} (${t.make})`,
+          linkUrl: `/trucks?id=${t.id}`,
+        });
+      });
     });
 
     // Trailers
@@ -67,6 +76,15 @@ export default function DocumentsPage() {
             linkUrl: `/trailers?id=${tr.id}`,
           });
         }
+      });
+      (tr.customDocuments || []).forEach((doc) => {
+        list.push({
+          doc,
+          entityType: "trailer",
+          entityId: tr.id,
+          entityName: `Trailer #${tr.unitNumber}`,
+          linkUrl: `/trailers?id=${tr.id}`,
+        });
       });
     });
 

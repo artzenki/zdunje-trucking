@@ -41,6 +41,8 @@ interface FleetContextType {
     document: FleetDocument
   ) => void;
   removeTruckDocument: (truckId: string, key: TruckDocumentKey) => void;
+  addTruckCustomDocument: (truckId: string, document: FleetDocument) => void;
+  removeTruckCustomDocument: (truckId: string, documentId: string) => void;
 
   // Trailers
   addTrailer: (trailer: Omit<Trailer, "id" | "documents">) => void;
@@ -52,6 +54,8 @@ interface FleetContextType {
     document: FleetDocument
   ) => void;
   removeTrailerDocument: (trailerId: string, key: TrailerDocumentKey) => void;
+  addTrailerCustomDocument: (trailerId: string, document: FleetDocument) => void;
+  removeTrailerCustomDocument: (trailerId: string, documentId: string) => void;
 
   // Drivers
   addDriver: (driver: Omit<Driver, "id" | "documents">) => void;
@@ -137,11 +141,21 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       const savedMaint = localStorage.getItem("zdunje_maintenance");
       const savedUsers = localStorage.getItem("zdunje_users");
 
-      if (savedTrucks) setTrucks(JSON.parse(savedTrucks));
-      else setTrucks(initialTrucks);
+      if (savedTrucks) {
+        const parsed = JSON.parse(savedTrucks);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setTrucks(parsed.map((t: any) => ({ ...t, customDocuments: t.customDocuments || [] })));
+      } else {
+        setTrucks(initialTrucks);
+      }
 
-      if (savedTrailers) setTrailers(JSON.parse(savedTrailers));
-      else setTrailers(initialTrailers);
+      if (savedTrailers) {
+        const parsed = JSON.parse(savedTrailers);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setTrailers(parsed.map((tr: any) => ({ ...tr, customDocuments: tr.customDocuments || [] })));
+      } else {
+        setTrailers(initialTrailers);
+      }
 
       if (savedDrivers) {
         const parsed = JSON.parse(savedDrivers);
@@ -368,6 +382,39 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  const addTruckCustomDocument = (
+    truckId: string,
+    document: FleetDocument
+  ) => {
+    setTrucks((prev) =>
+      prev.map((t) => {
+        if (t.id !== truckId) return t;
+        const customDocs = t.customDocuments || [];
+        return {
+          ...t,
+          customDocuments: [document, ...customDocs],
+        };
+      })
+    );
+  };
+
+  const removeTruckCustomDocument = (
+    truckId: string,
+    documentId: string
+  ) => {
+    setTrucks((prev) =>
+      prev.map((t) => {
+        if (t.id !== truckId) return t;
+        return {
+          ...t,
+          customDocuments: (t.customDocuments || []).filter(
+            (d) => d.id !== documentId
+          ),
+        };
+      })
+    );
+  };
+
   // Trailer Handlers
   const addTrailer = (data: Omit<Trailer, "id" | "documents">) => {
     const newTrailer: Trailer = {
@@ -427,6 +474,39 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
             ...tr.documents,
             [key]: null,
           },
+        };
+      })
+    );
+  };
+
+  const addTrailerCustomDocument = (
+    trailerId: string,
+    document: FleetDocument
+  ) => {
+    setTrailers((prev) =>
+      prev.map((tr) => {
+        if (tr.id !== trailerId) return tr;
+        const customDocs = tr.customDocuments || [];
+        return {
+          ...tr,
+          customDocuments: [document, ...customDocs],
+        };
+      })
+    );
+  };
+
+  const removeTrailerCustomDocument = (
+    trailerId: string,
+    documentId: string
+  ) => {
+    setTrailers((prev) =>
+      prev.map((tr) => {
+        if (tr.id !== trailerId) return tr;
+        return {
+          ...tr,
+          customDocuments: (tr.customDocuments || []).filter(
+            (d) => d.id !== documentId
+          ),
         };
       })
     );
@@ -792,11 +872,15 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         deleteTruck,
         uploadTruckDocument,
         removeTruckDocument,
+        addTruckCustomDocument,
+        removeTruckCustomDocument,
         addTrailer,
         updateTrailer,
         deleteTrailer,
         uploadTrailerDocument,
         removeTrailerDocument,
+        addTrailerCustomDocument,
+        removeTrailerCustomDocument,
         addDriver,
         updateDriver,
         deleteDriver,

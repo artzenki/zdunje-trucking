@@ -29,6 +29,7 @@ export interface FleetDocument {
   recordDate?: string; // YYYY-MM-DD for DOT records / inspection date
   fileData?: string; // base64 or object URL
   notes?: string;
+  description?: string;
   testDate?: string; // for drug test results
   testType?: "Random FMCSA" | "Pre-Employment" | "Post-Accident" | "Reasonable Suspicion" | "Return-to-Duty";
   inspectionLevel?: string; // e.g. "Level 1", "Level 2", "Level 3"
@@ -61,6 +62,7 @@ export interface Truck {
   currentMileage: number;
   notes: string;
   documents: Record<TruckDocumentKey, FleetDocument | null>;
+  customDocuments?: FleetDocument[];
 }
 
 export type TrailerDocumentKey =
@@ -86,6 +88,7 @@ export interface Trailer {
   assignedTruckId: string | null;
   notes: string;
   documents: Record<TrailerDocumentKey, FleetDocument | null>;
+  customDocuments?: FleetDocument[];
 }
 
 export interface DriverBankInfo {

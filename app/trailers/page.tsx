@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
+import { CustomDocumentUploadModal } from "@/components/CustomDocumentUploadModal";
 import { downloadDocument } from "@/lib/documentUtils";
 
 const TRAILER_DOCUMENTS: {
@@ -84,6 +85,8 @@ function TrailersContent() {
     deleteTrailer,
     uploadTrailerDocument,
     removeTrailerDocument,
+    addTrailerCustomDocument,
+    removeTrailerCustomDocument,
   } = useFleet();
 
   const [search, setSearch] = useState("");
@@ -98,6 +101,7 @@ function TrailersContent() {
   const [viewingDoc, setViewingDoc] = useState<FleetDocument | null>(null);
   const [uploadingDocKey, setUploadingDocKey] =
     useState<TrailerDocumentKey | null>(null);
+  const [isUploadCustomDocOpen, setIsUploadCustomDocOpen] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -511,104 +515,112 @@ function TrailersContent() {
               </div>
 
               {/* Documents Hub */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-lg flex items-center space-x-2">
-                    <Shield className="w-5 h-5 text-purple-600" />
-                    <span>Trailer #{selectedTrailer.unitNumber} Documents</span>
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Title, 2290, Annual DOT, Bobtail/Physical Damage, CAB Card, and Trailer Agreement.
-                  </p>
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-lg flex items-center space-x-2">
+                      <Shield className="w-5 h-5 text-purple-600" />
+                      <span>Trailer #{selectedTrailer.unitNumber} Documents Vault</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Required compliance papers (Title, 2290, Annual DOT, Bobtail/Physical Damage, CAB Card, Lease).
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-purple-50 text-purple-700 border border-purple-100">
+                      {TRAILER_DOCUMENTS.filter((def) => !!selectedTrailer.documents[def.key]).length} / {TRAILER_DOCUMENTS.length} Uploaded
+                    </span>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Mandatory Compliance Documents List */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
                   {TRAILER_DOCUMENTS.map((def) => {
                     const doc = selectedTrailer.documents[def.key];
 
                     return (
                       <div
                         key={def.key}
-                        className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
-                          doc
-                            ? "bg-white border-slate-200 hover:border-purple-300 shadow-xs"
-                            : "bg-slate-50/60 border-dashed border-slate-300"
-                        }`}
+                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
                       >
-                        <div>
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center space-x-2.5">
-                              <div
-                                className={`p-2 rounded-lg ${
-                                  doc
-                                    ? "bg-purple-50 text-purple-600"
-                                    : "bg-slate-200 text-slate-400"
-                                }`}
-                              >
-                                <FileText className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <h4 className="font-semibold text-slate-900 text-sm">
-                                  {def.label}
-                                </h4>
-                                <p className="text-[11px] text-slate-400">
-                                  {def.description}
-                                </p>
-                              </div>
-                            </div>
-
-                            {doc ? (
-                              <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full flex items-center space-x-1">
-                                <CheckCircle className="w-3 h-3 mr-0.5" />
-                                <span>Uploaded</span>
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-600 rounded-full">
-                                Missing
-                              </span>
-                            )}
+                        {/* Left: Document Info */}
+                        <div className="flex items-start space-x-3 min-w-0">
+                          <div
+                            className={`p-2 rounded-lg shrink-0 mt-0.5 ${
+                              doc
+                                ? "bg-purple-50 text-purple-600"
+                                : "bg-slate-100 text-slate-400"
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
                           </div>
-
-                          {doc && (
-                            <div className="mt-3 p-2.5 bg-slate-50 rounded-lg text-xs space-y-1">
-                              <p className="font-semibold text-slate-800 truncate" title={doc.name}>
-                                {doc.name}
-                              </p>
-                              <div className="flex items-center justify-between text-[11px] text-slate-500">
-                                <span>
-                                  Uploaded:{" "}
-                                  {new Date(doc.uploadedAt).toLocaleDateString()}
+                          <div className="min-w-0">
+                            <div className="flex items-center space-x-2 flex-wrap">
+                              <h4 className="font-semibold text-slate-900 text-sm">
+                                {def.label}
+                              </h4>
+                              {doc ? (
+                                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full inline-flex items-center">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  <span>Uploaded</span>
                                 </span>
-                                <span>{(doc.fileSize / 1024).toFixed(0)} KB</span>
-                              </div>
-                              {doc.expirationDate && (
-                                <p className="text-[11px] font-semibold text-purple-700 flex items-center space-x-1 pt-0.5">
-                                  <span>Expires: {doc.expirationDate}</span>
-                                </p>
+                              ) : (
+                                <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-600 rounded-full">
+                                  Missing
+                                </span>
                               )}
                             </div>
-                          )}
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {def.description}
+                            </p>
+                            {doc && (
+                              <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-slate-500">
+                                <span className="font-mono text-slate-700 truncate max-w-xs" title={doc.name}>
+                                  {doc.name}
+                                </span>
+                                <span>•</span>
+                                <span>{(doc.fileSize / 1024).toFixed(0)} KB</span>
+                                <span>•</span>
+                                <span>Uploaded {new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                                {doc.expirationDate && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="font-semibold text-purple-700">
+                                      Expires: {doc.expirationDate}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        {/* Right: Actions */}
+                        <div className="flex items-center space-x-1.5 shrink-0 self-end sm:self-center">
                           {doc ? (
                             <>
-                              <div className="flex items-center space-x-1.5">
-                                <button
-                                  onClick={() => setViewingDoc(doc)}
-                                  className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-medium text-slate-700 hover:text-purple-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  <span>Preview</span>
-                                </button>
-                                <button
-                                  onClick={() => downloadDocument(doc)}
-                                  className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-medium text-slate-700 hover:text-purple-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                  <span>Download</span>
-                                </button>
-                              </div>
+                              <button
+                                onClick={() => setViewingDoc(doc)}
+                                className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-purple-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Preview</span>
+                              </button>
+                              <button
+                                onClick={() => downloadDocument(doc)}
+                                className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-purple-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Download</span>
+                              </button>
+                              <button
+                                onClick={() => setUploadingDocKey(def.key)}
+                                className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-purple-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+                                title="Replace file"
+                              >
+                                <Upload className="w-3.5 h-3.5" />
+                                <span>Replace</span>
+                              </button>
                               <button
                                 onClick={() => {
                                   if (
@@ -622,7 +634,7 @@ function TrailersContent() {
                                     );
                                   }
                                 }}
-                                className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Remove file"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -631,7 +643,7 @@ function TrailersContent() {
                           ) : (
                             <button
                               onClick={() => setUploadingDocKey(def.key)}
-                              className="w-full inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100/80 rounded-lg transition-colors"
+                              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
                             >
                               <Upload className="w-3.5 h-3.5" />
                               <span>Upload {def.label}</span>
@@ -641,6 +653,114 @@ function TrailersContent() {
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Additional / Other Documents Section */}
+                <div className="pt-6 border-t border-slate-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-base flex items-center space-x-2">
+                        <FileText className="w-4 h-4 text-slate-700" />
+                        <span>Additional Documents & Paperwork</span>
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Upload custom files, reefer maintenance certificates, interchange receipts, or custom permits.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setIsUploadCustomDocOpen(true)}
+                      className="inline-flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-xs transition-colors shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Upload Document</span>
+                    </button>
+                  </div>
+
+                  {/* List of Custom Documents */}
+                  {selectedTrailer.customDocuments && selectedTrailer.customDocuments.length > 0 ? (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
+                      {selectedTrailer.customDocuments.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
+                        >
+                          <div className="flex items-start space-x-3 min-w-0">
+                            <div className="p-2 rounded-lg bg-purple-50 text-purple-600 shrink-0 mt-0.5">
+                              <FileText className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <h5 className="font-semibold text-slate-900 text-sm truncate">
+                                {doc.name}
+                              </h5>
+                              {(doc.description || doc.notes) && (
+                                <p className="text-xs text-slate-600 mt-0.5 whitespace-pre-line">
+                                  {doc.description || doc.notes}
+                                </p>
+                              )}
+                              <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-slate-400">
+                                <span>Uploaded {new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                                <span>•</span>
+                                <span>{(doc.fileSize / 1024).toFixed(0)} KB</span>
+                                {doc.expirationDate && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="font-semibold text-purple-600">
+                                      Expires: {doc.expirationDate}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-1.5 shrink-0 self-end md:self-center">
+                            <button
+                              onClick={() => setViewingDoc(doc)}
+                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-purple-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Preview</span>
+                            </button>
+                            <button
+                              onClick={() => downloadDocument(doc)}
+                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-purple-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Download</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Delete document "${doc.name}"?`)) {
+                                  removeTrailerCustomDocument(selectedTrailer.id, doc.id);
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete document"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 border border-dashed border-slate-300 rounded-xl text-center bg-slate-50/50">
+                      <FileText className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+                      <p className="text-sm font-semibold text-slate-700">
+                        No additional documents uploaded
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                        Upload custom paperwork, reefer certificates, lease addendums, or inspection forms with custom names and descriptions.
+                      </p>
+                      <button
+                        onClick={() => setIsUploadCustomDocOpen(true)}
+                        className="mt-3 inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Upload First Document</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
@@ -924,6 +1044,18 @@ function TrailersContent() {
           hasExpiration={activeDocDef.hasExpiration}
           onUpload={(doc) => {
             uploadTrailerDocument(selectedTrailer.id, uploadingDocKey, doc);
+          }}
+        />
+      )}
+
+      {/* Custom Document Upload Modal */}
+      {selectedTrailer && isUploadCustomDocOpen && (
+        <CustomDocumentUploadModal
+          isOpen={isUploadCustomDocOpen}
+          onClose={() => setIsUploadCustomDocOpen(false)}
+          targetName={`Trailer #${selectedTrailer.unitNumber}`}
+          onUpload={(doc) => {
+            addTrailerCustomDocument(selectedTrailer.id, doc);
           }}
         />
       )}
