@@ -194,6 +194,36 @@ export type UserRole =
 
 export type UserStatus = "Active" | "Invited" | "Suspended";
 
+export type PaymentReminderStatus = "Pending" | "Completed";
+
+export type PaymentCategory =
+  | "Lease / Finance"
+  | "Insurance"
+  | "Registration & Plates"
+  | "Tax (2290 / IFTA)"
+  | "Tolls & Transponder"
+  | "Maintenance & Parts"
+  | "Driver Settlement"
+  | "Other";
+
+export interface PaymentReminder {
+  id: string;
+  name: string;
+  amount?: number;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM (24-hour format or 12-hour format string, e.g. "09:00", "14:30")
+  category: PaymentCategory;
+  reasonNotes: string;
+  status: PaymentReminderStatus;
+  relatedEntityType?: "truck" | "trailer" | "driver" | "general";
+  relatedEntityId?: string | null;
+  relatedEntityName?: string;
+  isRecurring?: boolean;
+  recurrence?: "Once" | "Weekly" | "Monthly" | "Quarterly" | "Yearly";
+  completedAt?: string | null;
+  createdAt: string;
+}
+
 export type AppModule =
   | "trucks"
   | "trailers"
@@ -201,6 +231,7 @@ export type AppModule =
   | "maintenance"
   | "shops"
   | "documents"
+  | "calendar"
   | "users"
   | "settings";
 
@@ -252,6 +283,10 @@ export const MODULE_NAMES: Record<AppModule, { label: string; description: strin
     label: "Documents Vault",
     description: "Access and upload compliance files and audit certificates",
   },
+  calendar: {
+    label: "Payment & Reminder Calendar",
+    description: "Schedule lease, insurance, toll, and vendor payment deadlines",
+  },
   users: {
     label: "Users & Permissions",
     description: "Manage team member access, roles, and administrative rights",
@@ -270,6 +305,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     maintenance: { view: true, create: true, edit: true, delete: true },
     shops: { view: true, create: true, edit: true, delete: true },
     documents: { view: true, create: true, edit: true, delete: true },
+    calendar: { view: true, create: true, edit: true, delete: true },
     users: { view: true, create: true, edit: true, delete: true },
     settings: { view: true, create: true, edit: true, delete: true },
   },
@@ -280,6 +316,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     maintenance: { view: true, create: false, edit: false, delete: false },
     shops: { view: true, create: false, edit: false, delete: false },
     documents: { view: true, create: true, edit: true, delete: false },
+    calendar: { view: true, create: true, edit: true, delete: false },
     users: { view: true, create: false, edit: false, delete: false },
     settings: { view: false, create: false, edit: false, delete: false },
   },
@@ -290,6 +327,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     maintenance: { view: true, create: false, edit: false, delete: false },
     shops: { view: true, create: true, edit: true, delete: false },
     documents: { view: true, create: true, edit: false, delete: false },
+    calendar: { view: true, create: true, edit: true, delete: false },
     users: { view: false, create: false, edit: false, delete: false },
     settings: { view: false, create: false, edit: false, delete: false },
   },
@@ -300,6 +338,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     maintenance: { view: true, create: true, edit: true, delete: false },
     shops: { view: true, create: true, edit: true, delete: false },
     documents: { view: true, create: true, edit: false, delete: false },
+    calendar: { view: true, create: false, edit: false, delete: false },
     users: { view: false, create: false, edit: false, delete: false },
     settings: { view: false, create: false, edit: false, delete: false },
   },
@@ -310,6 +349,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     maintenance: { view: true, create: false, edit: false, delete: false },
     shops: { view: true, create: false, edit: false, delete: false },
     documents: { view: true, create: false, edit: false, delete: false },
+    calendar: { view: true, create: false, edit: false, delete: false },
     users: { view: false, create: false, edit: false, delete: false },
     settings: { view: false, create: false, edit: false, delete: false },
   },
@@ -320,6 +360,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     maintenance: { view: true, create: false, edit: false, delete: false },
     shops: { view: true, create: false, edit: false, delete: false },
     documents: { view: true, create: false, edit: false, delete: false },
+    calendar: { view: true, create: false, edit: false, delete: false },
     users: { view: false, create: false, edit: false, delete: false },
     settings: { view: false, create: false, edit: false, delete: false },
   },

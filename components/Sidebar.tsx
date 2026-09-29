@@ -14,17 +14,22 @@ import {
   Container,
   Settings,
   ShieldCheck,
+  CalendarDays,
 } from "lucide-react";
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
-  const { trucks, trailers, drivers, alerts, users } = useFleet();
+  const { trucks, trailers, drivers, alerts, users, reminders } = useFleet();
 
   const activeTrucks = (trucks || []).filter((t) => t.status === "Active").length;
   const activeDrivers = (drivers || []).filter((d) => d.status === "Active").length;
   const urgentAlerts = (alerts || []).filter(
     (a) => a.status === "expired" || a.status === "urgent"
   ).length;
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const pendingReminders = (reminders || []).filter((r) => r.status === "Pending");
+  const dueTodayOrOverdue = pendingReminders.filter((r) => r.date <= todayStr).length;
 
   const navItems = [
     {
@@ -69,6 +74,13 @@ export const Sidebar: React.FC = () => {
       icon: FolderLock,
       badge: urgentAlerts > 0 ? `${urgentAlerts} due` : null,
       badgeColor: "bg-red-500 text-white",
+    },
+    {
+      name: "Calendar & Reminders",
+      href: "/calendar",
+      icon: CalendarDays,
+      badge: dueTodayOrOverdue > 0 ? `${dueTodayOrOverdue} due` : pendingReminders.length > 0 ? pendingReminders.length : null,
+      badgeColor: dueTodayOrOverdue > 0 ? "bg-amber-500 text-white" : "bg-blue-600 text-white",
     },
     {
       name: "Users & Roles",

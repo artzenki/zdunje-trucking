@@ -13,6 +13,7 @@ import {
   ComplianceAlert,
   AppUser,
   UserStatus,
+  PaymentReminder,
 } from "@/types/fleet";
 import {
   initialTrucks,
@@ -21,6 +22,7 @@ import {
   initialShops,
   initialMaintenanceRecords,
   initialUsers,
+  initialReminders,
 } from "@/lib/mockData";
 
 interface FleetContextType {
@@ -112,6 +114,13 @@ interface FleetContextType {
   toggleUserStatus: (id: string, status: UserStatus) => void;
   resetUsers: () => void;
 
+  // Payment & Calendar Reminders
+  reminders: PaymentReminder[];
+  addReminder: (reminder: Omit<PaymentReminder, "id" | "createdAt">) => void;
+  updateReminder: (id: string, reminder: Partial<PaymentReminder>) => void;
+  deleteReminder: (id: string) => void;
+  toggleReminderStatus: (id: string) => void;
+
   // Reset
   resetDataToDemo: () => void;
 }
@@ -129,6 +138,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     MaintenanceRecord[]
   >([]);
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [reminders, setReminders] = useState<PaymentReminder[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load from LocalStorage or initialize with mock data
@@ -140,6 +150,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       const savedShops = localStorage.getItem("zdunje_shops");
       const savedMaint = localStorage.getItem("zdunje_maintenance");
       const savedUsers = localStorage.getItem("zdunje_users");
+      const savedReminders = localStorage.getItem("zdunje_reminders");
 
       if (savedTrucks) {
         const parsed = JSON.parse(savedTrucks);
@@ -224,6 +235,9 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (savedUsers) setUsers(JSON.parse(savedUsers));
       else setUsers(initialUsers);
+
+      if (savedReminders) setReminders(JSON.parse(savedReminders));
+      else setReminders(initialReminders);
     } catch {
       setTrucks(initialTrucks);
       setTrailers(initialTrailers);
@@ -231,6 +245,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       setShops(initialShops);
       setMaintenanceRecords(initialMaintenanceRecords);
       setUsers(initialUsers);
+      setReminders(initialReminders);
     } finally {
       setIsLoaded(true);
     }
@@ -249,10 +264,11 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         JSON.stringify(maintenanceRecords)
       );
       localStorage.setItem("zdunje_users", JSON.stringify(users));
+      localStorage.setItem("zdunje_reminders", JSON.stringify(reminders));
     } catch (e) {
       console.error("Failed to save to localStorage", e);
     }
-  }, [trucks, trailers, drivers, shops, maintenanceRecords, users, isLoaded]);
+  }, [trucks, trailers, drivers, shops, maintenanceRecords, users, reminders, isLoaded]);
 
   // Compute Alerts
   const alerts: ComplianceAlert[] = React.useMemo(() => {
@@ -880,6 +896,41 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("zdunje_users", JSON.stringify(initialUsers));
   };
 
+  // Payment & Calendar Reminders Handlers
+  const addReminder = (data: Omit<PaymentReminder, "id" | "createdAt">) => {
+    const newReminder: PaymentReminder = {
+      ...data,
+      id: `rem_${Date.now()}`,
+      createdAt: new Date().toISOString().split("T")[0],
+    };
+    setReminders((prev) => [newReminder, ...prev]);
+  };
+
+  const updateReminder = (id: string, patch: Partial<PaymentReminder>) => {
+    setReminders((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
+    );
+  };
+
+  const deleteReminder = (id: string) => {
+    setReminders((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const toggleReminderStatus = (id: string) => {
+    setReminders((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const newStatus: PaymentReminder["status"] =
+          r.status === "Completed" ? "Pending" : "Completed";
+        return {
+          ...r,
+          status: newStatus,
+          completedAt: newStatus === "Completed" ? new Date().toISOString() : null,
+        };
+      })
+    );
+  };
+
   // Reset to clean slate (all data cleared)
   const resetDataToDemo = () => {
     setTrucks([]);
@@ -887,11 +938,13 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setDrivers([]);
     setShops([]);
     setMaintenanceRecords([]);
+    setReminders([]);
     localStorage.setItem("zdunje_trucks", JSON.stringify([]));
     localStorage.setItem("zdunje_trailers", JSON.stringify([]));
     localStorage.setItem("zdunje_drivers", JSON.stringify([]));
     localStorage.setItem("zdunje_shops", JSON.stringify([]));
     localStorage.setItem("zdunje_maintenance", JSON.stringify([]));
+    localStorage.setItem("zdunje_reminders", JSON.stringify([]));
   };
 
   return (
@@ -909,6 +962,11 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         deleteUser,
         toggleUserStatus,
         resetUsers,
+        reminders,
+        addReminder,
+        updateReminder,
+        deleteReminder,
+        toggleReminderStatus,
         addTruck,
         updateTruck,
         deleteTruck,

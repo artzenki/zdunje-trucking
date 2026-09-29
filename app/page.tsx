@@ -16,13 +16,23 @@ import {
   Store,
   Container,
   Radio,
+  CalendarDays,
+  Check,
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { FleetDocument } from "@/types/fleet";
 
 export default function DashboardPage() {
-  const { trucks, trailers, drivers, maintenanceRecords, shops, alerts } =
-    useFleet();
+  const {
+    trucks,
+    trailers,
+    drivers,
+    maintenanceRecords,
+    shops,
+    alerts,
+    reminders = [],
+    toggleReminderStatus,
+  } = useFleet();
 
   const [selectedDoc, setSelectedDoc] = useState<FleetDocument | null>(null);
   const [docEntityName] = useState("");
@@ -35,6 +45,9 @@ export default function DashboardPage() {
   const urgentAlerts = alerts.filter(
     (a) => a.status === "expired" || a.status === "urgent"
   );
+
+  const pendingReminders = reminders.filter((r) => r.status === "Pending");
+  const todayStr = new Date().toISOString().split("T")[0];
 
   return (
     <div className="space-y-8">
@@ -75,6 +88,13 @@ export default function DashboardPage() {
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Log Maintenance</span>
+          </Link>
+          <Link
+            href="/calendar"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 rounded-xl transition-colors"
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            <span>Payment Calendar</span>
           </Link>
         </div>
       </div>
@@ -247,6 +267,117 @@ export default function DashboardPage() {
               {urgentAlerts.length} Urgent / Expired
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* Upcoming Payments & Reminder Schedule */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+          <div className="flex items-center space-x-2.5">
+            <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg">
+              <CalendarDays className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-base">
+                Upcoming Payments & Deadlines
+              </h3>
+              <p className="text-xs text-slate-500">
+                Scheduled tractor lease installments, insurance policies, 2290 tax, and toll reloads.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/calendar"
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center"
+          >
+            <span>Open Calendar ({pendingReminders.length} Pending)</span>
+            <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          </Link>
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {pendingReminders.length === 0 ? (
+            <div className="p-8 text-center text-slate-500">
+              <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-slate-800">
+                All Scheduled Payments Settled
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                No pending payment reminders. Click &quot;Open Calendar&quot; to schedule new deadlines.
+              </p>
+            </div>
+          ) : (
+            pendingReminders
+              .slice()
+              .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+              .slice(0, 3)
+              .map((rem) => {
+                const isDueToday = rem.date === todayStr;
+                const isOverdue = rem.date < todayStr;
+
+                return (
+                  <div
+                    key={rem.id}
+                    className="px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div
+                        className={`p-2 rounded-xl shrink-0 ${
+                          isOverdue
+                            ? "bg-rose-100 text-rose-700"
+                            : isDueToday
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-blue-50 text-blue-700"
+                        }`}
+                      >
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-semibold text-slate-900 text-sm">
+                            {rem.name}
+                          </span>
+                          <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-slate-100 text-slate-600">
+                            {rem.category}
+                          </span>
+                          {isDueToday && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 animate-pulse">
+                              Due Today
+                            </span>
+                          )}
+                          {isOverdue && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-rose-100 text-rose-800">
+                              Overdue
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-3 text-xs text-slate-500 mt-0.5">
+                          <span>Due: <strong className="text-slate-700">{rem.date}</strong> at <strong className="text-slate-700">{rem.time}</strong></span>
+                          {rem.relatedEntityName && (
+                            <span>• {rem.relatedEntityName}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3 self-end sm:self-center">
+                      {rem.amount !== undefined && (
+                        <span className="text-sm font-black text-slate-900">
+                          ${rem.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => toggleReminderStatus(rem.id)}
+                        className="inline-flex items-center space-x-1 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors"
+                      >
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        <span>Mark Paid</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+          )}
         </div>
       </div>
 
