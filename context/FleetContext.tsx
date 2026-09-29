@@ -323,7 +323,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         reminders.length > 0 ? cloudUpsert("payment_reminders", reminders.map(reminderToRow)) : Promise.resolve(),
         users.length > 0 ? cloudUpsert("user_profiles", users.map(userToRow)) : Promise.resolve(),
       ]);
-      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
       setLastSyncTime(timeStr);
       setCloudSyncStatus("synced");
       return { success: true, message: `Synced with Supabase at ${timeStr}` };
@@ -375,7 +375,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     initialSync();
   }, [isLoaded, drivers.length]);
 
-  // Debounced auto-sync to Supabase on any change
+  // Immediate or debounced auto-sync to Supabase on any change
   useEffect(() => {
     if (!isLoaded || !supabase) return;
     if (isInitialMount.current) {
@@ -395,14 +395,14 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           reminders.length > 0 ? cloudUpsert("payment_reminders", reminders.map(reminderToRow)) : Promise.resolve(),
           users.length > 0 ? cloudUpsert("user_profiles", users.map(userToRow)) : Promise.resolve(),
         ]);
-        const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
         setLastSyncTime(timeStr);
         setCloudSyncStatus("synced");
       } catch (err) {
         console.warn("[Supabase Auto-Sync] Auto-sync error:", err);
         setCloudSyncStatus("error");
       }
-    }, 1200);
+    }, 250);
 
     return () => clearTimeout(timer);
   }, [trucks, trailers, drivers, shops, maintenanceRecords, reminders, users, isLoaded]);

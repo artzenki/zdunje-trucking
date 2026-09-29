@@ -3,15 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useFleet } from "@/context/FleetContext";
 import { supabase } from "@/lib/supabase";
-import {
-  truckToRow,
-  trailerToRow,
-  driverToRow,
-  shopToRow,
-  maintenanceToRow,
-  reminderToRow,
-  userToRow,
-} from "@/lib/supabaseSync";
+
 import {
   Settings,
   Upload,
@@ -67,6 +59,8 @@ export default function SettingsPage() {
     bulkAddShops,
     setAllFleetData,
     resetDataToDemo,
+    syncWithCloud,
+    lastSyncTime,
   } = useFleet();
 
   const [activeCategory, setActiveCategory] = useState<ImportCategory>("trucks");
@@ -132,63 +126,22 @@ export default function SettingsPage() {
 
   useEffect(() => {
     checkSupabaseStatus();
-  }, [trucks, trailers, drivers, shops, maintenanceRecords, reminders, users]);
+  }, [trucks, trailers, drivers, shops, maintenanceRecords, reminders, users, lastSyncTime]);
 
-  // Push local data to Supabase
+  // Push local data to Supabase using unified upsert & status check
   const pushToSupabase = async () => {
     if (!supabase) return;
     setIsSyncing(true);
     setSyncMessage(null);
 
     try {
-      // Clean DB tables first for clean state
-      await Promise.all([
-        supabase.from("trucks").delete().neq("id", "0"),
-        supabase.from("trailers").delete().neq("id", "0"),
-        supabase.from("drivers").delete().neq("id", "0"),
-        supabase.from("shops").delete().neq("id", "0"),
-        supabase.from("maintenance_records").delete().neq("id", "0"),
-        supabase.from("payment_reminders").delete().neq("id", "0"),
-        supabase.from("user_profiles").delete().neq("id", "0"),
-      ]);
-
-      if (trucks.length > 0) {
-        const { error } = await supabase.from("trucks").insert(trucks.map(truckToRow));
-        if (error) throw new Error(`Trucks push error: ${error.message}`);
-      }
-
-      if (trailers.length > 0) {
-        const { error } = await supabase.from("trailers").insert(trailers.map(trailerToRow));
-        if (error) throw new Error(`Trailers push error: ${error.message}`);
-      }
-
-      if (drivers.length > 0) {
-        const { error } = await supabase.from("drivers").insert(drivers.map(driverToRow));
-        if (error) throw new Error(`Drivers push error: ${error.message}`);
-      }
-
-      if (shops.length > 0) {
-        const { error } = await supabase.from("shops").insert(shops.map(shopToRow));
-        if (error) throw new Error(`Shops push error: ${error.message}`);
-      }
-
-      if (maintenanceRecords.length > 0) {
-        const { error } = await supabase.from("maintenance_records").insert(maintenanceRecords.map(maintenanceToRow));
-        if (error) throw new Error(`Maintenance push error: ${error.message}`);
-      }
-
-      if (reminders.length > 0) {
-        const { error } = await supabase.from("payment_reminders").insert(reminders.map(reminderToRow));
-        if (error) throw new Error(`Reminders push error: ${error.message}`);
-      }
-
-      if (users.length > 0) {
-        const { error } = await supabase.from("user_profiles").insert(users.map(userToRow));
-        if (error) throw new Error(`Users push error: ${error.message}`);
-      }
-
+      const res = await syncWithCloud();
       await checkSupabaseStatus();
-      setSyncMessage("Live sync complete: All fleet data, work orders, payment reminders, and user profiles saved to Supabase cloud database!");
+      if (res.success) {
+        setSyncMessage(`Live sync complete: All fleet data, work orders, payment reminders, and user profiles saved to Supabase cloud database at ${new Date().toLocaleTimeString()}!`);
+      } else {
+        setSyncMessage(`Sync notice: ${res.message}`);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to sync to Supabase.";
       setSyncMessage(`Error syncing to Supabase: ${message}`);

@@ -88,10 +88,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
           )}
           <span className="hidden sm:inline">
             {cloudSyncStatus === "syncing"
-              ? "Syncing Cloud..."
+              ? "Saving to Cloud..."
               : cloudSyncStatus === "error"
               ? "Sync Offline"
-              : "Cloud Synced"}
+              : lastSyncTime
+              ? `Saved (${lastSyncTime})`
+              : "Saved to Cloud"}
           </span>
         </button>
 
