@@ -244,11 +244,28 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       if (savedMaint) setMaintenanceRecords(JSON.parse(savedMaint));
       else setMaintenanceRecords(initialMaintenanceRecords);
 
-      if (savedUsers) setUsers(JSON.parse(savedUsers));
-      else setUsers(initialUsers);
+      if (savedUsers) {
+        const parsedU = JSON.parse(savedUsers);
+        const cleanU = Array.isArray(parsedU)
+          ? parsedU.filter((u: AppUser) => !["usr_002", "usr_003", "usr_004"].includes(u.id))
+          : initialUsers;
+        setUsers(cleanU.length > 0 ? cleanU : initialUsers);
+      } else {
+        setUsers(initialUsers);
+      }
 
-      if (savedReminders) setReminders(JSON.parse(savedReminders));
-      else setReminders(initialReminders);
+      if (savedReminders) {
+        const parsedRem = JSON.parse(savedReminders);
+        const cleanRem = Array.isArray(parsedRem)
+          ? parsedRem.filter(
+              (r: PaymentReminder) =>
+                !["rem_001", "rem_002", "rem_003", "rem_004"].includes(r.id)
+            )
+          : [];
+        setReminders(cleanRem);
+      } else {
+        setReminders(initialReminders);
+      }
     } catch {
       setTrucks(initialTrucks);
       setTrailers(initialTrailers);
@@ -968,12 +985,14 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setShops([]);
     setMaintenanceRecords([]);
     setReminders([]);
+    setUsers(initialUsers);
     localStorage.setItem("zdunje_trucks", JSON.stringify([]));
     localStorage.setItem("zdunje_trailers", JSON.stringify([]));
     localStorage.setItem("zdunje_drivers", JSON.stringify([]));
     localStorage.setItem("zdunje_shops", JSON.stringify([]));
     localStorage.setItem("zdunje_maintenance", JSON.stringify([]));
     localStorage.setItem("zdunje_reminders", JSON.stringify([]));
+    localStorage.setItem("zdunje_users", JSON.stringify(initialUsers));
   };
 
   return (

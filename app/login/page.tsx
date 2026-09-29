@@ -295,7 +295,7 @@ function LoginPageContent() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {initialUsers.slice(0, 4).map((u) => (
+              {initialUsers.map((u) => (
                 <button
                   key={u.id}
                   type="button"
