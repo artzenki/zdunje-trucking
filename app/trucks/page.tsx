@@ -24,11 +24,14 @@ import {
   Shield,
   X,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  History,
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
 import { CustomDocumentUploadModal } from "@/components/CustomDocumentUploadModal";
-import { downloadDocument } from "@/lib/documentUtils";
+import { downloadDocument, fileToBase64 } from "@/lib/documentUtils";
 
 const DOCUMENT_DEFINITIONS: {
   key: TruckDocumentKey;
@@ -99,6 +102,7 @@ function TrucksContent() {
   const [uploadingDocKey, setUploadingDocKey] =
     useState<TruckDocumentKey | null>(null);
   const [isUploadCustomDocOpen, setIsUploadCustomDocOpen] = useState(false);
+  const [expandedHistoryKey, setExpandedHistoryKey] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -237,6 +241,32 @@ function TrucksContent() {
   const activeDocDef = DOCUMENT_DEFINITIONS.find(
     (d) => d.key === uploadingDocKey
   );
+
+  const handleDirectDropTruckDoc = async (
+    key: TruckDocumentKey,
+    categoryName: string,
+    file: File
+  ) => {
+    if (!selectedTruck) return;
+    try {
+      const fileData = await fileToBase64(file);
+      const newDoc: FleetDocument = {
+        id: `truck-doc-${Date.now()}`,
+        name: file.name,
+        category: categoryName,
+        fileType: file.type || "application/pdf",
+        fileSize: file.size,
+        uploadedAt: new Date().toISOString(),
+        fileData,
+        isCurrent: true,
+        status: "current",
+      };
+      uploadTruckDocument(selectedTruck.id, key, newDoc);
+    } catch (err) {
+      console.error("Direct drop failed", err);
+      alert("Failed to process dropped file.");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -602,119 +632,230 @@ function TrucksContent() {
                 <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
                   {DOCUMENT_DEFINITIONS.map((def) => {
                     const doc = selectedTruck.documents?.[def.key];
+                    const historyDocs = doc?.history || [];
+                    const isHistoryOpen = expandedHistoryKey === def.key;
 
                     return (
                       <div
                         key={def.key}
-                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            handleDirectDropTruckDoc(def.key, def.label, e.dataTransfer.files[0]);
+                          }
+                        }}
+                        className="p-4 flex flex-col gap-3 hover:bg-slate-50/70 transition-colors border-b last:border-b-0 border-slate-100"
                       >
-                        {/* Left: Document Info */}
-                        <div className="flex items-start space-x-3 min-w-0">
-                          <div
-                            className={`p-2 rounded-lg shrink-0 mt-0.5 ${
-                              doc
-                                ? "bg-blue-50 text-blue-600"
-                                : "bg-slate-100 text-slate-400"
-                            }`}
-                          >
-                            <FileText className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center space-x-2 flex-wrap">
-                              <h4 className="font-semibold text-slate-900 text-sm">
-                                {def.label}
-                              </h4>
-                              {doc ? (
-                                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full inline-flex items-center">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  <span>Uploaded</span>
-                                </span>
-                              ) : (
-                                <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-600 rounded-full">
-                                  Missing
-                                </span>
-                              )}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          {/* Left: Document Info */}
+                          <div className="flex items-start space-x-3 min-w-0">
+                            <div
+                              className={`p-2 rounded-lg shrink-0 mt-0.5 ${
+                                doc
+                                  ? "bg-blue-50 text-blue-600"
+                                  : "bg-slate-100 text-slate-400"
+                              }`}
+                            >
+                              <FileText className="w-4 h-4" />
                             </div>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              {def.description}
-                            </p>
-                            {doc && (
-                              <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-slate-500">
-                                <span className="font-mono text-slate-700 truncate max-w-xs" title={doc.name}>
-                                  {doc.name}
-                                </span>
-                                <span>•</span>
-                                <span>{(doc.fileSize / 1024).toFixed(0)} KB</span>
-                                <span>•</span>
-                                <span>Uploaded {new Date(doc.uploadedAt).toLocaleDateString()}</span>
-                                {doc.expirationDate && (
-                                  <>
-                                    <span>•</span>
-                                    <span className="font-semibold text-blue-700">
-                                      Expires: {doc.expirationDate}
+                            <div className="min-w-0">
+                              <div className="flex items-center space-x-2 flex-wrap">
+                                <h4 className="font-semibold text-slate-900 text-sm">
+                                  {def.label}
+                                </h4>
+                                {doc ? (
+                                  <div className="flex items-center space-x-1.5">
+                                    {historyDocs.length > 0 && (
+                                      <span className="px-1.5 py-0.2 text-[9px] font-medium bg-slate-100 text-slate-600 rounded border border-slate-200 flex items-center space-x-0.5">
+                                        <History className="w-2.5 h-2.5" />
+                                        <span>{historyDocs.length} archived</span>
+                                      </span>
+                                    )}
+                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-600 text-white rounded-full inline-flex items-center shadow-xs">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      <span>CURRENT FILE</span>
                                     </span>
-                                  </>
+                                  </div>
+                                ) : (
+                                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-600 rounded-full">
+                                    Missing
+                                  </span>
                                 )}
                               </div>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                {def.description}
+                              </p>
+                              {doc && (
+                                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-slate-500">
+                                  <span className="font-mono text-slate-700 truncate max-w-xs font-medium" title={doc.name}>
+                                    {doc.name}
+                                  </span>
+                                  <span>•</span>
+                                  <span>{(doc.fileSize / 1024).toFixed(0)} KB</span>
+                                  <span>•</span>
+                                  <span>Uploaded {new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                                  {doc.expirationDate && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="font-semibold text-blue-700">
+                                        Expires: {doc.expirationDate}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Right: Actions */}
+                          <div className="flex items-center space-x-1.5 shrink-0 self-end sm:self-center">
+                            {doc ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingDoc(doc)}
+                                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-blue-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>Preview</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => downloadDocument(doc)}
+                                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-blue-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Download</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setUploadingDocKey(def.key)}
+                                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+                                  title="Upload new version and move current to expired history"
+                                >
+                                  <Upload className="w-3.5 h-3.5" />
+                                  <span>New Version</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        `Remove current ${def.label} from Unit #${selectedTruck.unitNumber}?`
+                                      )
+                                    ) {
+                                      removeTruckDocument(
+                                        selectedTruck.id,
+                                        def.key
+                                      );
+                                    }
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Remove current file"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setUploadingDocKey(def.key)}
+                                className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                              >
+                                <Upload className="w-3.5 h-3.5" />
+                                <span>Upload or Drop {def.label}</span>
+                              </button>
                             )}
                           </div>
                         </div>
 
-                        {/* Right: Actions */}
-                        <div className="flex items-center space-x-1.5 shrink-0 self-end sm:self-center">
-                          {doc ? (
-                            <>
-                              <button
-                                onClick={() => setViewingDoc(doc)}
-                                className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-blue-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>Preview</span>
-                              </button>
-                              <button
-                                onClick={() => downloadDocument(doc)}
-                                className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-blue-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                <span>Download</span>
-                              </button>
-                              <button
-                                onClick={() => setUploadingDocKey(def.key)}
-                                className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
-                                title="Replace file"
-                              >
-                                <Upload className="w-3.5 h-3.5" />
-                                <span>Replace</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      `Remove ${def.label} from Unit #${selectedTruck.unitNumber}?`
-                                    )
-                                  ) {
-                                    removeTruckDocument(
-                                      selectedTruck.id,
-                                      def.key
-                                    );
-                                  }
-                                }}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Remove file"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          ) : (
+                        {/* Expired / Archived files list */}
+                        {historyDocs.length > 0 && (
+                          <div className="mt-1 border border-slate-200 rounded-lg overflow-hidden bg-slate-50/50">
                             <button
-                              onClick={() => setUploadingDocKey(def.key)}
-                              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                              type="button"
+                              onClick={() => setExpandedHistoryKey(isHistoryOpen ? null : def.key)}
+                              className="w-full px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100/80 flex items-center justify-between"
                             >
-                              <Upload className="w-3.5 h-3.5" />
-                              <span>Upload {def.label}</span>
+                              <span className="flex items-center space-x-1.5">
+                                <History className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Expired / Historical Versions ({historyDocs.length})</span>
+                              </span>
+                              {isHistoryOpen ? (
+                                <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                              ) : (
+                                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                              )}
                             </button>
-                          )}
-                        </div>
+                            {isHistoryOpen && (
+                              <div className="p-2 space-y-1.5 bg-white border-t border-slate-200">
+                                {historyDocs.map((histDoc, idx) => (
+                                  <div
+                                    key={histDoc.id || idx}
+                                    className="p-2 rounded border border-slate-100 bg-slate-50 flex items-center justify-between gap-2 text-xs"
+                                  >
+                                    <div className="min-w-0">
+                                      <div className="flex items-center space-x-2">
+                                        <span className="px-1.5 py-0.2 text-[9px] font-bold bg-amber-100 text-amber-800 rounded">
+                                          EXPIRED
+                                        </span>
+                                        <span className="font-semibold text-slate-800 truncate" title={histDoc.name}>
+                                          {histDoc.name}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center space-x-2 text-[10px] text-slate-500 mt-0.5">
+                                        <span>Uploaded: {new Date(histDoc.uploadedAt).toLocaleDateString()}</span>
+                                        {histDoc.expirationDate && (
+                                          <>
+                                            <span>•</span>
+                                            <span className="text-amber-700">Expired: {histDoc.expirationDate}</span>
+                                          </>
+                                        )}
+                                        <span>•</span>
+                                        <span>{(histDoc.fileSize / 1024).toFixed(0)} KB</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => setViewingDoc(histDoc)}
+                                        className="p-1 text-slate-600 hover:text-blue-600"
+                                        title="Preview"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => downloadDocument(histDoc)}
+                                        className="p-1 text-slate-600 hover:text-blue-600"
+                                        title="Download"
+                                      >
+                                        <Download className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (window.confirm(`Delete archived file "${histDoc.name}"?`)) {
+                                            removeTruckDocument(selectedTruck.id, def.key, histDoc.id);
+                                          }
+                                        }}
+                                        className="p-1 text-slate-400 hover:text-red-600"
+                                        title="Delete archive"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

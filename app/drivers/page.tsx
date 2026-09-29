@@ -37,10 +37,14 @@ import {
   UserX,
   UserCheck,
   Save,
+  ChevronDown,
+  ChevronUp,
+  History,
+  Clock,
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
-import { downloadDocument } from "@/lib/documentUtils";
+import { downloadDocument, fileToBase64 } from "@/lib/documentUtils";
 
 const DRIVER_REQUIRED_DOC_KEYS: {
   key: keyof Omit<
@@ -393,6 +397,35 @@ function DriversContent() {
     setHasExpiration(expires);
     setIsDrugTestUpload(isDrugTest);
     setIsDotRecordUpload(isDotRecord);
+  };
+
+  const handleDirectDropDriverDoc = async (
+    categoryKey: keyof Omit<
+      DriverType["documents"],
+      "drugTestResults" | "applicationLink" | "dotRecords"
+    >,
+    categoryName: string,
+    file: File
+  ) => {
+    if (!selectedDriver) return;
+    try {
+      const fileData = await fileToBase64(file);
+      const newDoc: FleetDocument = {
+        id: `doc-${Date.now()}`,
+        name: file.name,
+        category: categoryName,
+        fileType: file.type || "application/pdf",
+        fileSize: file.size,
+        uploadedAt: new Date().toISOString(),
+        fileData,
+        isCurrent: true,
+        status: "current",
+      };
+      uploadDriverDocument(selectedDriver.id, categoryKey, newDoc);
+    } catch (err) {
+      console.error("Direct drop failed", err);
+      alert("Failed to process dropped file.");
+    }
   };
 
   return (
@@ -988,9 +1021,9 @@ function DriversContent() {
                           onToggleSkip={() =>
                             toggleDriverDocumentSkip(selectedDriver.id, "cdl")
                           }
-                          onPreview={() => setViewingDoc(selectedDriver.documents.cdl)}
-                          onDownload={() =>
-                            downloadDocument(selectedDriver.documents.cdl!)
+                          onPreview={(tDoc) => setViewingDoc(tDoc || selectedDriver.documents.cdl)}
+                          onDownload={(tDoc) =>
+                            downloadDocument(tDoc || selectedDriver.documents.cdl!)
                           }
                           onUpload={() =>
                             openDocumentUploader(
@@ -999,8 +1032,11 @@ function DriversContent() {
                               true
                             )
                           }
-                          onRemove={() =>
-                            removeDriverDocument(selectedDriver.id, "cdl")
+                          onRemove={(histId) =>
+                            removeDriverDocument(selectedDriver.id, "cdl", histId)
+                          }
+                          onDirectDrop={(file) =>
+                            handleDirectDropDriverDoc("cdl", "Commercial Driver License (CDL)", file)
                           }
                         />
 
@@ -1013,11 +1049,11 @@ function DriversContent() {
                           onToggleSkip={() =>
                             toggleDriverDocumentSkip(selectedDriver.id, "medCard")
                           }
-                          onPreview={() =>
-                            setViewingDoc(selectedDriver.documents.medCard)
+                          onPreview={(tDoc) =>
+                            setViewingDoc(tDoc || selectedDriver.documents.medCard)
                           }
-                          onDownload={() =>
-                            downloadDocument(selectedDriver.documents.medCard!)
+                          onDownload={(tDoc) =>
+                            downloadDocument(tDoc || selectedDriver.documents.medCard!)
                           }
                           onUpload={() =>
                             openDocumentUploader(
@@ -1026,8 +1062,11 @@ function DriversContent() {
                               true
                             )
                           }
-                          onRemove={() =>
-                            removeDriverDocument(selectedDriver.id, "medCard")
+                          onRemove={(histId) =>
+                            removeDriverDocument(selectedDriver.id, "medCard", histId)
+                          }
+                          onDirectDrop={(file) =>
+                            handleDirectDropDriverDoc("medCard", "Medical Examiner Card (MEDCard)", file)
                           }
                         />
                       </div>
@@ -1053,9 +1092,9 @@ function DriversContent() {
                           onToggleSkip={() =>
                             toggleDriverDocumentSkip(selectedDriver.id, "mvr")
                           }
-                          onPreview={() => setViewingDoc(selectedDriver.documents.mvr)}
-                          onDownload={() =>
-                            downloadDocument(selectedDriver.documents.mvr!)
+                          onPreview={(tDoc) => setViewingDoc(tDoc || selectedDriver.documents.mvr)}
+                          onDownload={(tDoc) =>
+                            downloadDocument(tDoc || selectedDriver.documents.mvr!)
                           }
                           onUpload={() =>
                             openDocumentUploader(
@@ -1064,8 +1103,11 @@ function DriversContent() {
                               false
                             )
                           }
-                          onRemove={() =>
-                            removeDriverDocument(selectedDriver.id, "mvr")
+                          onRemove={(histId) =>
+                            removeDriverDocument(selectedDriver.id, "mvr", histId)
+                          }
+                          onDirectDrop={(file) =>
+                            handleDirectDropDriverDoc("mvr", "Motor Vehicle Record (MVR)", file)
                           }
                         />
 
@@ -1114,7 +1156,7 @@ function DriversContent() {
                                 </span>
                               ) : (
                                 <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full flex items-center space-x-1 shrink-0">
-                                  <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                  <AlertTriangle className="w-3 h-3 text-red-600" />
                                   <span>Query Pending</span>
                                 </span>
                               )}
@@ -1169,11 +1211,11 @@ function DriversContent() {
                           onToggleSkip={() =>
                             toggleDriverDocumentSkip(selectedDriver.id, "pspAuth")
                           }
-                          onPreview={() =>
-                            setViewingDoc(selectedDriver.documents.pspAuth)
+                          onPreview={(tDoc) =>
+                            setViewingDoc(tDoc || selectedDriver.documents.pspAuth)
                           }
-                          onDownload={() =>
-                            downloadDocument(selectedDriver.documents.pspAuth!)
+                          onDownload={(tDoc) =>
+                            downloadDocument(tDoc || selectedDriver.documents.pspAuth!)
                           }
                           onUpload={() =>
                             openDocumentUploader(
@@ -1182,8 +1224,11 @@ function DriversContent() {
                               false
                             )
                           }
-                          onRemove={() =>
-                            removeDriverDocument(selectedDriver.id, "pspAuth")
+                          onRemove={(histId) =>
+                            removeDriverDocument(selectedDriver.id, "pspAuth", histId)
+                          }
+                          onDirectDrop={(file) =>
+                            handleDirectDropDriverDoc("pspAuth", "PSP Authorization", file)
                           }
                         />
 
@@ -1196,11 +1241,11 @@ function DriversContent() {
                           onToggleSkip={() =>
                             toggleDriverDocumentSkip(selectedDriver.id, "pspReport")
                           }
-                          onPreview={() =>
-                            setViewingDoc(selectedDriver.documents.pspReport)
+                          onPreview={(tDoc) =>
+                            setViewingDoc(tDoc || selectedDriver.documents.pspReport)
                           }
-                          onDownload={() =>
-                            downloadDocument(selectedDriver.documents.pspReport!)
+                          onDownload={(tDoc) =>
+                            downloadDocument(tDoc || selectedDriver.documents.pspReport!)
                           }
                           onUpload={() =>
                             openDocumentUploader(
@@ -1209,8 +1254,11 @@ function DriversContent() {
                               false
                             )
                           }
-                          onRemove={() =>
-                            removeDriverDocument(selectedDriver.id, "pspReport")
+                          onRemove={(histId) =>
+                            removeDriverDocument(selectedDriver.id, "pspReport", histId)
+                          }
+                          onDirectDrop={(file) =>
+                            handleDirectDropDriverDoc("pspReport", "PSP Driver Report", file)
                           }
                         />
 
@@ -1226,12 +1274,12 @@ function DriversContent() {
                               "onboardingDoc"
                             )
                           }
-                          onPreview={() =>
-                            setViewingDoc(selectedDriver.documents.onboardingDoc)
+                          onPreview={(tDoc) =>
+                            setViewingDoc(tDoc || selectedDriver.documents.onboardingDoc)
                           }
-                          onDownload={() =>
+                          onDownload={(tDoc) =>
                             downloadDocument(
-                              selectedDriver.documents.onboardingDoc!
+                              tDoc || selectedDriver.documents.onboardingDoc!
                             )
                           }
                           onUpload={() =>
@@ -1241,11 +1289,15 @@ function DriversContent() {
                               false
                             )
                           }
-                          onRemove={() =>
+                          onRemove={(histId) =>
                             removeDriverDocument(
                               selectedDriver.id,
-                              "onboardingDoc"
+                              "onboardingDoc",
+                              histId
                             )
+                          }
+                          onDirectDrop={(file) =>
+                            handleDirectDropDriverDoc("onboardingDoc", "Onboarding Document", file)
                           }
                         />
 
@@ -1413,12 +1465,12 @@ function DriversContent() {
                           onToggleSkip={() =>
                             toggleDriverDocumentSkip(selectedDriver.id, "drugCustodyForm")
                           }
-                          onPreview={() =>
-                            setViewingDoc(selectedDriver.documents.drugCustodyForm)
+                          onPreview={(tDoc) =>
+                            setViewingDoc(tDoc || selectedDriver.documents.drugCustodyForm)
                           }
-                          onDownload={() =>
+                          onDownload={(tDoc) =>
                             downloadDocument(
-                              selectedDriver.documents.drugCustodyForm!
+                              tDoc || selectedDriver.documents.drugCustodyForm!
                             )
                           }
                           onUpload={() =>
@@ -1428,11 +1480,15 @@ function DriversContent() {
                               false
                             )
                           }
-                          onRemove={() =>
+                          onRemove={(histId) =>
                             removeDriverDocument(
                               selectedDriver.id,
-                              "drugCustodyForm"
+                              "drugCustodyForm",
+                              histId
                             )
+                          }
+                          onDirectDrop={(file) =>
+                            handleDirectDropDriverDoc("drugCustodyForm", "Drug Test Custody Form (CCF)", file)
                           }
                         />
 
@@ -1445,12 +1501,12 @@ function DriversContent() {
                           onToggleSkip={() =>
                             toggleDriverDocumentSkip(selectedDriver.id, "drugPassport")
                           }
-                          onPreview={() =>
-                            setViewingDoc(selectedDriver.documents.drugPassport)
+                          onPreview={(tDoc) =>
+                            setViewingDoc(tDoc || selectedDriver.documents.drugPassport)
                           }
-                          onDownload={() =>
+                          onDownload={(tDoc) =>
                             downloadDocument(
-                              selectedDriver.documents.drugPassport!
+                              tDoc || selectedDriver.documents.drugPassport!
                             )
                           }
                           onUpload={() =>
@@ -1460,11 +1516,15 @@ function DriversContent() {
                               false
                             )
                           }
-                          onRemove={() =>
+                          onRemove={(histId) =>
                             removeDriverDocument(
                               selectedDriver.id,
-                              "drugPassport"
+                              "drugPassport",
+                              histId
                             )
+                          }
+                          onDirectDrop={(file) =>
+                            handleDirectDropDriverDoc("drugPassport", "Drug Test ePassport", file)
                           }
                         />
                       </div>
@@ -1688,11 +1748,11 @@ function DriversContent() {
                           onToggleSkip={() =>
                             toggleDriverDocumentSkip(selectedDriver.id, "einLetter")
                           }
-                          onPreview={() =>
-                            setViewingDoc(selectedDriver.documents.einLetter)
+                          onPreview={(tDoc) =>
+                            setViewingDoc(tDoc || selectedDriver.documents.einLetter)
                           }
-                          onDownload={() =>
-                            downloadDocument(selectedDriver.documents.einLetter!)
+                          onDownload={(tDoc) =>
+                            downloadDocument(tDoc || selectedDriver.documents.einLetter!)
                           }
                           onUpload={() =>
                             openDocumentUploader(
@@ -1701,11 +1761,15 @@ function DriversContent() {
                               false
                             )
                           }
-                          onRemove={() =>
+                          onRemove={(histId) =>
                             removeDriverDocument(
                               selectedDriver.id,
-                              "einLetter"
+                              "einLetter",
+                              histId
                             )
+                          }
+                          onDirectDrop={(file) =>
+                            handleDirectDropDriverDoc("einLetter", "EIN Letter / W9", file)
                           }
                         />
 
@@ -1718,11 +1782,11 @@ function DriversContent() {
                           onToggleSkip={() =>
                             toggleDriverDocumentSkip(selectedDriver.id, "leaseAgreement")
                           }
-                          onPreview={() =>
-                            setViewingDoc(selectedDriver.documents.leaseAgreement)
+                          onPreview={(tDoc) =>
+                            setViewingDoc(tDoc || selectedDriver.documents.leaseAgreement)
                           }
-                          onDownload={() =>
-                            downloadDocument(selectedDriver.documents.leaseAgreement!)
+                          onDownload={(tDoc) =>
+                            downloadDocument(tDoc || selectedDriver.documents.leaseAgreement!)
                           }
                           onUpload={() =>
                             openDocumentUploader(
@@ -1731,11 +1795,15 @@ function DriversContent() {
                               true
                             )
                           }
-                          onRemove={() =>
+                          onRemove={(histId) =>
                             removeDriverDocument(
                               selectedDriver.id,
-                              "leaseAgreement"
+                              "leaseAgreement",
+                              histId
                             )
+                          }
+                          onDirectDrop={(file) =>
+                            handleDirectDropDriverDoc("leaseAgreement", "Driver Lease Agreement", file)
                           }
                         />
                       </div>
@@ -2294,17 +2362,18 @@ function DriversContent() {
   );
 }
 
-// Reusable Document Card Component
+// Reusable Document Card Component with Drag-and-Drop & Multi-file Version History
 interface DocumentCardProps {
   title: string;
   description: string;
   doc: FleetDocument | null | undefined;
   isSkipped?: boolean;
   onToggleSkip?: () => void;
-  onPreview: () => void;
-  onDownload: () => void;
+  onPreview: (targetDoc?: FleetDocument) => void;
+  onDownload: (targetDoc?: FleetDocument) => void;
   onUpload: () => void;
-  onRemove: () => void;
+  onRemove: (historyDocId?: string) => void;
+  onDirectDrop?: (file: File) => void;
 }
 
 const DocumentCard: React.FC<DocumentCardProps> = ({
@@ -2317,17 +2386,63 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
   onDownload,
   onUpload,
   onRemove,
+  onDirectDrop,
 }) => {
+  const [isDragOverCard, setIsDragOverCard] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const historyDocs = doc?.history || [];
+
+  const handleCardDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverCard(true);
+  };
+
+  const handleCardDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverCard(false);
+  };
+
+  const handleCardDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverCard(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (onDirectDrop) {
+        onDirectDrop(file);
+      } else {
+        onUpload();
+      }
+    }
+  };
+
   return (
     <div
-      className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
-        doc
+      onDragOver={handleCardDragOver}
+      onDragLeave={handleCardDragLeave}
+      onDrop={handleCardDrop}
+      className={`p-4 rounded-xl border transition-all flex flex-col justify-between relative ${
+        isDragOverCard
+          ? "border-emerald-500 bg-emerald-50/70 shadow-lg ring-4 ring-emerald-500/20 scale-[1.01]"
+          : doc
           ? "bg-white border-slate-200 hover:border-emerald-300 shadow-xs"
           : isSkipped
           ? "bg-slate-50/70 border-dashed border-slate-300 opacity-80"
           : "bg-red-50/20 border-dashed border-red-300 hover:border-red-400 shadow-xs"
       }`}
     >
+      {/* Visual Drop Overlay */}
+      {isDragOverCard && (
+        <div className="absolute inset-0 z-20 bg-emerald-600/90 rounded-xl flex flex-col items-center justify-center text-white backdrop-blur-xs pointer-events-none animate-in fade-in duration-100">
+          <Upload className="w-8 h-8 mb-2 animate-bounce" />
+          <p className="font-bold text-sm">Drop document file here to upload</p>
+          <p className="text-xs text-emerald-100">Saved as CURRENT FILE (previous kept in history)</p>
+        </div>
+      )}
+
       <div>
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center space-x-2.5 min-w-0">
@@ -2351,10 +2466,18 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
           </div>
 
           {doc ? (
-            <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full flex items-center space-x-1 shrink-0">
-              <CheckCircle className="w-3 h-3 mr-0.5" />
-              <span>On File</span>
-            </span>
+            <div className="flex items-center space-x-1.5 shrink-0">
+              {historyDocs.length > 0 && (
+                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600 rounded-md border border-slate-200 flex items-center space-x-1">
+                  <History className="w-2.5 h-2.5" />
+                  <span>{historyDocs.length} archived</span>
+                </span>
+              )}
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-600 text-white rounded-full flex items-center space-x-1 shadow-xs">
+                <CheckCircle className="w-3 h-3 mr-0.5" />
+                <span>CURRENT FILE</span>
+              </span>
+            </div>
           ) : isSkipped ? (
             <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-600 rounded-full shrink-0">
               ⚪ Skipped (N/A)
@@ -2367,21 +2490,159 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
           )}
         </div>
 
+        {/* Current Active File Card */}
         {doc && (
-          <div className="mt-3 p-2.5 bg-slate-50 rounded-lg text-xs space-y-1">
-            <p className="font-semibold text-slate-800 truncate" title={doc.name}>
-              {doc.name}
-            </p>
-            <div className="flex items-center justify-between text-[11px] text-slate-500">
-              <span>
-                Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}
+          <div className="mt-3 p-3 bg-gradient-to-r from-emerald-50/50 to-slate-50 rounded-xl border border-emerald-100 text-xs space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-bold text-slate-900 truncate" title={doc.name}>
+                {doc.name}
+              </p>
+              <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-emerald-100 text-emerald-800 shrink-0">
+                ACTIVE
               </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-slate-500">
+              <span>Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}</span>
               <span>{(doc.fileSize / 1024).toFixed(0)} KB</span>
             </div>
             {doc.expirationDate && (
-              <p className="text-[11px] font-semibold text-emerald-700 flex items-center space-x-1 pt-0.5">
+              <p className="text-[11px] font-semibold text-emerald-800 flex items-center space-x-1 pt-0.5">
+                <Clock className="w-3 h-3 text-emerald-600" />
                 <span>Expires: {doc.expirationDate}</span>
               </p>
+            )}
+
+            {/* Actions on Current File */}
+            <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between gap-1">
+              <div className="flex items-center space-x-1.5">
+                <button
+                  type="button"
+                  onClick={() => onPreview(doc)}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-emerald-700 bg-white hover:bg-emerald-50 border border-slate-200 rounded-lg transition-colors shadow-2xs"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Preview</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDownload(doc)}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-emerald-700 bg-white hover:bg-emerald-50 border border-slate-200 rounded-lg transition-colors shadow-2xs"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download</span>
+                </button>
+              </div>
+
+              <div className="flex items-center space-x-1">
+                <button
+                  type="button"
+                  onClick={onUpload}
+                  className="inline-flex items-center space-x-1 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100/70 rounded-lg transition-colors"
+                  title="Upload a new version and move current to expired history"
+                >
+                  <Upload className="w-3 h-3" />
+                  <span>New Version</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Remove current ${title}?`)) {
+                      onRemove();
+                    }
+                  }}
+                  className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
+                  title="Remove current active file"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Previous / Expired Files Accordion */}
+        {historyDocs.length > 0 && (
+          <div className="mt-2.5 border border-slate-200 rounded-lg overflow-hidden bg-slate-50/60">
+            <button
+              type="button"
+              onClick={() => setShowHistory(!showHistory)}
+              className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center justify-between transition-colors"
+            >
+              <span className="flex items-center space-x-1.5">
+                <History className="w-3.5 h-3.5 text-slate-500" />
+                <span>Expired / Archived Files on Record ({historyDocs.length})</span>
+              </span>
+              {showHistory ? (
+                <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+              )}
+            </button>
+
+            {showHistory && (
+              <div className="p-2 space-y-2 border-t border-slate-200 bg-white">
+                {historyDocs.map((histDoc, idx) => (
+                  <div
+                    key={histDoc.id || idx}
+                    className="p-2 rounded-lg border border-slate-100 bg-slate-50/70 hover:bg-slate-100/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <span className="px-1.5 py-0.2 text-[9px] font-bold bg-amber-100 text-amber-800 rounded">
+                          EXPIRED ON FILE
+                        </span>
+                        <p className="font-semibold text-slate-800 truncate" title={histDoc.name}>
+                          {histDoc.name}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2 text-[10px] text-slate-500 mt-0.5">
+                        <span>Uploaded: {new Date(histDoc.uploadedAt).toLocaleDateString()}</span>
+                        {histDoc.expirationDate && (
+                          <>
+                            <span>•</span>
+                            <span className="text-amber-700 font-medium">
+                              Expired: {histDoc.expirationDate}
+                            </span>
+                          </>
+                        )}
+                        <span>•</span>
+                        <span>{(histDoc.fileSize / 1024).toFixed(0)} KB</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-1 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => onPreview(histDoc)}
+                        className="p-1 text-slate-600 hover:text-emerald-700 hover:bg-white rounded transition-colors"
+                        title="Preview expired file"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDownload(histDoc)}
+                        className="p-1 text-slate-600 hover:text-emerald-700 hover:bg-white rounded transition-colors"
+                        title="Download expired file"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete archived file "${histDoc.name}"?`)) {
+                            onRemove(histDoc.id);
+                          }
+                        }}
+                        className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
+                        title="Delete archived file"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -2393,47 +2654,30 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
         )}
 
         {!doc && !isSkipped && (
-          <div className="mt-2.5 p-2 bg-red-50/60 border border-red-100 rounded-lg text-[11px] text-red-700 font-medium">
-            Required document for driver qualification file.
+          <div className="mt-2.5 p-3 bg-red-50/60 border border-dashed border-red-200 rounded-lg text-[11px] text-red-700 text-center">
+            <p className="font-semibold">Required document for driver qualification file.</p>
+            <p className="text-[10px] text-red-500 mt-0.5">Drag & drop file here or click upload below</p>
           </div>
         )}
       </div>
 
       <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
         {doc ? (
-          <>
-            <div className="flex items-center space-x-1.5">
-              <button
-                onClick={onPreview}
-                className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-medium text-slate-700 hover:text-emerald-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Preview</span>
-              </button>
-              <button
-                onClick={onDownload}
-                className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-medium text-slate-700 hover:text-emerald-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download</span>
-              </button>
-            </div>
+          <div className="w-full flex items-center justify-between text-[11px] text-slate-400">
+            <span>Tip: Drag & drop new file anytime to update</span>
             <button
-              onClick={() => {
-                if (window.confirm(`Remove ${title} from this driver?`)) {
-                  onRemove();
-                }
-              }}
-              className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
-              title="Remove file"
+              type="button"
+              onClick={onUpload}
+              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              Upload +
             </button>
-          </>
+          </div>
         ) : isSkipped ? (
           <div className="w-full flex items-center justify-between gap-2">
             {onToggleSkip && (
               <button
+                type="button"
                 onClick={onToggleSkip}
                 className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors"
               >
@@ -2441,6 +2685,7 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
               </button>
             )}
             <button
+              type="button"
               onClick={onUpload}
               className="inline-flex items-center space-x-1 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors ml-auto"
             >
@@ -2451,16 +2696,18 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
         ) : (
           <div className="w-full flex items-center justify-between gap-2">
             <button
+              type="button"
               onClick={onUpload}
-              className="flex-1 inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-xs"
+              className="flex-1 inline-flex items-center justify-center space-x-1.5 px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-xs"
             >
               <Upload className="w-3.5 h-3.5" />
-              <span>Upload Document</span>
+              <span>Upload or Drop Document</span>
             </button>
             {onToggleSkip && (
               <button
+                type="button"
                 onClick={onToggleSkip}
-                className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+                className="inline-flex items-center space-x-1 px-2.5 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
                 title="Mark this document as not required / exempt for this driver"
               >
                 <span>Skip (N/A)</span>

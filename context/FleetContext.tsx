@@ -54,7 +54,7 @@ interface FleetContextType {
     key: TruckDocumentKey,
     document: FleetDocument
   ) => void;
-  removeTruckDocument: (truckId: string, key: TruckDocumentKey) => void;
+  removeTruckDocument: (truckId: string, key: TruckDocumentKey, historyDocId?: string) => void;
   addTruckCustomDocument: (truckId: string, document: FleetDocument) => void;
   removeTruckCustomDocument: (truckId: string, documentId: string) => void;
 
@@ -67,7 +67,7 @@ interface FleetContextType {
     key: TrailerDocumentKey,
     document: FleetDocument
   ) => void;
-  removeTrailerDocument: (trailerId: string, key: TrailerDocumentKey) => void;
+  removeTrailerDocument: (trailerId: string, key: TrailerDocumentKey, historyDocId?: string) => void;
   addTrailerCustomDocument: (trailerId: string, document: FleetDocument) => void;
   removeTrailerCustomDocument: (trailerId: string, documentId: string) => void;
 
@@ -88,7 +88,8 @@ interface FleetContextType {
     categoryKey: keyof Omit<
       Driver["documents"],
       "drugTestResults" | "applicationLink" | "dotRecords"
-    >
+    >,
+    historyDocId?: string
   ) => void;
   addDriverDrugTestResult: (driverId: string, document: FleetDocument) => void;
   removeDriverDrugTestResult: (driverId: string, documentId: string) => void;
@@ -552,21 +553,77 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setTrucks((prev) =>
       prev.map((t) => {
         if (t.id !== truckId) return t;
+        const existing = t.documents ? t.documents[key] : null;
+        let newHistory: FleetDocument[] = [];
+        if (existing) {
+          const prevHistory = existing.history || [];
+          const archivedExisting: FleetDocument = {
+            ...existing,
+            isCurrent: false,
+            status: "expired",
+            history: undefined,
+          };
+          newHistory = [archivedExisting, ...prevHistory];
+        }
+        const newCurrentDoc: FleetDocument = {
+          ...document,
+          isCurrent: true,
+          status: "current",
+          history: newHistory,
+        };
         return {
           ...t,
           documents: {
             ...t.documents,
-            [key]: document,
+            [key]: newCurrentDoc,
           },
         };
       })
     );
   };
 
-  const removeTruckDocument = (truckId: string, key: TruckDocumentKey) => {
+  const removeTruckDocument = (truckId: string, key: TruckDocumentKey, historyDocId?: string) => {
     setTrucks((prev) =>
       prev.map((t) => {
         if (t.id !== truckId) return t;
+        const currentDoc = t.documents ? t.documents[key] : null;
+        if (!currentDoc) return t;
+
+        // If removing a specific historical / expired file:
+        if (historyDocId) {
+          const updatedHistory = (currentDoc.history || []).filter((h) => h.id !== historyDocId);
+          return {
+            ...t,
+            documents: {
+              ...t.documents,
+              [key]: {
+                ...currentDoc,
+                history: updatedHistory,
+              },
+            },
+          };
+        }
+
+        // If removing the current active file:
+        const remainingHistory = currentDoc.history || [];
+        if (remainingHistory.length > 0) {
+          // Promote the most recent historical file as current or keep slot with remaining history
+          const [nextCurrent, ...restHistory] = remainingHistory;
+          return {
+            ...t,
+            documents: {
+              ...t.documents,
+              [key]: {
+                ...nextCurrent,
+                isCurrent: true,
+                status: "current",
+                history: restHistory,
+              },
+            },
+          };
+        }
+
+        // Completely empty
         return {
           ...t,
           documents: {
@@ -647,11 +704,29 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setTrailers((prev) =>
       prev.map((tr) => {
         if (tr.id !== trailerId) return tr;
+        const existing = tr.documents ? tr.documents[key] : null;
+        let newHistory: FleetDocument[] = [];
+        if (existing) {
+          const prevHistory = existing.history || [];
+          const archivedExisting: FleetDocument = {
+            ...existing,
+            isCurrent: false,
+            status: "expired",
+            history: undefined,
+          };
+          newHistory = [archivedExisting, ...prevHistory];
+        }
+        const newCurrentDoc: FleetDocument = {
+          ...document,
+          isCurrent: true,
+          status: "current",
+          history: newHistory,
+        };
         return {
           ...tr,
           documents: {
             ...tr.documents,
-            [key]: document,
+            [key]: newCurrentDoc,
           },
         };
       })
@@ -660,11 +735,46 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const removeTrailerDocument = (
     trailerId: string,
-    key: TrailerDocumentKey
+    key: TrailerDocumentKey,
+    historyDocId?: string
   ) => {
     setTrailers((prev) =>
       prev.map((tr) => {
         if (tr.id !== trailerId) return tr;
+        const currentDoc = tr.documents ? tr.documents[key] : null;
+        if (!currentDoc) return tr;
+
+        if (historyDocId) {
+          const updatedHistory = (currentDoc.history || []).filter((h) => h.id !== historyDocId);
+          return {
+            ...tr,
+            documents: {
+              ...tr.documents,
+              [key]: {
+                ...currentDoc,
+                history: updatedHistory,
+              },
+            },
+          };
+        }
+
+        const remainingHistory = currentDoc.history || [];
+        if (remainingHistory.length > 0) {
+          const [nextCurrent, ...restHistory] = remainingHistory;
+          return {
+            ...tr,
+            documents: {
+              ...tr.documents,
+              [key]: {
+                ...nextCurrent,
+                isCurrent: true,
+                status: "current",
+                history: restHistory,
+              },
+            },
+          };
+        }
+
         return {
           ...tr,
           documents: {
@@ -759,11 +869,29 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setDrivers((prev) =>
       prev.map((d) => {
         if (d.id !== driverId) return d;
+        const existing = d.documents ? (d.documents[categoryKey] as FleetDocument | null) : null;
+        let newHistory: FleetDocument[] = [];
+        if (existing) {
+          const prevHistory = existing.history || [];
+          const archivedExisting: FleetDocument = {
+            ...existing,
+            isCurrent: false,
+            status: "expired",
+            history: undefined,
+          };
+          newHistory = [archivedExisting, ...prevHistory];
+        }
+        const newCurrentDoc: FleetDocument = {
+          ...document,
+          isCurrent: true,
+          status: "current",
+          history: newHistory,
+        };
         return {
           ...d,
           documents: {
             ...d.documents,
-            [categoryKey]: document,
+            [categoryKey]: newCurrentDoc,
           },
         };
       })
@@ -775,11 +903,46 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     categoryKey: keyof Omit<
       Driver["documents"],
       "drugTestResults" | "applicationLink" | "dotRecords"
-    >
+    >,
+    historyDocId?: string
   ) => {
     setDrivers((prev) =>
       prev.map((d) => {
         if (d.id !== driverId) return d;
+        const currentDoc = d.documents ? (d.documents[categoryKey] as FleetDocument | null) : null;
+        if (!currentDoc) return d;
+
+        if (historyDocId) {
+          const updatedHistory = (currentDoc.history || []).filter((h) => h.id !== historyDocId);
+          return {
+            ...d,
+            documents: {
+              ...d.documents,
+              [categoryKey]: {
+                ...currentDoc,
+                history: updatedHistory,
+              },
+            },
+          };
+        }
+
+        const remainingHistory = currentDoc.history || [];
+        if (remainingHistory.length > 0) {
+          const [nextCurrent, ...restHistory] = remainingHistory;
+          return {
+            ...d,
+            documents: {
+              ...d.documents,
+              [categoryKey]: {
+                ...nextCurrent,
+                isCurrent: true,
+                status: "current",
+                history: restHistory,
+              },
+            },
+          };
+        }
+
         return {
           ...d,
           documents: {

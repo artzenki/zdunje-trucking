@@ -23,12 +23,39 @@ export const CustomDocumentUploadModal: React.FC<CustomDocumentUploadModalProps>
   const [description, setDescription] = useState("");
   const [expirationDate, setExpirationDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   if (!isOpen) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      setSelectedFile(file);
+      if (!docName.trim()) {
+        const cleanName = file.name.replace(/\.[^/.]+$/, "");
+        setDocName(cleanName);
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
       setSelectedFile(file);
       if (!docName.trim()) {
         const cleanName = file.name.replace(/\.[^/.]+$/, "");
@@ -114,14 +141,29 @@ export const CustomDocumentUploadModal: React.FC<CustomDocumentUploadModalProps>
             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
               Document File <span className="text-red-500">*</span>
             </label>
-            <label className="relative flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50/70 hover:bg-blue-50/20 rounded-xl p-5 cursor-pointer transition-all">
+            <label
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-5 cursor-pointer transition-all ${
+                isDragging
+                  ? "border-blue-600 bg-blue-100/50 scale-[1.01] shadow-md ring-4 ring-blue-500/20"
+                  : "border-slate-300 hover:border-blue-500 bg-slate-50/70 hover:bg-blue-50/20"
+              }`}
+            >
               <input
                 type="file"
                 className="sr-only"
                 accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
                 onChange={handleFileChange}
               />
-              <div className="p-2.5 bg-white rounded-full shadow-xs border border-slate-200 text-blue-600 mb-2">
+              <div
+                className={`p-2.5 rounded-full shadow-xs border transition-transform ${
+                  isDragging
+                    ? "bg-blue-600 text-white scale-110"
+                    : "bg-white border-slate-200 text-blue-600"
+                } mb-2`}
+              >
                 <Upload className="w-5 h-5" />
               </div>
               {selectedFile ? (
@@ -137,7 +179,7 @@ export const CustomDocumentUploadModal: React.FC<CustomDocumentUploadModalProps>
               ) : (
                 <div className="text-center">
                   <p className="text-sm font-medium text-slate-700">
-                    Click to browse or drop file here
+                    {isDragging ? "Drop file right here" : "Click to browse or drop file here"}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
                     Supports PDF, images (PNG, JPG), Word & Excel docs up to 25MB

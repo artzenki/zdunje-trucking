@@ -34,6 +34,9 @@ export interface FleetDocument {
   testType?: "Random FMCSA" | "Pre-Employment" | "Post-Accident" | "Reasonable Suspicion" | "Return-to-Duty";
   inspectionLevel?: string; // e.g. "Level 1", "Level 2", "Level 3"
   inspectionResult?: "Clean / No Violations" | "Violations Noted";
+  isCurrent?: boolean; // whether this document is the active current version
+  status?: "current" | "expired" | "archived";
+  history?: FleetDocument[]; // previous expired/archived versions of this document on file
 }
 
 export type TruckDocumentKey =
