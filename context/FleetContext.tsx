@@ -163,6 +163,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           parsed.map((d: any) => ({
             ...d,
+            email: d.email || "",
             skippedDocuments: d.skippedDocuments || [],
             documents: {
               ...d.documents,

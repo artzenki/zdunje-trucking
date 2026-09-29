@@ -122,6 +122,7 @@ export interface Driver {
   middleName: string;
   lastName: string;
   dateOfBirth: string; // YYYY-MM-DD
+  email?: string;
   phone: string;
   state: string;
   licenseNumber: string;
