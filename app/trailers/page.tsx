@@ -528,7 +528,7 @@ function TrailersContent() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-purple-50 text-purple-700 border border-purple-100">
-                      {TRAILER_DOCUMENTS.filter((def) => !!selectedTrailer.documents[def.key]).length} / {TRAILER_DOCUMENTS.length} Uploaded
+                      {TRAILER_DOCUMENTS.filter((def) => !!selectedTrailer.documents?.[def.key]).length} / {TRAILER_DOCUMENTS.length} Uploaded
                     </span>
                   </div>
                 </div>
@@ -536,7 +536,7 @@ function TrailersContent() {
                 {/* Mandatory Compliance Documents List */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
                   {TRAILER_DOCUMENTS.map((def) => {
-                    const doc = selectedTrailer.documents[def.key];
+                    const doc = selectedTrailer.documents?.[def.key];
 
                     return (
                       <div

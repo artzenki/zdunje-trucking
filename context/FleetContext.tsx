@@ -144,7 +144,20 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       if (savedTrucks) {
         const parsed = JSON.parse(savedTrucks);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setTrucks(parsed.map((t: any) => ({ ...t, customDocuments: t.customDocuments || [] })));
+        setTrucks(parsed.map((t: any) => ({
+          ...t,
+          status: t.status || "Active",
+          documents: {
+            title: null,
+            tax2290: null,
+            dotInspection: null,
+            insurance: null,
+            cabCard: null,
+            leaseAgreement: null,
+            ...(t.documents || {}),
+          },
+          customDocuments: t.customDocuments || [],
+        })));
       } else {
         setTrucks(initialTrucks);
       }
@@ -152,7 +165,20 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       if (savedTrailers) {
         const parsed = JSON.parse(savedTrailers);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setTrailers(parsed.map((tr: any) => ({ ...tr, customDocuments: tr.customDocuments || [] })));
+        setTrailers(parsed.map((tr: any) => ({
+          ...tr,
+          status: tr.status || "Active",
+          documents: {
+            title: null,
+            tax2290: null,
+            dotInspection: null,
+            insurance: null,
+            cabCard: null,
+            trailerAgreement: null,
+            ...(tr.documents || {}),
+          },
+          customDocuments: tr.customDocuments || [],
+        })));
       } else {
         setTrailers(initialTrailers);
       }
@@ -166,9 +192,23 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
             email: d.email || "",
             skippedDocuments: d.skippedDocuments || [],
             documents: {
-              ...d.documents,
-              onboardingDoc: d.documents?.onboardingDoc || null,
-              leaseAgreement: d.documents?.leaseAgreement || null,
+              mvr: null,
+              pspAuth: null,
+              pspReport: null,
+              cdl: null,
+              medCard: null,
+              clearingHouse: null,
+              applicationFile: null,
+              applicationLink: "",
+              drugCustodyForm: null,
+              drugPassport: null,
+              drugTestResults: [],
+              bankInfoDoc: null,
+              einLetter: null,
+              onboardingDoc: null,
+              leaseAgreement: null,
+              dotRecords: [],
+              ...(d.documents || {}),
               drugTestResults: d.documents?.drugTestResults || [],
               dotRecords: d.documents?.dotRecords || [],
             },
@@ -256,6 +296,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Trucks
     trucks.forEach((t) => {
+      if (!t.documents) return;
       checkDoc(
         t.documents.dotInspection,
         "truck",
@@ -288,6 +329,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Trailers
     trailers.forEach((tr) => {
+      if (!tr.documents) return;
       checkDoc(
         tr.documents.dotInspection,
         "trailer",
@@ -313,6 +355,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Drivers
     drivers.forEach((d) => {
+      if (!d.documents) return;
       const name = `${d.firstName} ${d.lastName}`;
       checkDoc(d.documents.cdl, "driver", d.id, name, "Commercial Driver License (CDL)");
       checkDoc(d.documents.medCard, "driver", d.id, name, "Medical Examiner Card (MEDCard)");

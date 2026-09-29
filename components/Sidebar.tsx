@@ -20,9 +20,9 @@ export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const { trucks, trailers, drivers, alerts, users } = useFleet();
 
-  const activeTrucks = trucks.filter((t) => t.status === "Active").length;
-  const activeDrivers = drivers.filter((d) => d.status === "Active").length;
-  const urgentAlerts = alerts.filter(
+  const activeTrucks = (trucks || []).filter((t) => t.status === "Active").length;
+  const activeDrivers = (drivers || []).filter((d) => d.status === "Active").length;
+  const urgentAlerts = (alerts || []).filter(
     (a) => a.status === "expired" || a.status === "urgent"
   ).length;
 
@@ -37,19 +37,19 @@ export const Sidebar: React.FC = () => {
       name: "Trucks",
       href: "/trucks",
       icon: Truck,
-      badge: trucks.length,
+      badge: (trucks || []).length,
     },
     {
       name: "Trailers",
       href: "/trailers",
       icon: Container,
-      badge: trailers.length,
+      badge: (trailers || []).length,
     },
     {
       name: "Drivers",
       href: "/drivers",
       icon: Users,
-      badge: drivers.length,
+      badge: (drivers || []).length,
     },
     {
       name: "Maintenance",
@@ -74,7 +74,7 @@ export const Sidebar: React.FC = () => {
       name: "Users & Roles",
       href: "/users",
       icon: ShieldCheck,
-      badge: users.length,
+      badge: (users || []).length,
     },
     {
       name: "Settings & Import",

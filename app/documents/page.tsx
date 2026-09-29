@@ -42,7 +42,7 @@ export default function DocumentsPage() {
 
     // Trucks
     trucks.forEach((t) => {
-      Object.entries(t.documents).forEach(([, doc]) => {
+      Object.entries(t.documents || {}).forEach(([, doc]) => {
         if (doc) {
           list.push({
             doc,
@@ -66,7 +66,7 @@ export default function DocumentsPage() {
 
     // Trailers
     trailers.forEach((tr) => {
-      Object.entries(tr.documents).forEach(([, doc]) => {
+      Object.entries(tr.documents || {}).forEach(([, doc]) => {
         if (doc) {
           list.push({
             doc,
@@ -91,7 +91,7 @@ export default function DocumentsPage() {
     // Drivers
     drivers.forEach((d) => {
       const driverName = `${d.firstName} ${d.lastName}`;
-      const dDocs = d.documents;
+      const dDocs = d.documents || ({} as any);
       const singleKeys: (keyof typeof dDocs)[] = [
         "mvr",
         "pspAuth",

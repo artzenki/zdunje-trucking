@@ -593,7 +593,7 @@ function TrucksContent() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                      {DOCUMENT_DEFINITIONS.filter((def) => !!selectedTruck.documents[def.key]).length} / {DOCUMENT_DEFINITIONS.length} Uploaded
+                      {DOCUMENT_DEFINITIONS.filter((def) => !!selectedTruck.documents?.[def.key]).length} / {DOCUMENT_DEFINITIONS.length} Uploaded
                     </span>
                   </div>
                 </div>
@@ -601,7 +601,7 @@ function TrucksContent() {
                 {/* Mandatory Compliance Documents List */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
                   {DOCUMENT_DEFINITIONS.map((def) => {
-                    const doc = selectedTruck.documents[def.key];
+                    const doc = selectedTruck.documents?.[def.key];
 
                     return (
                       <div

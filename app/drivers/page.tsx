@@ -825,7 +825,7 @@ function DriversContent() {
                           : "text-slate-600 hover:bg-slate-100"
                       }`}
                     >
-                      Drug Testing ({selectedDriver.documents.drugTestResults.length})
+                      Drug Testing ({(selectedDriver.documents.drugTestResults || []).length})
                     </button>
                     <button
                       onClick={() => setActiveFolderTab("payroll")}
@@ -1302,17 +1302,17 @@ function DriversContent() {
                             </p>
                           </div>
                           <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">
-                            {selectedDriver.documents.drugTestResults.length} Tests Logged
+                            {(selectedDriver.documents.drugTestResults || []).length} Tests Logged
                           </span>
                         </div>
 
-                        {selectedDriver.documents.drugTestResults.length === 0 ? (
+                        {(!selectedDriver.documents.drugTestResults || selectedDriver.documents.drugTestResults.length === 0) ? (
                           <div className="p-6 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-lg">
                             No drug test results on file yet. Click &ldquo;+ Add Random Drug Test Result&rdquo; above.
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            {selectedDriver.documents.drugTestResults.map(
+                            {(selectedDriver.documents.drugTestResults || []).map(
                               (testDoc) => (
                                 <div
                                   key={testDoc.id}
