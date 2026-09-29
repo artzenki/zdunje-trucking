@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useFleet } from "@/context/FleetContext";
 import {
@@ -86,12 +86,36 @@ function MaintenanceContent() {
     description: "",
   });
 
+  const openAddModal = useCallback(() => {
+    const defaultTruck = trucks[0];
+    setFormData({
+      truckId: defaultTruck ? defaultTruck.id : "",
+      serviceDate: new Date().toISOString().split("T")[0],
+      odometer: defaultTruck ? defaultTruck.currentMileage : 120000,
+      serviceType: "PM-A (Oil & Lube)",
+      shopId: shops[0] ? shops[0].id : "",
+      customShopName: "",
+      laborCost: 180,
+      partsCost: 320,
+      calloutFee: 0,
+      invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+      nextServiceDueMileage: defaultTruck
+        ? defaultTruck.currentMileage + 15000
+        : 135000,
+      nextServiceDueDate: "",
+      status: "Completed",
+      description: "",
+    });
+    setEditingRecord(null);
+    setIsAddModalOpen(true);
+  }, [trucks, shops]);
+
   useEffect(() => {
     const action = searchParams.get("action");
     if (action === "new") {
       openAddModal();
     }
-  }, [searchParams]);
+  }, [searchParams, openAddModal]);
 
   const filteredRecords = useMemo(() => {
     return maintenanceRecords.filter((rec) => {
@@ -117,30 +141,6 @@ function MaintenanceContent() {
   const totalFleetSpent = useMemo(() => {
     return maintenanceRecords.reduce((acc, curr) => acc + curr.totalCost, 0);
   }, [maintenanceRecords]);
-
-  const openAddModal = () => {
-    const defaultTruck = trucks[0];
-    setFormData({
-      truckId: defaultTruck ? defaultTruck.id : "",
-      serviceDate: new Date().toISOString().split("T")[0],
-      odometer: defaultTruck ? defaultTruck.currentMileage : 120000,
-      serviceType: "PM-A (Oil & Lube)",
-      shopId: shops[0] ? shops[0].id : "",
-      customShopName: "",
-      laborCost: 180,
-      partsCost: 320,
-      calloutFee: 0,
-      invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
-      nextServiceDueMileage: defaultTruck
-        ? defaultTruck.currentMileage + 15000
-        : 135000,
-      nextServiceDueDate: "",
-      status: "Completed",
-      description: "",
-    });
-    setEditingRecord(null);
-    setIsAddModalOpen(true);
-  };
 
   const openEditModal = (rec: MaintenanceRecord) => {
     setEditingRecord(rec);

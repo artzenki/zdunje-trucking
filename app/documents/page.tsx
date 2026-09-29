@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useFleet } from "@/context/FleetContext";
-import { FleetDocument } from "@/types/fleet";
+import { FleetDocument, DriverDocuments } from "@/types/fleet";
 import {
   FolderLock,
   Search,
@@ -91,8 +91,8 @@ export default function DocumentsPage() {
     // Drivers
     drivers.forEach((d) => {
       const driverName = `${d.firstName} ${d.lastName}`;
-      const dDocs = d.documents || ({} as any);
-      const singleKeys: (keyof typeof dDocs)[] = [
+      const dDocs = (d.documents || {}) as Partial<DriverDocuments>;
+      const singleKeys: (keyof DriverDocuments)[] = [
         "mvr",
         "pspAuth",
         "pspReport",
