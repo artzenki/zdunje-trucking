@@ -40,11 +40,17 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
   // Show loading spinner while determining session
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white space-y-4">
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-xs text-slate-400 font-semibold tracking-wider uppercase">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white space-y-4 p-4 text-center">
+        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs text-slate-300 font-semibold tracking-wider uppercase">
           Verifying Zdunje Security Credentials...
         </p>
+        <Link
+          href="/login"
+          className="text-xs text-emerald-400 hover:text-emerald-300 underline font-medium pt-2"
+        >
+          Click here to continue to Sign In
+        </Link>
       </div>
     );
   }

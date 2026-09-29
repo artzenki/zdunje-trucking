@@ -24,52 +24,90 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
+    if (typeof window !== "undefined") {
+      const explicitLogout = localStorage.getItem("zdunje_explicit_logout");
+      if (explicitLogout === "true") return null;
+      const savedUserJson = localStorage.getItem("zdunje_auth_user");
+      if (savedUserJson) {
+        try {
+          return JSON.parse(savedUserJson) as AppUser;
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return initialUsers[0]; // Instant Super Admin session by default
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
   // Load existing session or fallback from local storage
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // 1. Check local storage for active user session first
-        const savedUserJson = localStorage.getItem("zdunje_auth_user");
-        if (savedUserJson) {
-          const parsed = JSON.parse(savedUserJson) as AppUser;
-          setCurrentUser(parsed);
+        const explicitLogout = localStorage.getItem("zdunje_explicit_logout");
+        if (explicitLogout === "true") {
+          setCurrentUser(null);
           setIsLoading(false);
           return;
         }
 
-        // 2. Check Supabase Auth session if configured
-        if (supabase) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            const { data: profile } = await supabase
-              .from("user_profiles")
-              .select("*")
-              .eq("id", session.user.id)
-              .maybeSingle();
-
-            if (profile) {
-              const appUser: AppUser = {
-                id: profile.id,
-                name: profile.name || session.user.email?.split("@")[0] || "Team Member",
-                email: profile.email || session.user.email || "",
-                phone: profile.phone || "",
-                role: (profile.role as UserRole) || "Dispatcher",
-                department: profile.department || "Operations",
-                status: profile.status || "Active",
-                permissions: profile.permissions || ROLE_DEFAULT_PERMISSIONS["Dispatcher"],
-                createdAt: profile.created_at || new Date().toISOString(),
-                notes: profile.notes || "",
-              };
-              setCurrentUser(appUser);
-              localStorage.setItem("zdunje_auth_user", JSON.stringify(appUser));
-              setIsLoading(false);
-              return;
-            }
+        // 1. Check local storage for active user session first
+        const savedUserJson = localStorage.getItem("zdunje_auth_user");
+        if (savedUserJson) {
+          try {
+            const parsed = JSON.parse(savedUserJson) as AppUser;
+            setCurrentUser(parsed);
+            setIsLoading(false);
+            return;
+          } catch {
+            // ignore
           }
         }
+
+        // 2. Check Supabase Auth session if configured with timeout
+        if (supabase) {
+          try {
+            const sessionPromise = supabase.auth.getSession();
+            const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+              setTimeout(() => resolve({ data: { session: null } }), 1200)
+            );
+            const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
+            if (session?.user) {
+              const { data: profile } = await supabase
+                .from("user_profiles")
+                .select("*")
+                .eq("id", session.user.id)
+                .maybeSingle();
+
+              if (profile) {
+                const appUser: AppUser = {
+                  id: profile.id,
+                  name: profile.name || session.user.email?.split("@")[0] || "Team Member",
+                  email: profile.email || session.user.email || "",
+                  phone: profile.phone || "",
+                  role: (profile.role as UserRole) || "Dispatcher",
+                  department: profile.department || "Operations",
+                  status: profile.status || "Active",
+                  permissions: profile.permissions || ROLE_DEFAULT_PERMISSIONS["Dispatcher"],
+                  createdAt: profile.created_at || new Date().toISOString(),
+                  notes: profile.notes || "",
+                };
+                setCurrentUser(appUser);
+                localStorage.setItem("zdunje_auth_user", JSON.stringify(appUser));
+                setIsLoading(false);
+                return;
+              }
+            }
+          } catch (e) {
+            console.error("Supabase session check error:", e);
+          }
+        }
+
+        // 3. Fallback: default to Super Admin
+        const defaultAdmin = initialUsers[0];
+        setCurrentUser(defaultAdmin);
+        localStorage.setItem("zdunje_auth_user", JSON.stringify(defaultAdmin));
       } catch (err) {
         console.error("Failed to restore auth session:", err);
       } finally {
@@ -121,6 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Login via Supabase Auth or matching email
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
+    localStorage.removeItem("zdunje_explicit_logout");
     try {
       // If supabase is available and password provided, authenticate with Supabase Auth
       if (supabase && password) {
@@ -232,6 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Instant 1-click Demo Account Switcher
   const loginAsDemoUser = (user: AppUser) => {
+    localStorage.removeItem("zdunje_explicit_logout");
     setCurrentUser(user);
     localStorage.setItem("zdunje_auth_user", JSON.stringify(user));
   };
@@ -244,6 +284,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role: UserRole
   ): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
+    localStorage.removeItem("zdunje_explicit_logout");
     try {
       if (supabase && password) {
         const { data, error } = await supabase.auth.signUp({
@@ -318,6 +359,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setCurrentUser(null);
     localStorage.removeItem("zdunje_auth_user");
+    localStorage.setItem("zdunje_explicit_logout", "true");
     setIsLoading(false);
   };
 
