@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from "@/lib/supabase";
 import { AppUser, AppModule, UserRole, ROLE_DEFAULT_PERMISSIONS } from "@/types/fleet";
 import { initialUsers } from "@/lib/mockData";
+import { rowToUser } from "@/lib/supabaseSync";
 
 interface AuthContextType {
   currentUser: AppUser | null;
@@ -19,6 +20,7 @@ interface AuthContextType {
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   hasPermission: (module: AppModule, action: "view" | "create" | "edit" | "delete") => boolean;
+  updateCurrentUser: (user: AppUser) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -236,10 +238,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsLoading(false);
           return { success: false, error: "This account has been suspended by administration." };
         }
+        if (matched.password && password && matched.password !== password) {
+          setIsLoading(false);
+          return { success: false, error: "Incorrect password. Please contact Super Admin to reset." };
+        }
         setCurrentUser(matched);
         localStorage.setItem("zdunje_auth_user", JSON.stringify(matched));
         setIsLoading(false);
         return { success: true };
+      }
+
+      // 3. Check Supabase user_profiles database table directly
+      if (supabase) {
+        try {
+          const { data: dbUser } = await supabase
+            .from("user_profiles")
+            .select("*")
+            .ilike("email", email.trim())
+            .maybeSingle();
+
+          if (dbUser) {
+            if (dbUser.status === "Suspended") {
+              setIsLoading(false);
+              return { success: false, error: "This account has been suspended by administration." };
+            }
+            if (dbUser.password && password && dbUser.password !== password) {
+              setIsLoading(false);
+              return { success: false, error: "Incorrect password. Please contact Super Admin to reset." };
+            }
+            const appUser = rowToUser(dbUser);
+            setCurrentUser(appUser);
+            localStorage.setItem("zdunje_auth_user", JSON.stringify(appUser));
+            setIsLoading(false);
+            return { success: true };
+          }
+        } catch (e) {
+          console.warn("Supabase user profile lookup error:", e);
+        }
       }
 
       // If user typed any valid email with demo password, auto-create Dispatcher session
@@ -378,6 +413,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [currentUser]
   );
 
+  const updateCurrentUser = useCallback((user: AppUser) => {
+    setCurrentUser(user);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("zdunje_auth_user", JSON.stringify(user));
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -389,6 +431,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signup,
         logout,
         hasPermission,
+        updateCurrentUser,
       }}
     >
       {children}

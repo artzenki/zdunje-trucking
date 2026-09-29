@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useFleet } from "@/context/FleetContext";
+import { useAuth } from "@/context/AuthContext";
 import {
   AppUser,
   UserRole,
@@ -24,12 +25,16 @@ import {
   Edit2,
   Trash2,
   X,
-  Lock,
-  Unlock,
   UserCheck,
   RotateCcw,
   Sparkles,
   Info,
+  Key,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  ShieldAlert,
 } from "lucide-react";
 
 const ROLE_COLORS: Record<UserRole, { badge: string; text: string; bg: string }> = {
@@ -86,8 +91,10 @@ const ALL_ROLES: UserRole[] = [
 ];
 
 export default function UsersAndPermissionsPage() {
-  const { users, addUser, updateUser, deleteUser, toggleUserStatus, resetUsers } =
+  const { users, addUser, updateUser, deleteUser, resetUsers } =
     useFleet();
+  const { currentUser, updateCurrentUser } = useAuth();
+  const isSuperAdmin = currentUser?.role === "Super Admin";
 
   const [activeTab, setActiveTab] = useState<"directory" | "matrix">("directory");
   const [search, setSearch] = useState("");
@@ -97,6 +104,80 @@ export default function UsersAndPermissionsPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [showFormPassword, setShowFormPassword] = useState(false);
+
+  // Dedicated Reset Password Modal State (Super Admin)
+  const [resetTargetUser, setResetTargetUser] = useState<AppUser | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [successBanner, setSuccessBanner] = useState<{
+    userName: string;
+    email: string;
+    password?: string;
+  } | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+
+  // Helper: Generate Random Memorable Secure Password
+  const generateRandomPassword = () => {
+    const prefixes = ["Zdunje", "Fleet", "Truck", "Secure", "Haul", "Turbo", "Vanguard"];
+    const specials = ["!", "@", "#", "$", "%", "*"];
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const num = Math.floor(1000 + Math.random() * 9000);
+    const special = specials[Math.floor(Math.random() * specials.length)];
+    return `${prefix}${num}${special}`;
+  };
+
+  // Helper: Copy Credentials to Clipboard
+  const handleCopyCredentials = (email: string, pass: string) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const text = `Zdunje Trucking Portal Credentials\nEmail: ${email}\nPassword: ${pass}\nLogin URL: ${origin}/login`;
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2500);
+    }
+  };
+
+  // Dedicated Reset Password Flow
+  const openResetPasswordModal = (user: AppUser) => {
+    setResetTargetUser(user);
+    const generated = generateRandomPassword();
+    setNewPassword(generated);
+    setConfirmPassword(generated);
+    setShowResetPassword(true);
+    setResetError(null);
+  };
+
+  const handleResetPasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetTargetUser) return;
+    if (!newPassword || newPassword.length < 6) {
+      setResetError("Password must be at least 6 characters long.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setResetError("Passwords do not match.");
+      return;
+    }
+
+    // Update in FleetContext
+    updateUser(resetTargetUser.id, { password: newPassword });
+
+    // If resetting for current active user, sync auth context
+    if (currentUser && currentUser.id === resetTargetUser.id) {
+      updateCurrentUser({ ...currentUser, password: newPassword });
+    }
+
+    setSuccessBanner({
+      userName: resetTargetUser.name,
+      email: resetTargetUser.email,
+      password: newPassword,
+    });
+    setResetTargetUser(null);
+    setResetError(null);
+  };
 
   // Form State
   const [formData, setFormData] = useState<{
@@ -108,6 +189,7 @@ export default function UsersAndPermissionsPage() {
     status: UserStatus;
     notes: string;
     permissions: ModulePermissions;
+    password?: string;
   }>({
     name: "",
     email: "",
@@ -117,10 +199,12 @@ export default function UsersAndPermissionsPage() {
     status: "Active",
     notes: "",
     permissions: JSON.parse(JSON.stringify(ROLE_DEFAULT_PERMISSIONS["Dispatcher"])),
+    password: "",
   });
 
   const openAddModal = () => {
     setEditingUser(null);
+    setShowFormPassword(false);
     setFormData({
       name: "",
       email: "",
@@ -130,12 +214,14 @@ export default function UsersAndPermissionsPage() {
       status: "Active",
       notes: "",
       permissions: JSON.parse(JSON.stringify(ROLE_DEFAULT_PERMISSIONS["Dispatcher"])),
+      password: isSuperAdmin ? generateRandomPassword() : "",
     });
     setIsModalOpen(true);
   };
 
   const openEditModal = (user: AppUser) => {
     setEditingUser(user);
+    setShowFormPassword(false);
     setFormData({
       name: user.name,
       email: user.email,
@@ -145,6 +231,7 @@ export default function UsersAndPermissionsPage() {
       status: user.status,
       notes: user.notes || "",
       permissions: JSON.parse(JSON.stringify(user.permissions)),
+      password: "",
     });
     setIsModalOpen(true);
   };
@@ -224,9 +311,48 @@ export default function UsersAndPermissionsPage() {
     if (!formData.name.trim() || !formData.email.trim()) return;
 
     if (editingUser) {
-      updateUser(editingUser.id, formData);
+      const updatePayload: Partial<AppUser> = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        department: formData.department,
+        role: formData.role,
+        status: formData.status,
+        notes: formData.notes,
+        permissions: formData.permissions,
+      };
+
+      if (formData.password && formData.password.trim().length > 0) {
+        updatePayload.password = formData.password.trim();
+      }
+
+      updateUser(editingUser.id, updatePayload);
+
+      if (currentUser && currentUser.id === editingUser.id) {
+        updateCurrentUser({ ...currentUser, ...updatePayload });
+      }
+
+      if (updatePayload.password) {
+        setSuccessBanner({
+          userName: formData.name,
+          email: formData.email,
+          password: updatePayload.password,
+        });
+      }
     } else {
-      addUser(formData);
+      const newUserPayload = {
+        ...formData,
+        password: formData.password?.trim() || undefined,
+      };
+      addUser(newUserPayload);
+
+      if (newUserPayload.password) {
+        setSuccessBanner({
+          userName: formData.name,
+          email: formData.email,
+          password: newUserPayload.password,
+        });
+      }
     }
     setIsModalOpen(false);
   };
@@ -267,6 +393,65 @@ export default function UsersAndPermissionsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Top Banner Alert for Credential Management / Password Updates */}
+      {successBanner && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200 shadow-xs">
+          <div className="flex items-start sm:items-center space-x-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-emerald-950">
+                Credentials successfully configured for {successBanner.userName}!
+              </p>
+              <div className="text-xs text-emerald-800 flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
+                <span>
+                  Email: <span className="font-mono font-bold">{successBanner.email}</span>
+                </span>
+                {successBanner.password && (
+                  <span>
+                    Password:{" "}
+                    <span className="font-mono font-bold bg-white/70 px-1.5 py-0.5 rounded border border-emerald-200">
+                      {successBanner.password}
+                    </span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
+            {successBanner.password && (
+              <button
+                type="button"
+                onClick={() => handleCopyCredentials(successBanner.email, successBanner.password!)}
+                className="h-8 px-3 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors flex items-center space-x-1.5 shadow-2xs"
+              >
+                {isCopied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Copy Login Info</span>
+                  </>
+                )}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setSuccessBanner(null)}
+              className="p-1.5 text-emerald-600 hover:text-emerald-800 rounded-lg hover:bg-emerald-100/60 transition-colors"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -503,11 +688,6 @@ export default function UsersAndPermissionsPage() {
               {filteredUsers.map((user) => {
                 const roleMeta = ROLE_COLORS[user.role] || ROLE_COLORS.Custom;
 
-                // Count granted permissions
-                const grantedModules = ALL_MODULES.filter(
-                  (m) => user.permissions[m]?.view
-                );
-
                 return (
                   <div
                     key={user.id}
@@ -544,6 +724,15 @@ export default function UsersAndPermissionsPage() {
                           >
                             {user.status}
                           </span>
+                          {isSuperAdmin && user.password && (
+                            <span
+                              title="Password has been assigned by administration"
+                              className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-50 text-purple-700 border border-purple-200 flex items-center space-x-1"
+                            >
+                              <Key className="w-2.5 h-2.5" />
+                              <span>Password Set</span>
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
@@ -578,91 +767,25 @@ export default function UsersAndPermissionsPage() {
                       </div>
                     </div>
 
-                    {/* Permissions Badges & Actions */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between lg:justify-end gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-                      {/* Module chips preview */}
-                      <div className="flex flex-wrap items-center gap-1.5 max-w-md">
-                        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mr-1">
-                          Access ({grantedModules.length}/8):
-                        </span>
-                        {ALL_MODULES.map((m) => {
-                          const p = user.permissions[m];
-                          const hasFull = p && p.create && p.edit && p.delete;
-                          const hasRead = p && p.view;
+                    {/* Action buttons */}
+                    <div className="flex items-center space-x-2 shrink-0">
+                      {/* Edit Button */}
+                      <button
+                        onClick={() => openEditModal(user)}
+                        className="h-9 px-3 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors flex items-center space-x-1.5 shadow-2xs"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Edit</span>
+                      </button>
 
-                          if (!hasRead) return null;
-
-                          return (
-                            <span
-                              key={m}
-                              title={`${MODULE_NAMES[m].label}: ${
-                                hasFull ? "Full Control" : "Limited Access"
-                              }`}
-                              className={`px-2 py-0.5 text-[10px] font-semibold rounded-md border ${
-                                hasFull
-                                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : "bg-slate-50 text-slate-600 border-slate-200"
-                              }`}
-                            >
-                              {m}
-                              {hasFull ? "★" : ""}
-                            </span>
-                          );
-                        })}
-                      </div>
-
-                      {/* Action buttons */}
-                      <div className="flex items-center space-x-1.5 shrink-0">
-                        {/* Quick Toggle Status */}
-                        <button
-                          onClick={() =>
-                            toggleUserStatus(
-                              user.id,
-                              user.status === "Active" ? "Suspended" : "Active"
-                            )
-                          }
-                          className={`h-9 px-3 text-xs font-semibold rounded-lg border transition-colors ${
-                            user.status === "Active"
-                              ? "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                              : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                          }`}
-                          title={
-                            user.status === "Active"
-                              ? "Suspend user access"
-                              : "Activate user"
-                          }
-                        >
-                          {user.status === "Active" ? (
-                            <span className="flex items-center space-x-1">
-                              <Lock className="w-3 h-3 text-slate-500" />
-                              <span>Suspend</span>
-                            </span>
-                          ) : (
-                            <span className="flex items-center space-x-1">
-                              <Unlock className="w-3 h-3 text-emerald-600" />
-                              <span>Activate</span>
-                            </span>
-                          )}
-                        </button>
-
-                        {/* Edit Button */}
-                        <button
-                          onClick={() => openEditModal(user)}
-                          className="h-9 px-3 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors flex items-center space-x-1"
-                        >
-                          <Edit2 className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Edit</span>
-                        </button>
-
-                        {/* Delete Button */}
-                        <button
-                          onClick={() => handleDeleteUser(user)}
-                          className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-100 transition-colors"
-                          title="Delete user"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => handleDeleteUser(user)}
+                        className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-100 transition-colors"
+                        title="Delete user"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 );
@@ -954,12 +1077,94 @@ export default function UsersAndPermissionsPage() {
                   </div>
                 </div>
 
+                {/* Credentials & Password Setup (Super Admin) */}
+                {isSuperAdmin && (
+                  <div className="p-4 bg-purple-50/70 rounded-xl border border-purple-200/80 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="p-1.5 rounded-lg bg-purple-100 text-purple-700">
+                          <Key className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-purple-950 uppercase tracking-wider">
+                            {editingUser ? "Account Password & Credentials" : "Login Password (Super Admin Only)"}
+                          </h4>
+                          <p className="text-[11px] text-purple-700">
+                            {editingUser
+                              ? "Leave blank to keep existing password, or enter a new one to reset credentials."
+                              : "Set initial password so this staff member can log in to the portal."}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const gen = generateRandomPassword();
+                          setFormData((prev) => ({ ...prev, password: gen }));
+                          setShowFormPassword(true);
+                        }}
+                        className="h-7 px-2.5 text-[11px] font-semibold text-purple-700 bg-white hover:bg-purple-100 border border-purple-200 rounded-md transition-colors flex items-center space-x-1.5 shadow-2xs self-start sm:self-auto"
+                      >
+                        <Sparkles className="w-3 h-3 text-purple-600" />
+                        <span>Generate Password</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-purple-900 uppercase mb-1">
+                          {editingUser ? "New Password (optional)" : "Account Password"}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showFormPassword ? "text" : "password"}
+                            value={formData.password || ""}
+                            onChange={(e) =>
+                              setFormData({ ...formData, password: e.target.value })
+                            }
+                            placeholder={editingUser ? "•••••••• (leave blank to keep unchanged)" : "e.g. Zdunje2026!"}
+                            className="w-full h-10 pl-3 pr-10 text-sm font-mono border border-purple-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowFormPassword(!showFormPassword)}
+                            className="p-1.5 text-slate-400 hover:text-slate-600 absolute right-2.5 top-1/2 -translate-y-1/2"
+                          >
+                            {showFormPassword ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col justify-end">
+                        <div className="p-2.5 bg-white/90 rounded-lg border border-purple-100 text-[11px] text-purple-800 space-y-0.5">
+                          <p className="font-semibold flex items-center space-x-1">
+                            <ShieldCheck className="w-3.5 h-3.5 text-purple-600 inline" />
+                            <span>Super Admin Credential Control</span>
+                          </p>
+                          <p className="text-slate-500 text-[10px]">
+                            {formData.password
+                              ? `Assigned password: "${formData.password}"`
+                              : editingUser
+                              ? "Existing password will be preserved untouched."
+                              : "If left blank, user can be assigned a password later."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Granular Module Permissions Matrix */}
                 <div>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div>
                       <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                        3. Granular Module Permissions
+                        {isSuperAdmin ? "4. Granular Module Permissions" : "3. Granular Module Permissions"}
                       </h4>
                       <p className="text-[11px] text-slate-500">
                         Check or uncheck individual privileges to customize access for this member.
@@ -1112,6 +1317,20 @@ export default function UsersAndPermissionsPage() {
                 </div>
 
                 <div className="flex items-center space-x-3">
+                  {editingUser && isSuperAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = editingUser;
+                        setIsModalOpen(false);
+                        openResetPasswordModal(target);
+                      }}
+                      className="h-10 px-3.5 text-xs font-bold text-amber-700 hover:bg-amber-100 bg-amber-50 border border-amber-200 rounded-lg transition-colors flex items-center space-x-1.5"
+                    >
+                      <Key className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Reset Password</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
@@ -1127,6 +1346,195 @@ export default function UsersAndPermissionsPage() {
                     <span>{editingUser ? "Update User" : "Save Team Member"}</span>
                   </button>
                 </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* RESET PASSWORD MODAL (Super Admin) */}
+      {resetTargetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-purple-100 bg-purple-50/80">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Reset User Password
+                  </h3>
+                  <p className="text-xs text-purple-700">
+                    Super Admin Credential Control
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setResetTargetUser(null);
+                  setResetError(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-white/80 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Target User Info Header */}
+            <div className="p-5 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-sm shadow-2xs">
+                  {resetTargetUser.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .slice(0, 2)
+                    .join("")}
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 text-sm flex items-center space-x-2">
+                    <span>{resetTargetUser.name}</span>
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-800">
+                      {resetTargetUser.role}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500 font-mono">
+                    {resetTargetUser.email}
+                  </div>
+                </div>
+              </div>
+
+              <span
+                className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                  resetTargetUser.status === "Active"
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-slate-200 text-slate-700"
+                }`}
+              >
+                {resetTargetUser.status}
+              </span>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleResetPasswordSubmit} className="p-6 space-y-4">
+              {resetError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center space-x-2">
+                  <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{resetError}</span>
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    New Password <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const gen = generateRandomPassword();
+                      setNewPassword(gen);
+                      setConfirmPassword(gen);
+                    }}
+                    className="text-[11px] font-semibold text-purple-700 hover:text-purple-800 flex items-center space-x-1"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>Generate Strong Password</span>
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type={showResetPassword ? "text" : "password"}
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter at least 6 characters"
+                    className="w-full h-10 pl-3 pr-10 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 absolute right-2.5 top-1/2 -translate-y-1/2"
+                  >
+                    {showResetPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Confirm Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type={showResetPassword ? "text" : "password"}
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-type password"
+                  className={`w-full h-10 px-3 text-sm font-mono border rounded-lg focus:outline-none focus:ring-2 ${
+                    confirmPassword && newPassword !== confirmPassword
+                      ? "border-red-300 focus:ring-red-500 bg-red-50/20"
+                      : "border-slate-300 focus:ring-purple-500"
+                  }`}
+                />
+                {confirmPassword && newPassword !== confirmPassword && (
+                  <p className="text-[11px] text-red-600 mt-1">Passwords do not match.</p>
+                )}
+              </div>
+
+              {/* Quick Credentials Copy Preview */}
+              {newPassword && (
+                <div className="p-3 bg-purple-50/50 border border-purple-200/70 rounded-xl flex items-center justify-between text-xs">
+                  <div className="font-mono text-purple-900 truncate mr-2">
+                    <span className="text-purple-600 font-semibold">Ready:</span> {newPassword}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyCredentials(resetTargetUser.email, newPassword)}
+                    className="px-2.5 py-1 text-[11px] font-semibold text-purple-800 bg-white hover:bg-purple-100 border border-purple-200 rounded-md transition-colors flex items-center space-x-1 shrink-0 shadow-2xs"
+                  >
+                    {isCopied ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span className="text-emerald-700">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3 text-purple-600" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetTargetUser(null);
+                    setResetError(null);
+                  }}
+                  className="h-10 px-4 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newPassword || newPassword !== confirmPassword || newPassword.length < 6}
+                  className="h-10 px-5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm transition-colors flex items-center space-x-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Update Password</span>
+                </button>
               </div>
             </form>
           </div>

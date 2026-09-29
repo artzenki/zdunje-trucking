@@ -8,7 +8,6 @@ import {
   Bell,
   Plus,
   AlertTriangle,
-  RotateCcw,
   ShieldCheck,
   ChevronDown,
   Truck,
@@ -16,6 +15,9 @@ import {
   Wrench,
   Store,
   LogOut,
+  Cloud,
+  CloudOff,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -24,7 +26,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
-  const { alerts, resetDataToDemo } = useFleet();
+  const { alerts, cloudSyncStatus, lastSyncTime, syncWithCloud } = useFleet();
   const { currentUser, logout } = useAuth();
   const [showAlertsDropdown, setShowAlertsDropdown] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -33,16 +35,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
   const urgentCount = alerts.filter(
     (a) => a.status === "expired" || a.status === "urgent"
   ).length;
-
-  const handleReset = () => {
-    if (
-      window.confirm(
-        "Reset fleet data back to original Zdunje Trucking demo records?"
-      )
-    ) {
-      resetDataToDemo();
-    }
-  };
 
   return (
     <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-40 px-6 flex items-center justify-between">
@@ -68,14 +60,39 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
 
       {/* Right controls */}
       <div className="flex items-center space-x-3 ml-4">
-        {/* Clear All Data Button */}
+        {/* Cloud Auto-Sync Indicator */}
         <button
-          onClick={handleReset}
-          title="Clear all fleet data"
-          className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
+          onClick={async () => {
+            await syncWithCloud();
+          }}
+          disabled={cloudSyncStatus === "syncing"}
+          title={
+            lastSyncTime
+              ? `Real-time Supabase auto-sync active. Last synced at ${lastSyncTime}. Click to sync now.`
+              : "Sync all fleet data with Supabase cloud database"
+          }
+          className={`inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all shadow-xs ${
+            cloudSyncStatus === "syncing"
+              ? "bg-amber-50 border-amber-200 text-amber-700 animate-pulse"
+              : cloudSyncStatus === "error"
+              ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
+              : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+          }`}
         >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span className="hidden md:inline">Clear All Data</span>
+          {cloudSyncStatus === "syncing" ? (
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
+          ) : cloudSyncStatus === "error" ? (
+            <CloudOff className="w-3.5 h-3.5 text-rose-600" />
+          ) : (
+            <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+          )}
+          <span className="hidden sm:inline">
+            {cloudSyncStatus === "syncing"
+              ? "Syncing Cloud..."
+              : cloudSyncStatus === "error"
+              ? "Sync Offline"
+              : "Cloud Synced"}
+          </span>
         </button>
 
         {/* Quick Add Dropdown */}

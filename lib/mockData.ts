@@ -28,6 +28,7 @@ export const initialUsers: AppUser[] = [
     lastActive: "Just now",
     createdAt: "2024-01-15",
     permissions: ROLE_DEFAULT_PERMISSIONS["Super Admin"],
+    password: "admin123",
     notes: "Fleet owner and principal administrator. Has unrestricted rights across all systems.",
   },
 ];

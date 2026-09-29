@@ -24,6 +24,18 @@ import {
   initialUsers,
   initialReminders,
 } from "@/lib/mockData";
+import { supabase } from "@/lib/supabase";
+import {
+  truckToRow,
+  trailerToRow,
+  driverToRow,
+  shopToRow,
+  maintenanceToRow,
+  reminderToRow,
+  userToRow,
+  cloudUpsert,
+  cloudDelete,
+} from "@/lib/supabaseSync";
 
 interface FleetContextType {
   trucks: Truck[];
@@ -134,6 +146,11 @@ interface FleetContextType {
 
   // Reset
   resetDataToDemo: () => void;
+
+  // Cloud Auto-Sync
+  cloudSyncStatus: "idle" | "syncing" | "synced" | "error";
+  lastSyncTime: string | null;
+  syncWithCloud: () => Promise<{ success: boolean; message: string }>;
 }
 
 const FleetContext = createContext<FleetContextType | undefined>(undefined);
@@ -151,6 +168,9 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
   const [users, setUsers] = useState<AppUser[]>([]);
   const [reminders, setReminders] = useState<PaymentReminder[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const isInitialMount = React.useRef(true);
 
   // Load from LocalStorage or initialize with mock data
   useEffect(() => {
@@ -254,18 +274,9 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         setUsers(initialUsers);
       }
 
-      if (savedReminders) {
-        const parsedRem = JSON.parse(savedReminders);
-        const cleanRem = Array.isArray(parsedRem)
-          ? parsedRem.filter(
-              (r: PaymentReminder) =>
-                !["rem_001", "rem_002", "rem_003", "rem_004"].includes(r.id)
-            )
-          : [];
-        setReminders(cleanRem);
-      } else {
-        setReminders(initialReminders);
-      }
+      // Clear calendar reminders completely
+      setReminders([]);
+      localStorage.setItem("zdunje_reminders", JSON.stringify([]));
     } catch {
       setTrucks(initialTrucks);
       setTrailers(initialTrailers);
@@ -297,6 +308,104 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error("Failed to save to localStorage", e);
     }
   }, [trucks, trailers, drivers, shops, maintenanceRecords, users, reminders, isLoaded]);
+
+  // Explicit Cloud Sync Function
+  const syncWithCloud = async (): Promise<{ success: boolean; message: string }> => {
+    if (!supabase) return { success: false, message: "Supabase client not initialized" };
+    setCloudSyncStatus("syncing");
+    try {
+      await Promise.all([
+        trucks.length > 0 ? cloudUpsert("trucks", trucks.map(truckToRow)) : Promise.resolve(),
+        trailers.length > 0 ? cloudUpsert("trailers", trailers.map(trailerToRow)) : Promise.resolve(),
+        drivers.length > 0 ? cloudUpsert("drivers", drivers.map(driverToRow)) : Promise.resolve(),
+        shops.length > 0 ? cloudUpsert("shops", shops.map(shopToRow)) : Promise.resolve(),
+        maintenanceRecords.length > 0 ? cloudUpsert("maintenance_records", maintenanceRecords.map(maintenanceToRow)) : Promise.resolve(),
+        reminders.length > 0 ? cloudUpsert("payment_reminders", reminders.map(reminderToRow)) : Promise.resolve(),
+        users.length > 0 ? cloudUpsert("user_profiles", users.map(userToRow)) : Promise.resolve(),
+      ]);
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setLastSyncTime(timeStr);
+      setCloudSyncStatus("synced");
+      return { success: true, message: `Synced with Supabase at ${timeStr}` };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Sync error";
+      console.warn("[Supabase Auto-Sync] Manual sync error:", msg);
+      setCloudSyncStatus("error");
+      return { success: false, message: msg };
+    }
+  };
+
+  const hasReconciled = React.useRef(false);
+
+  // Initial startup sync reconciliation
+  useEffect(() => {
+    if (!isLoaded) return;
+    const client = supabase;
+    if (!client) return;
+
+    const initialSync = async () => {
+      try {
+        setCloudSyncStatus("syncing");
+        const { count: remoteDrivers } = await client
+          .from("drivers")
+          .select("id", { count: "exact", head: true });
+
+        // If local has drivers but remote is 0 (or empty), push local data to Supabase
+        if ((remoteDrivers === 0 || remoteDrivers === null) && drivers.length > 0 && !hasReconciled.current) {
+          hasReconciled.current = true;
+          console.log(`[Supabase Auto-Sync] Reconciling ${drivers.length} drivers and fleet into Supabase...`);
+          await Promise.all([
+            trucks.length > 0 ? cloudUpsert("trucks", trucks.map(truckToRow)) : Promise.resolve(),
+            trailers.length > 0 ? cloudUpsert("trailers", trailers.map(trailerToRow)) : Promise.resolve(),
+            drivers.length > 0 ? cloudUpsert("drivers", drivers.map(driverToRow)) : Promise.resolve(),
+            shops.length > 0 ? cloudUpsert("shops", shops.map(shopToRow)) : Promise.resolve(),
+            maintenanceRecords.length > 0 ? cloudUpsert("maintenance_records", maintenanceRecords.map(maintenanceToRow)) : Promise.resolve(),
+            reminders.length > 0 ? cloudUpsert("payment_reminders", reminders.map(reminderToRow)) : Promise.resolve(),
+            users.length > 0 ? cloudUpsert("user_profiles", users.map(userToRow)) : Promise.resolve(),
+          ]);
+        }
+        const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setLastSyncTime(timeStr);
+        setCloudSyncStatus("synced");
+      } catch (e) {
+        console.warn("[Supabase Auto-Sync] Initial sync exception:", e);
+        setCloudSyncStatus("error");
+      }
+    };
+    initialSync();
+  }, [isLoaded, drivers.length]);
+
+  // Debounced auto-sync to Supabase on any change
+  useEffect(() => {
+    if (!isLoaded || !supabase) return;
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    setCloudSyncStatus("syncing");
+    const timer = setTimeout(async () => {
+      try {
+        await Promise.all([
+          trucks.length > 0 ? cloudUpsert("trucks", trucks.map(truckToRow)) : Promise.resolve(),
+          trailers.length > 0 ? cloudUpsert("trailers", trailers.map(trailerToRow)) : Promise.resolve(),
+          drivers.length > 0 ? cloudUpsert("drivers", drivers.map(driverToRow)) : Promise.resolve(),
+          shops.length > 0 ? cloudUpsert("shops", shops.map(shopToRow)) : Promise.resolve(),
+          maintenanceRecords.length > 0 ? cloudUpsert("maintenance_records", maintenanceRecords.map(maintenanceToRow)) : Promise.resolve(),
+          reminders.length > 0 ? cloudUpsert("payment_reminders", reminders.map(reminderToRow)) : Promise.resolve(),
+          users.length > 0 ? cloudUpsert("user_profiles", users.map(userToRow)) : Promise.resolve(),
+        ]);
+        const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setLastSyncTime(timeStr);
+        setCloudSyncStatus("synced");
+      } catch (err) {
+        console.warn("[Supabase Auto-Sync] Auto-sync error:", err);
+        setCloudSyncStatus("error");
+      }
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [trucks, trailers, drivers, shops, maintenanceRecords, reminders, users, isLoaded]);
 
   // Compute Alerts
   const alerts: ComplianceAlert[] = React.useMemo(() => {
@@ -432,6 +541,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const deleteTruck = (id: string) => {
     setTrucks((prev) => prev.filter((t) => t.id !== id));
+    cloudDelete("trucks", id);
   };
 
   const uploadTruckDocument = (
@@ -526,6 +636,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const deleteTrailer = (id: string) => {
     setTrailers((prev) => prev.filter((tr) => tr.id !== id));
+    cloudDelete("trailers", id);
   };
 
   const uploadTrailerDocument = (
@@ -634,6 +745,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const deleteDriver = (id: string) => {
     setDrivers((prev) => prev.filter((d) => d.id !== id));
+    cloudDelete("drivers", id);
   };
 
   const uploadDriverDocument = (
@@ -800,6 +912,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const deleteMaintenanceRecord = (id: string) => {
     setMaintenanceRecords((prev) => prev.filter((m) => m.id !== id));
+    cloudDelete("maintenance_records", id);
   };
 
   // Shop Handlers
@@ -819,6 +932,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const deleteShop = (id: string) => {
     setShops((prev) => prev.filter((s) => s.id !== id));
+    cloudDelete("shops", id);
   };
 
   // Bulk Add Handlers
@@ -911,6 +1025,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const deleteUser = (id: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== id));
+    cloudDelete("user_profiles", id);
   };
 
   const toggleUserStatus = (id: string, status: UserStatus) => {
@@ -942,6 +1057,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const deleteReminder = (id: string) => {
     setReminders((prev) => prev.filter((r) => r.id !== id));
+    cloudDelete("payment_reminders", id);
   };
 
   const toggleReminderStatus = (id: string) => {
@@ -978,7 +1094,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Reset to clean slate (all data cleared)
-  const resetDataToDemo = () => {
+  const resetDataToDemo = async () => {
     setTrucks([]);
     setTrailers([]);
     setDrivers([]);
@@ -993,6 +1109,27 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("zdunje_maintenance", JSON.stringify([]));
     localStorage.setItem("zdunje_reminders", JSON.stringify([]));
     localStorage.setItem("zdunje_users", JSON.stringify(initialUsers));
+
+    const client = supabase;
+    if (client) {
+      setCloudSyncStatus("syncing");
+      try {
+        await Promise.all([
+          client.from("trucks").delete().neq("id", "0"),
+          client.from("trailers").delete().neq("id", "0"),
+          client.from("drivers").delete().neq("id", "0"),
+          client.from("shops").delete().neq("id", "0"),
+          client.from("maintenance_records").delete().neq("id", "0"),
+          client.from("payment_reminders").delete().neq("id", "0"),
+          client.from("user_profiles").delete().neq("id", "0"),
+        ]);
+        await cloudUpsert("user_profiles", initialUsers.map(userToRow));
+        setCloudSyncStatus("synced");
+        setLastSyncTime(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      } catch (err) {
+        console.warn("[Supabase Auto-Sync] Reset error:", err);
+      }
+    }
   };
 
   return (
@@ -1052,6 +1189,9 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         bulkAddShops,
         setAllFleetData,
         resetDataToDemo,
+        cloudSyncStatus,
+        lastSyncTime,
+        syncWithCloud,
       }}
     >
       {children}

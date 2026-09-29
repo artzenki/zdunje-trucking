@@ -4,6 +4,15 @@ import React, { useState, useRef, useEffect } from "react";
 import { useFleet } from "@/context/FleetContext";
 import { supabase } from "@/lib/supabase";
 import {
+  truckToRow,
+  trailerToRow,
+  driverToRow,
+  shopToRow,
+  maintenanceToRow,
+  reminderToRow,
+  userToRow,
+} from "@/lib/supabaseSync";
+import {
   Settings,
   Upload,
   Download,
@@ -29,6 +38,9 @@ import {
   Truck as TruckType,
   Trailer as TrailerType,
   Driver as DriverType,
+  MaintenanceRecord,
+  MaintenanceServiceType,
+  MaintenanceStatus,
   PaymentReminder,
   PaymentCategory,
   PaymentReminderStatus,
@@ -46,6 +58,7 @@ export default function SettingsPage() {
     trailers,
     drivers,
     shops,
+    maintenanceRecords,
     users,
     reminders,
     bulkAddTrucks,
@@ -71,9 +84,18 @@ export default function SettingsPage() {
     trailers: number;
     drivers: number;
     shops: number;
+    maintenance: number;
     reminders: number;
     users: number;
-  }>({ trucks: 0, trailers: 0, drivers: 0, shops: 0, reminders: 0, users: 0 });
+  }>({
+    trucks: 0,
+    trailers: 0,
+    drivers: 0,
+    shops: 0,
+    maintenance: 0,
+    reminders: 0,
+    users: 0,
+  });
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // Check Supabase connection and stats
@@ -83,11 +105,12 @@ export default function SettingsPage() {
       return;
     }
     try {
-      const [tRes, trRes, dRes, sRes, remRes, uRes] = await Promise.all([
+      const [tRes, trRes, dRes, sRes, mRes, remRes, uRes] = await Promise.all([
         supabase.from("trucks").select("id", { count: "exact", head: true }),
         supabase.from("trailers").select("id", { count: "exact", head: true }),
         supabase.from("drivers").select("id", { count: "exact", head: true }),
         supabase.from("shops").select("id", { count: "exact", head: true }),
+        supabase.from("maintenance_records").select("id", { count: "exact", head: true }),
         supabase.from("payment_reminders").select("id", { count: "exact", head: true }),
         supabase.from("user_profiles").select("id", { count: "exact", head: true }),
       ]);
@@ -97,6 +120,7 @@ export default function SettingsPage() {
         trailers: trRes.count || 0,
         drivers: dRes.count || 0,
         shops: sRes.count || 0,
+        maintenance: mRes.count || 0,
         reminders: remRes.count || 0,
         users: uRes.count || 0,
       });
@@ -108,7 +132,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     checkSupabaseStatus();
-  }, [trucks, trailers, drivers, shops, reminders, users]);
+  }, [trucks, trailers, drivers, shops, maintenanceRecords, reminders, users]);
 
   // Push local data to Supabase
   const pushToSupabase = async () => {
@@ -123,132 +147,48 @@ export default function SettingsPage() {
         supabase.from("trailers").delete().neq("id", "0"),
         supabase.from("drivers").delete().neq("id", "0"),
         supabase.from("shops").delete().neq("id", "0"),
+        supabase.from("maintenance_records").delete().neq("id", "0"),
         supabase.from("payment_reminders").delete().neq("id", "0"),
         supabase.from("user_profiles").delete().neq("id", "0"),
       ]);
 
       if (trucks.length > 0) {
-        const payload = trucks.map((t) => ({
-          id: t.id,
-          unit_number: t.unitNumber,
-          make: t.make,
-          model: t.model,
-          year: t.year,
-          vin: t.vin,
-          plate_number: t.plateNumber,
-          is_temporary_plate: t.isTemporaryPlate,
-          ownership_type: t.ownershipType,
-          truck_value: t.truckValue,
-          best_pass_serial_number: t.bestPassSerialNumber,
-          is_best_pass_linked: t.isBestPassLinked,
-          assigned_driver_id: t.assignedDriverId,
-          status: t.status,
-          current_mileage: t.currentMileage,
-          notes: t.notes,
-          documents: t.documents,
-        }));
-        await supabase.from("trucks").insert(payload);
+        const { error } = await supabase.from("trucks").insert(trucks.map(truckToRow));
+        if (error) throw new Error(`Trucks push error: ${error.message}`);
       }
 
       if (trailers.length > 0) {
-        const payload = trailers.map((tr) => ({
-          id: tr.id,
-          unit_number: tr.unitNumber,
-          make: tr.make,
-          model: tr.model,
-          year: tr.year,
-          vin: tr.vin,
-          plate_number: tr.plateNumber,
-          is_temporary_plate: tr.isTemporaryPlate,
-          ownership_type: tr.ownershipType,
-          trailer_value: tr.trailerValue,
-          status: tr.status,
-          assigned_truck_id: tr.assignedTruckId,
-          notes: tr.notes,
-          documents: tr.documents,
-        }));
-        await supabase.from("trailers").insert(payload);
+        const { error } = await supabase.from("trailers").insert(trailers.map(trailerToRow));
+        if (error) throw new Error(`Trailers push error: ${error.message}`);
       }
 
       if (drivers.length > 0) {
-        const payload = drivers.map((d) => ({
-          id: d.id,
-          first_name: d.firstName,
-          middle_name: d.middleName,
-          last_name: d.lastName,
-          date_of_birth: d.dateOfBirth,
-          email: d.email || "",
-          phone: d.phone,
-          state: d.state,
-          license_number: d.licenseNumber,
-          status: d.status,
-          assigned_truck_id: d.assignedTruckId,
-          bank_info: d.bankInfo,
-          documents: d.documents,
-          skipped_documents: d.skippedDocuments || [],
-          hire_date: d.hireDate,
-          notes: d.notes,
-        }));
-        await supabase.from("drivers").insert(payload);
+        const { error } = await supabase.from("drivers").insert(drivers.map(driverToRow));
+        if (error) throw new Error(`Drivers push error: ${error.message}`);
       }
 
       if (shops.length > 0) {
-        const payload = shops.map((s) => ({
-          id: s.id,
-          business_name: s.businessName,
-          business_address: s.businessAddress,
-          state: s.state,
-          phone: s.phone,
-          shop_type: s.shopType,
-          repair_categories: s.repairCategories,
-          description_of_work: s.descriptionOfWork,
-          google_maps_url: s.googleMapsUrl,
-          labor_rate_per_hour: s.laborRatePerHour,
-          callout_fee: s.calloutFee,
-          rating: s.rating,
-          notes: s.notes,
-        }));
-        await supabase.from("shops").insert(payload);
+        const { error } = await supabase.from("shops").insert(shops.map(shopToRow));
+        if (error) throw new Error(`Shops push error: ${error.message}`);
+      }
+
+      if (maintenanceRecords.length > 0) {
+        const { error } = await supabase.from("maintenance_records").insert(maintenanceRecords.map(maintenanceToRow));
+        if (error) throw new Error(`Maintenance push error: ${error.message}`);
       }
 
       if (reminders.length > 0) {
-        const payload = reminders.map((r) => ({
-          id: r.id,
-          name: r.name,
-          amount: r.amount || null,
-          date: r.date,
-          time: r.time,
-          category: r.category,
-          reason_notes: r.reasonNotes,
-          status: r.status,
-          related_entity_type: r.relatedEntityType || null,
-          related_entity_id: r.relatedEntityId || null,
-          related_entity_name: r.relatedEntityName || null,
-          is_recurring: r.isRecurring || false,
-          recurrence: r.recurrence || null,
-          completed_at: r.completedAt || null,
-        }));
-        await supabase.from("payment_reminders").insert(payload);
+        const { error } = await supabase.from("payment_reminders").insert(reminders.map(reminderToRow));
+        if (error) throw new Error(`Reminders push error: ${error.message}`);
       }
 
       if (users.length > 0) {
-        const payload = users.map((u) => ({
-          id: u.id,
-          email: u.email,
-          name: u.name,
-          phone: u.phone || null,
-          role: u.role,
-          department: u.department || null,
-          status: u.status,
-          permissions: u.permissions,
-          last_active: u.lastActive || null,
-          notes: u.notes || null,
-        }));
-        await supabase.from("user_profiles").insert(payload);
+        const { error } = await supabase.from("user_profiles").insert(users.map(userToRow));
+        if (error) throw new Error(`Users push error: ${error.message}`);
       }
 
       await checkSupabaseStatus();
-      setSyncMessage("Live sync complete: All fleet data, payment reminders, and user profiles saved to Supabase cloud database!");
+      setSyncMessage("Live sync complete: All fleet data, work orders, payment reminders, and user profiles saved to Supabase cloud database!");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to sync to Supabase.";
       setSyncMessage(`Error syncing to Supabase: ${message}`);
@@ -264,11 +204,12 @@ export default function SettingsPage() {
     setSyncMessage(null);
 
     try {
-      const [tRes, trRes, dRes, sRes, remRes, uRes] = await Promise.all([
+      const [tRes, trRes, dRes, sRes, mRes, remRes, uRes] = await Promise.all([
         supabase.from("trucks").select("*"),
         supabase.from("trailers").select("*"),
         supabase.from("drivers").select("*"),
         supabase.from("shops").select("*"),
+        supabase.from("maintenance_records").select("*"),
         supabase.from("payment_reminders").select("*"),
         supabase.from("user_profiles").select("*"),
       ]);
@@ -324,7 +265,7 @@ export default function SettingsPage() {
         assignedTruckId: d.assigned_truck_id ? String(d.assigned_truck_id) : null,
         bankInfo: (d.bank_info || { accountNumber: "", routingNumber: "" }) as DriverType["bankInfo"],
         documents: (d.documents || {}) as DriverType["documents"],
-        skippedDocuments: (d.skipped_documents || []) as string[],
+        skippedDocuments: (d.skippedDocuments || []) as string[],
         hireDate: String(d.hire_date),
         notes: String(d.notes || ""),
       }));
@@ -343,6 +284,27 @@ export default function SettingsPage() {
         calloutFee: Number(s.callout_fee || 0),
         rating: Number(s.rating || 5),
         notes: String(s.notes || ""),
+      }));
+
+      const loadedMaintenance: MaintenanceRecord[] = (mRes.data || []).map((m: Record<string, unknown>) => ({
+        id: String(m.id),
+        truckId: String(m.truck_id),
+        truckUnitNumber: String(m.truck_unit_number),
+        serviceDate: String(m.service_date),
+        odometer: Number(m.odometer || 0),
+        serviceType: m.service_type as MaintenanceServiceType,
+        shopId: m.shop_id ? String(m.shop_id) : null,
+        shopName: String(m.shop_name || ""),
+        laborCost: Number(m.labor_cost || 0),
+        partsCost: Number(m.parts_cost || 0),
+        calloutFee: Number(m.callout_fee || 0),
+        totalCost: Number(m.total_cost || 0),
+        invoiceNumber: String(m.invoice_number || ""),
+        invoiceDocument: (m.invoice_document || null) as MaintenanceRecord["invoiceDocument"],
+        nextServiceDueMileage: m.next_service_due_mileage ? Number(m.next_service_due_mileage) : undefined,
+        nextServiceDueDate: m.next_service_due_date ? String(m.next_service_due_date) : undefined,
+        status: m.status as MaintenanceStatus,
+        description: String(m.description || ""),
       }));
 
       const loadedReminders: PaymentReminder[] = (remRes.data || []).map((r: Record<string, unknown>) => ({
@@ -382,12 +344,13 @@ export default function SettingsPage() {
         trailers: loadedTrailers.length > 0 ? loadedTrailers : undefined,
         drivers: loadedDrivers.length > 0 ? loadedDrivers : undefined,
         shops: loadedShops.length > 0 ? loadedShops : undefined,
+        maintenanceRecords: loadedMaintenance.length > 0 ? loadedMaintenance : undefined,
         reminders: loadedReminders.length > 0 ? loadedReminders : undefined,
         users: loadedUsers.length > 0 ? loadedUsers : undefined,
       });
 
       await checkSupabaseStatus();
-      setSyncMessage("Successfully refreshed all fleet data, reminders, and users from Supabase!");
+      setSyncMessage("Successfully refreshed all fleet data, work orders, reminders, and users from Supabase!");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load from Supabase.";
       setSyncMessage(`Error fetching from Supabase: ${message}`);
@@ -753,29 +716,30 @@ export default function SettingsPage() {
         </div>
 
         {/* Database Status Pills */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2">
-            <Database className="w-3.5 h-3.5 text-blue-600" />
+        <div className="flex flex-col gap-2 text-xs">
+          <div className="px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-2 shadow-2xs">
+            <Database className="w-3.5 h-3.5 text-blue-600 shrink-0" />
             <span className="font-semibold text-slate-700">
-              Local: {trucks.length} Trucks • {trailers.length} Trailers • {drivers.length} Drivers
+              <span className="text-slate-900 font-bold">Local:</span>{" "}
+              {trucks.length} Trucks · {trailers.length} Trailers · {drivers.length} Drivers · {shops.length} Shops · {maintenanceRecords.length} Work Orders · {reminders.length} Reminders · {users.length} Staff
             </span>
           </div>
 
           <div
-            className={`px-3 py-1.5 border rounded-xl flex items-center space-x-2 ${
+            className={`px-3.5 py-1.5 border rounded-xl flex items-center space-x-2 shadow-2xs ${
               isSupabaseConnected
                 ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                 : "bg-amber-50 text-amber-800 border-amber-200"
             }`}
           >
             <span
-              className={`w-2 h-2 rounded-full ${
+              className={`w-2 h-2 rounded-full shrink-0 ${
                 isSupabaseConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
               }`}
             ></span>
             <span className="font-bold">
               {isSupabaseConnected
-                ? `Supabase Linked: ${supabaseStats.trucks} Trucks · ${supabaseStats.drivers} Drivers · ${supabaseStats.reminders} Reminders · ${supabaseStats.users} Staff`
+                ? `Supabase Linked: ${supabaseStats.trucks} Trucks · ${supabaseStats.trailers} Trailers · ${supabaseStats.drivers} Drivers · ${supabaseStats.shops} Shops · ${supabaseStats.maintenance} Work Orders · ${supabaseStats.reminders} Reminders · ${supabaseStats.users} Staff`
                 : "Supabase Connecting..."}
             </span>
           </div>
