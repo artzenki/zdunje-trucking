@@ -121,6 +121,17 @@ interface FleetContextType {
   deleteReminder: (id: string) => void;
   toggleReminderStatus: (id: string) => void;
 
+  // Bulk State Setters
+  setAllFleetData: (data: {
+    trucks?: Truck[];
+    trailers?: Trailer[];
+    drivers?: Driver[];
+    shops?: TruckShop[];
+    maintenanceRecords?: MaintenanceRecord[];
+    users?: AppUser[];
+    reminders?: PaymentReminder[];
+  }) => void;
+
   // Reset
   resetDataToDemo: () => void;
 }
@@ -931,6 +942,24 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  const setAllFleetData = (data: {
+    trucks?: Truck[];
+    trailers?: Trailer[];
+    drivers?: Driver[];
+    shops?: TruckShop[];
+    maintenanceRecords?: MaintenanceRecord[];
+    users?: AppUser[];
+    reminders?: PaymentReminder[];
+  }) => {
+    if (data.trucks !== undefined) setTrucks(data.trucks);
+    if (data.trailers !== undefined) setTrailers(data.trailers);
+    if (data.drivers !== undefined) setDrivers(data.drivers);
+    if (data.shops !== undefined) setShops(data.shops);
+    if (data.maintenanceRecords !== undefined) setMaintenanceRecords(data.maintenanceRecords);
+    if (data.users !== undefined) setUsers(data.users);
+    if (data.reminders !== undefined) setReminders(data.reminders);
+  };
+
   // Reset to clean slate (all data cleared)
   const resetDataToDemo = () => {
     setTrucks([]);
@@ -1002,6 +1031,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         bulkAddTrailers,
         bulkAddDrivers,
         bulkAddShops,
+        setAllFleetData,
         resetDataToDemo,
       }}
     >

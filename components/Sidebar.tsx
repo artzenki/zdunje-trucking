@@ -4,6 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useFleet } from "@/context/FleetContext";
+import { useAuth } from "@/context/AuthContext";
+import { AppModule } from "@/types/fleet";
 import {
   LayoutDashboard,
   Truck,
@@ -15,11 +17,13 @@ import {
   Settings,
   ShieldCheck,
   CalendarDays,
+  LogOut,
 } from "lucide-react";
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const { trucks, trailers, drivers, alerts, users, reminders } = useFleet();
+  const { currentUser, hasPermission, logout } = useAuth();
 
   const activeTrucks = (trucks || []).filter((t) => t.status === "Active").length;
   const activeDrivers = (drivers || []).filter((d) => d.status === "Active").length;
@@ -31,7 +35,14 @@ export const Sidebar: React.FC = () => {
   const pendingReminders = (reminders || []).filter((r) => r.status === "Pending");
   const dueTodayOrOverdue = pendingReminders.filter((r) => r.date <= todayStr).length;
 
-  const navItems = [
+  const allNavItems: {
+    name: string;
+    href: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge: string | number | null;
+    badgeColor?: string;
+    module?: AppModule;
+  }[] = [
     {
       name: "Dashboard",
       href: "/",
@@ -43,30 +54,35 @@ export const Sidebar: React.FC = () => {
       href: "/trucks",
       icon: Truck,
       badge: (trucks || []).length,
+      module: "trucks",
     },
     {
       name: "Trailers",
       href: "/trailers",
       icon: Container,
       badge: (trailers || []).length,
+      module: "trailers",
     },
     {
       name: "Drivers",
       href: "/drivers",
       icon: Users,
       badge: (drivers || []).length,
+      module: "drivers",
     },
     {
       name: "Maintenance",
       href: "/maintenance",
       icon: Wrench,
       badge: null,
+      module: "maintenance",
     },
     {
       name: "Truck Shops",
       href: "/shops",
       icon: Store,
       badge: null,
+      module: "shops",
     },
     {
       name: "Documents Vault",
@@ -74,6 +90,7 @@ export const Sidebar: React.FC = () => {
       icon: FolderLock,
       badge: urgentAlerts > 0 ? `${urgentAlerts} due` : null,
       badgeColor: "bg-red-500 text-white",
+      module: "documents",
     },
     {
       name: "Calendar & Reminders",
@@ -81,20 +98,29 @@ export const Sidebar: React.FC = () => {
       icon: CalendarDays,
       badge: dueTodayOrOverdue > 0 ? `${dueTodayOrOverdue} due` : pendingReminders.length > 0 ? pendingReminders.length : null,
       badgeColor: dueTodayOrOverdue > 0 ? "bg-amber-500 text-white" : "bg-blue-600 text-white",
+      module: "calendar",
     },
     {
       name: "Users & Roles",
       href: "/users",
       icon: ShieldCheck,
       badge: (users || []).length,
+      module: "users",
     },
     {
       name: "Settings & Import",
       href: "/settings",
       icon: Settings,
       badge: null,
+      module: "settings",
     },
   ];
+
+  // Filter based on role permissions
+  const navItems = allNavItems.filter((item) => {
+    if (!item.module) return true;
+    return hasPermission(item.module, "view");
+  });
 
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 h-screen sticky top-0 border-r border-slate-800">
@@ -188,6 +214,38 @@ export const Sidebar: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* User Card at bottom of sidebar */}
+        {currentUser && (
+          <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between">
+            <div className="flex items-center space-x-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold text-[11px] flex items-center justify-center shrink-0">
+                {currentUser.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </div>
+              <div className="truncate">
+                <p className="text-xs font-bold text-white truncate leading-none">
+                  {currentUser.name}
+                </p>
+                <p className="text-[10px] text-blue-400 font-medium truncate mt-0.5">
+                  {currentUser.role}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => logout()}
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors shrink-0"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

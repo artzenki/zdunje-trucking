@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useFleet } from "@/context/FleetContext";
+import { useAuth } from "@/context/AuthContext";
 import {
   Search,
   Bell,
@@ -14,6 +15,7 @@ import {
   Users,
   Wrench,
   Store,
+  LogOut,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -23,8 +25,10 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
   const { alerts, resetDataToDemo } = useFleet();
+  const { currentUser, logout } = useAuth();
   const [showAlertsDropdown, setShowAlertsDropdown] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const urgentCount = alerts.filter(
     (a) => a.status === "expired" || a.status === "urgent"
@@ -237,20 +241,71 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
           )}
         </div>
 
-        {/* User / Role Badge */}
-        <div className="flex items-center space-x-2 pl-3 border-l border-slate-200">
-          <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-            ZT
-          </div>
-          <div className="hidden sm:block text-left">
-            <p className="text-xs font-bold text-slate-800 leading-tight">
-              Safety & Dispatch
-            </p>
-            <p className="text-[10px] text-emerald-600 font-semibold leading-tight flex items-center">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block mr-1"></span>
-              Full Access Mode
-            </p>
-          </div>
+        {/* User / Role Badge & Profile Dropdown */}
+        <div className="relative pl-3 border-l border-slate-200">
+          <button
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center space-x-2.5 p-1 rounded-xl hover:bg-slate-100 transition-colors text-left"
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+              {currentUser?.name
+                ? currentUser.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()
+                : "ZT"}
+            </div>
+            <div className="hidden sm:block text-left">
+              <p className="text-xs font-bold text-slate-800 leading-tight">
+                {currentUser?.name || "Safety & Dispatch"}
+              </p>
+              <p className="text-[10px] text-blue-600 font-semibold leading-tight flex items-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block mr-1"></span>
+                {currentUser?.role || "Staff Member"}
+              </p>
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+          </button>
+
+          {/* User Menu Dropdown */}
+          {showUserMenu && (
+            <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 animate-in fade-in zoom-in-95 duration-150">
+              <div className="p-3 bg-slate-50 rounded-xl mb-2 border border-slate-100">
+                <p className="text-xs font-bold text-slate-900">{currentUser?.name}</p>
+                <p className="text-[11px] text-slate-500 truncate">{currentUser?.email}</p>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-800">
+                    {currentUser?.role}
+                  </span>
+                  <span className="text-[10px] text-slate-400">{currentUser?.department}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Link
+                  href="/users"
+                  onClick={() => setShowUserMenu(false)}
+                  className="flex items-center space-x-2 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4 text-slate-400" />
+                  <span>Team & Permissions</span>
+                </Link>
+
+                <button
+                  onClick={async () => {
+                    setShowUserMenu(false);
+                    await logout();
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors text-left"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>

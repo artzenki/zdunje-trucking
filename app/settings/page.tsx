@@ -29,6 +29,13 @@ import {
   Truck as TruckType,
   Trailer as TrailerType,
   Driver as DriverType,
+  PaymentReminder,
+  PaymentCategory,
+  PaymentReminderStatus,
+  AppUser,
+  UserRole,
+  UserStatus,
+  ModulePermissions,
 } from "@/types/fleet";
 
 type ImportCategory = "trucks" | "trailers" | "drivers" | "shops";
@@ -39,10 +46,13 @@ export default function SettingsPage() {
     trailers,
     drivers,
     shops,
+    users,
+    reminders,
     bulkAddTrucks,
     bulkAddTrailers,
     bulkAddDrivers,
     bulkAddShops,
+    setAllFleetData,
     resetDataToDemo,
   } = useFleet();
 
@@ -61,7 +71,9 @@ export default function SettingsPage() {
     trailers: number;
     drivers: number;
     shops: number;
-  }>({ trucks: 0, trailers: 0, drivers: 0, shops: 0 });
+    reminders: number;
+    users: number;
+  }>({ trucks: 0, trailers: 0, drivers: 0, shops: 0, reminders: 0, users: 0 });
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // Check Supabase connection and stats
@@ -71,11 +83,13 @@ export default function SettingsPage() {
       return;
     }
     try {
-      const [tRes, trRes, dRes, sRes] = await Promise.all([
+      const [tRes, trRes, dRes, sRes, remRes, uRes] = await Promise.all([
         supabase.from("trucks").select("id", { count: "exact", head: true }),
         supabase.from("trailers").select("id", { count: "exact", head: true }),
         supabase.from("drivers").select("id", { count: "exact", head: true }),
         supabase.from("shops").select("id", { count: "exact", head: true }),
+        supabase.from("payment_reminders").select("id", { count: "exact", head: true }),
+        supabase.from("user_profiles").select("id", { count: "exact", head: true }),
       ]);
 
       setSupabaseStats({
@@ -83,6 +97,8 @@ export default function SettingsPage() {
         trailers: trRes.count || 0,
         drivers: dRes.count || 0,
         shops: sRes.count || 0,
+        reminders: remRes.count || 0,
+        users: uRes.count || 0,
       });
       setIsSupabaseConnected(true);
     } catch {
@@ -92,7 +108,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     checkSupabaseStatus();
-  }, [trucks, trailers, drivers, shops]);
+  }, [trucks, trailers, drivers, shops, reminders, users]);
 
   // Push local data to Supabase
   const pushToSupabase = async () => {
@@ -107,6 +123,8 @@ export default function SettingsPage() {
         supabase.from("trailers").delete().neq("id", "0"),
         supabase.from("drivers").delete().neq("id", "0"),
         supabase.from("shops").delete().neq("id", "0"),
+        supabase.from("payment_reminders").delete().neq("id", "0"),
+        supabase.from("user_profiles").delete().neq("id", "0"),
       ]);
 
       if (trucks.length > 0) {
@@ -193,8 +211,44 @@ export default function SettingsPage() {
         await supabase.from("shops").insert(payload);
       }
 
+      if (reminders.length > 0) {
+        const payload = reminders.map((r) => ({
+          id: r.id,
+          name: r.name,
+          amount: r.amount || null,
+          date: r.date,
+          time: r.time,
+          category: r.category,
+          reason_notes: r.reasonNotes,
+          status: r.status,
+          related_entity_type: r.relatedEntityType || null,
+          related_entity_id: r.relatedEntityId || null,
+          related_entity_name: r.relatedEntityName || null,
+          is_recurring: r.isRecurring || false,
+          recurrence: r.recurrence || null,
+          completed_at: r.completedAt || null,
+        }));
+        await supabase.from("payment_reminders").insert(payload);
+      }
+
+      if (users.length > 0) {
+        const payload = users.map((u) => ({
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          phone: u.phone || null,
+          role: u.role,
+          department: u.department || null,
+          status: u.status,
+          permissions: u.permissions,
+          last_active: u.lastActive || null,
+          notes: u.notes || null,
+        }));
+        await supabase.from("user_profiles").insert(payload);
+      }
+
       await checkSupabaseStatus();
-      setSyncMessage("Live sync complete: All fleet data saved to main Supabase cloud database!");
+      setSyncMessage("Live sync complete: All fleet data, payment reminders, and user profiles saved to Supabase cloud database!");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to sync to Supabase.";
       setSyncMessage(`Error syncing to Supabase: ${message}`);
@@ -210,99 +264,130 @@ export default function SettingsPage() {
     setSyncMessage(null);
 
     try {
-      const [tRes, trRes, dRes, sRes] = await Promise.all([
+      const [tRes, trRes, dRes, sRes, remRes, uRes] = await Promise.all([
         supabase.from("trucks").select("*"),
         supabase.from("trailers").select("*"),
         supabase.from("drivers").select("*"),
         supabase.from("shops").select("*"),
+        supabase.from("payment_reminders").select("*"),
+        supabase.from("user_profiles").select("*"),
       ]);
 
-      if (tRes.data && tRes.data.length > 0) {
-        const loadedTrucks = (tRes.data as Array<Record<string, unknown>>).map((t) => ({
-          id: String(t.id),
-          unitNumber: String(t.unit_number),
-          make: String(t.make),
-          model: String(t.model),
-          year: Number(t.year),
-          vin: String(t.vin),
-          plateNumber: String(t.plate_number),
-          isTemporaryPlate: Boolean(t.is_temporary_plate),
-          ownershipType: t.ownership_type as OwnershipType,
-          truckValue: Number(t.truck_value),
-          bestPassSerialNumber: String(t.best_pass_serial_number || ""),
-          isBestPassLinked: Boolean(t.is_best_pass_linked),
-          assignedDriverId: t.assigned_driver_id ? String(t.assigned_driver_id) : null,
-          status: t.status as EquipmentStatus,
-          currentMileage: Number(t.current_mileage || 0),
-          notes: String(t.notes || ""),
-          documents: (t.documents || {}) as TruckType["documents"],
-        }));
-        bulkAddTrucks(loadedTrucks);
-      }
+      const loadedTrucks: TruckType[] = (tRes.data || []).map((t: Record<string, unknown>) => ({
+        id: String(t.id),
+        unitNumber: String(t.unit_number),
+        make: String(t.make),
+        model: String(t.model),
+        year: Number(t.year),
+        vin: String(t.vin),
+        plateNumber: String(t.plate_number),
+        isTemporaryPlate: Boolean(t.is_temporary_plate),
+        ownershipType: t.ownership_type as OwnershipType,
+        truckValue: Number(t.truck_value),
+        bestPassSerialNumber: String(t.best_pass_serial_number || ""),
+        isBestPassLinked: Boolean(t.is_best_pass_linked),
+        assignedDriverId: t.assigned_driver_id ? String(t.assigned_driver_id) : null,
+        status: t.status as EquipmentStatus,
+        currentMileage: Number(t.current_mileage || 0),
+        notes: String(t.notes || ""),
+        documents: (t.documents || {}) as TruckType["documents"],
+      }));
 
-      if (trRes.data && trRes.data.length > 0) {
-        const loadedTrailers = (trRes.data as Array<Record<string, unknown>>).map((tr) => ({
-          id: String(tr.id),
-          unitNumber: String(tr.unit_number),
-          make: String(tr.make),
-          model: String(tr.model),
-          year: Number(tr.year),
-          vin: String(tr.vin),
-          plateNumber: String(tr.plate_number),
-          isTemporaryPlate: Boolean(tr.is_temporary_plate),
-          ownershipType: tr.ownership_type as OwnershipType,
-          trailerValue: Number(tr.trailer_value),
-          status: tr.status as EquipmentStatus,
-          assignedTruckId: tr.assigned_truck_id ? String(tr.assigned_truck_id) : null,
-          notes: String(tr.notes || ""),
-          documents: (tr.documents || {}) as TrailerType["documents"],
-        }));
-        bulkAddTrailers(loadedTrailers);
-      }
+      const loadedTrailers: TrailerType[] = (trRes.data || []).map((tr: Record<string, unknown>) => ({
+        id: String(tr.id),
+        unitNumber: String(tr.unit_number),
+        make: String(tr.make),
+        model: String(tr.model),
+        year: Number(tr.year),
+        vin: String(tr.vin),
+        plateNumber: String(tr.plate_number),
+        isTemporaryPlate: Boolean(tr.is_temporary_plate),
+        ownershipType: tr.ownership_type as OwnershipType,
+        trailerValue: Number(tr.trailer_value),
+        status: tr.status as EquipmentStatus,
+        assignedTruckId: tr.assigned_truck_id ? String(tr.assigned_truck_id) : null,
+        notes: String(tr.notes || ""),
+        documents: (tr.documents || {}) as TrailerType["documents"],
+      }));
 
-      if (dRes.data && dRes.data.length > 0) {
-        const loadedDrivers = (dRes.data as Array<Record<string, unknown>>).map((d) => ({
-          id: String(d.id),
-          firstName: String(d.first_name),
-          middleName: String(d.middle_name || ""),
-          lastName: String(d.last_name),
-          dateOfBirth: String(d.date_of_birth),
-          email: String(d.email || ""),
-          phone: String(d.phone),
-          state: String(d.state),
-          licenseNumber: String(d.license_number),
-          status: d.status as DriverStatus,
-          assignedTruckId: d.assigned_truck_id ? String(d.assigned_truck_id) : null,
-          bankInfo: (d.bank_info || { accountNumber: "", routingNumber: "" }) as DriverType["bankInfo"],
-          documents: (d.documents || {}) as DriverType["documents"],
-          skippedDocuments: (d.skipped_documents || []) as string[],
-          hireDate: String(d.hire_date),
-          notes: String(d.notes || ""),
-        }));
-        bulkAddDrivers(loadedDrivers);
-      }
+      const loadedDrivers: DriverType[] = (dRes.data || []).map((d: Record<string, unknown>) => ({
+        id: String(d.id),
+        firstName: String(d.first_name),
+        middleName: String(d.middle_name || ""),
+        lastName: String(d.last_name),
+        dateOfBirth: String(d.date_of_birth),
+        email: String(d.email || ""),
+        phone: String(d.phone),
+        state: String(d.state),
+        licenseNumber: String(d.license_number),
+        status: d.status as DriverStatus,
+        assignedTruckId: d.assigned_truck_id ? String(d.assigned_truck_id) : null,
+        bankInfo: (d.bank_info || { accountNumber: "", routingNumber: "" }) as DriverType["bankInfo"],
+        documents: (d.documents || {}) as DriverType["documents"],
+        skippedDocuments: (d.skipped_documents || []) as string[],
+        hireDate: String(d.hire_date),
+        notes: String(d.notes || ""),
+      }));
 
-      if (sRes.data && sRes.data.length > 0) {
-        const loadedShops = (sRes.data as Array<Record<string, unknown>>).map((s) => ({
-          id: String(s.id),
-          businessName: String(s.business_name),
-          businessAddress: String(s.business_address || ""),
-          state: String(s.state || "IL"),
-          phone: String(s.phone || ""),
-          shopType: (s.shop_type || "Both") as ShopType,
-          repairCategories: (s.repair_categories || []) as string[],
-          descriptionOfWork: String(s.description_of_work || ""),
-          googleMapsUrl: String(s.google_maps_url || ""),
-          laborRatePerHour: Number(s.labor_rate_per_hour || 0),
-          calloutFee: Number(s.callout_fee || 0),
-          rating: Number(s.rating || 5),
-          notes: String(s.notes || ""),
-        }));
-        bulkAddShops(loadedShops);
-      }
+      const loadedShops = (sRes.data || []).map((s: Record<string, unknown>) => ({
+        id: String(s.id),
+        businessName: String(s.business_name),
+        businessAddress: String(s.business_address || ""),
+        state: String(s.state || "IL"),
+        phone: String(s.phone || ""),
+        shopType: (s.shop_type || "Both") as ShopType,
+        repairCategories: (s.repair_categories || []) as string[],
+        descriptionOfWork: String(s.description_of_work || ""),
+        googleMapsUrl: String(s.google_maps_url || ""),
+        laborRatePerHour: Number(s.labor_rate_per_hour || 0),
+        calloutFee: Number(s.callout_fee || 0),
+        rating: Number(s.rating || 5),
+        notes: String(s.notes || ""),
+      }));
+
+      const loadedReminders: PaymentReminder[] = (remRes.data || []).map((r: Record<string, unknown>) => ({
+        id: String(r.id),
+        name: String(r.name),
+        amount: r.amount ? Number(r.amount) : undefined,
+        date: String(r.date),
+        time: String(r.time),
+        category: r.category as PaymentCategory,
+        reasonNotes: String(r.reason_notes || ""),
+        status: r.status as PaymentReminderStatus,
+        relatedEntityType: (r.related_entity_type as PaymentReminder["relatedEntityType"]) || undefined,
+        relatedEntityId: r.related_entity_id ? String(r.related_entity_id) : undefined,
+        relatedEntityName: r.related_entity_name ? String(r.related_entity_name) : undefined,
+        isRecurring: Boolean(r.is_recurring),
+        recurrence: (r.recurrence as PaymentReminder["recurrence"]) || undefined,
+        completedAt: r.completed_at ? String(r.completed_at) : undefined,
+        createdAt: String(r.created_at || new Date().toISOString().split("T")[0]),
+      }));
+
+      const loadedUsers: AppUser[] = (uRes.data || []).map((u: Record<string, unknown>) => ({
+        id: String(u.id),
+        email: String(u.email),
+        name: String(u.name),
+        phone: u.phone ? String(u.phone) : undefined,
+        role: u.role as UserRole,
+        department: String(u.department || "Operations"),
+        status: u.status as UserStatus,
+        permissions: (u.permissions || {}) as ModulePermissions,
+        lastActive: u.last_active ? String(u.last_active) : undefined,
+        notes: u.notes ? String(u.notes) : undefined,
+        createdAt: String(u.created_at || new Date().toISOString().split("T")[0]),
+      }));
+
+      setAllFleetData({
+        trucks: loadedTrucks.length > 0 ? loadedTrucks : undefined,
+        trailers: loadedTrailers.length > 0 ? loadedTrailers : undefined,
+        drivers: loadedDrivers.length > 0 ? loadedDrivers : undefined,
+        shops: loadedShops.length > 0 ? loadedShops : undefined,
+        reminders: loadedReminders.length > 0 ? loadedReminders : undefined,
+        users: loadedUsers.length > 0 ? loadedUsers : undefined,
+      });
 
       await checkSupabaseStatus();
-      setSyncMessage("Successfully refreshed data from main Supabase database!");
+      setSyncMessage("Successfully refreshed all fleet data, reminders, and users from Supabase!");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load from Supabase.";
       setSyncMessage(`Error fetching from Supabase: ${message}`);
@@ -690,7 +775,7 @@ export default function SettingsPage() {
             ></span>
             <span className="font-bold">
               {isSupabaseConnected
-                ? `Supabase Linked: ${supabaseStats.trucks} Trucks / ${supabaseStats.drivers} Drivers`
+                ? `Supabase Linked: ${supabaseStats.trucks} Trucks · ${supabaseStats.drivers} Drivers · ${supabaseStats.reminders} Reminders · ${supabaseStats.users} Staff`
                 : "Supabase Connecting..."}
             </span>
           </div>
