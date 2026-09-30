@@ -3,8 +3,7 @@
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { initialUsers } from "@/lib/mockData";
-import { UserRole, AppUser } from "@/types/fleet";
+import { UserRole } from "@/types/fleet";
 import {
   Truck,
   Lock,
@@ -16,7 +15,6 @@ import {
   Eye,
   EyeOff,
   ArrowRight,
-  Sparkles,
 } from "lucide-react";
 
 function LoginPageContent() {
@@ -24,7 +22,7 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const redirectPath = searchParams.get("redirect") || "/";
 
-  const { login, signup, loginAsDemoUser } = useAuth();
+  const { login, signup } = useAuth();
 
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [showPassword, setShowPassword] = useState(false);
@@ -73,12 +71,6 @@ function LoginPageContent() {
     } else {
       setErrorMessage(res.error || "Failed to create account.");
     }
-  };
-
-  // 1-Click Demo Sign-in
-  const handleQuickDemo = (user: AppUser) => {
-    loginAsDemoUser(user);
-    router.push(redirectPath);
   };
 
   return (
@@ -286,35 +278,6 @@ function LoginPageContent() {
               </button>
             </form>
           )}
-
-          {/* Quick Demo Accounts Switcher */}
-          <div className="pt-4 border-t border-slate-800 space-y-3">
-            <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Or One-Click Demo Role Login</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {initialUsers.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => handleQuickDemo(u)}
-                  className="p-2.5 rounded-xl border border-slate-800 bg-slate-950/40 hover:bg-slate-800/80 text-left transition-all group flex items-center justify-between"
-                >
-                  <div>
-                    <p className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors">
-                      {u.name}
-                    </p>
-                    <span className="text-[10px] text-slate-400">{u.role}</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                    Switch →
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Security Notice */}
