@@ -515,9 +515,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       );
     });
 
-    // Drivers
+    // Drivers (only active drivers generate expiration / due compliance alerts)
     drivers.forEach((d) => {
       if (!d.documents) return;
+      if (d.status === "Inactive") return;
       const name = `${d.firstName} ${d.lastName}`;
       checkDoc(d.documents.cdl, "driver", d.id, name, "Commercial Driver License (CDL)");
       checkDoc(d.documents.medCard, "driver", d.id, name, "Medical Examiner Card (MEDCard)");

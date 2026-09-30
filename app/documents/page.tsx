@@ -25,6 +25,7 @@ interface ConsolidatedDocument {
   entityId: string;
   entityName: string;
   linkUrl: string;
+  isInactive?: boolean;
 }
 
 export default function DocumentsPage() {
@@ -108,6 +109,8 @@ export default function DocumentsPage() {
         "leaseAgreement",
       ];
 
+      const isDriverInactive = d.status === "Inactive";
+
       singleKeys.forEach((k) => {
         const doc = dDocs[k];
         if (doc && typeof doc === "object" && "id" in doc) {
@@ -117,6 +120,7 @@ export default function DocumentsPage() {
             entityId: d.id,
             entityName: driverName,
             linkUrl: `/drivers?id=${d.id}`,
+            isInactive: isDriverInactive,
           });
         }
       });
@@ -129,6 +133,7 @@ export default function DocumentsPage() {
           entityId: d.id,
           entityName: driverName,
           linkUrl: `/drivers?id=${d.id}`,
+          isInactive: isDriverInactive,
         });
       });
 
@@ -140,6 +145,7 @@ export default function DocumentsPage() {
           entityId: d.id,
           entityName: driverName,
           linkUrl: `/drivers?id=${d.id}`,
+          isInactive: isDriverInactive,
         });
       });
     });
@@ -176,7 +182,14 @@ export default function DocumentsPage() {
         entityFilter === "all" || item.entityType === entityFilter;
 
       let matchExp = true;
-      if (expirationFilter === "expired") {
+      if (item.isInactive) {
+        // Inactive drivers do not trigger due or expired warnings - they are kept on file
+        if (expirationFilter === "expired" || expirationFilter === "due30") {
+          matchExp = false;
+        } else if (expirationFilter === "valid") {
+          matchExp = true;
+        }
+      } else if (expirationFilter === "expired") {
         if (!item.doc.expirationDate) matchExp = false;
         else {
           const exp = new Date(item.doc.expirationDate);
@@ -316,7 +329,13 @@ export default function DocumentsPage() {
                   today.setHours(0, 0, 0, 0);
 
                   let expBadge = null;
-                  if (item.doc.expirationDate) {
+                  if (item.isInactive) {
+                    expBadge = (
+                      <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                        On File (Inactive Driver)
+                      </span>
+                    );
+                  } else if (item.doc.expirationDate) {
                     const exp = new Date(item.doc.expirationDate);
                     exp.setHours(0, 0, 0, 0);
                     const days = Math.ceil(

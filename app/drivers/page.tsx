@@ -169,6 +169,7 @@ function DriversContent() {
   const [activeFolderTab, setActiveFolderTab] = useState<
     "all" | "license" | "drug" | "safety" | "payroll" | "dot"
   >("all");
+  const [showSkippedDocs, setShowSkippedDocs] = useState(false);
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -980,57 +981,74 @@ function DriversContent() {
                   </div>
 
                   {/* Tabs */}
-                  <div className="flex items-center space-x-1 bg-white p-1 rounded-xl border border-slate-200 text-xs">
-                    <button
-                      onClick={() => setActiveFolderTab("all")}
-                      className={`px-3 py-1 rounded-lg font-medium transition-colors ${
-                        activeFolderTab === "all"
-                          ? "bg-slate-900 text-white"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      All Files
-                    </button>
-                    <button
-                      onClick={() => setActiveFolderTab("license")}
-                      className={`px-3 py-1 rounded-lg font-medium transition-colors ${
-                        activeFolderTab === "license"
-                          ? "bg-emerald-600 text-white"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      CDL & MedCard
-                    </button>
-                    <button
-                      onClick={() => setActiveFolderTab("drug")}
-                      className={`px-3 py-1 rounded-lg font-medium transition-colors ${
-                        activeFolderTab === "drug"
-                          ? "bg-blue-600 text-white"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      Drug Testing ({(selectedDriver.documents.drugTestResults || []).length})
-                    </button>
-                    <button
-                      onClick={() => setActiveFolderTab("payroll")}
-                      className={`px-3 py-1 rounded-lg font-medium transition-colors ${
-                        activeFolderTab === "payroll"
-                          ? "bg-teal-600 text-white"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      Banking & EIN
-                    </button>
-                    <button
-                      onClick={() => setActiveFolderTab("dot")}
-                      className={`px-3 py-1 rounded-lg font-medium transition-colors ${
-                        activeFolderTab === "dot"
-                          ? "bg-amber-600 text-white"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      DOT Records ({(selectedDriver.documents.dotRecords || []).length})
-                    </button>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center space-x-1 bg-white p-1 rounded-xl border border-slate-200 text-xs">
+                      <button
+                        onClick={() => setActiveFolderTab("all")}
+                        className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                          activeFolderTab === "all"
+                            ? "bg-slate-900 text-white"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        All Files
+                      </button>
+                      <button
+                        onClick={() => setActiveFolderTab("license")}
+                        className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                          activeFolderTab === "license"
+                            ? "bg-emerald-600 text-white"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        CDL & MedCard
+                      </button>
+                      <button
+                        onClick={() => setActiveFolderTab("drug")}
+                        className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                          activeFolderTab === "drug"
+                            ? "bg-blue-600 text-white"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        Drug Testing ({(selectedDriver.documents.drugTestResults || []).length})
+                      </button>
+                      <button
+                        onClick={() => setActiveFolderTab("payroll")}
+                        className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                          activeFolderTab === "payroll"
+                            ? "bg-teal-600 text-white"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        Banking & EIN
+                      </button>
+                      <button
+                        onClick={() => setActiveFolderTab("dot")}
+                        className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                          activeFolderTab === "dot"
+                            ? "bg-amber-600 text-white"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        DOT Records ({(selectedDriver.documents.dotRecords || []).length})
+                      </button>
+                    </div>
+
+                    {(selectedDriver.skippedDocuments?.length || 0) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowSkippedDocs(!showSkippedDocs)}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all flex items-center space-x-1.5 ${
+                          showSkippedDocs
+                            ? "bg-slate-800 text-white border-slate-900"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                        }`}
+                        title="Toggle visibility of exempt/skipped document slots"
+                      >
+                        <span>{showSkippedDocs ? "Hide Skipped" : `Show Skipped (${selectedDriver.skippedDocuments?.length})`}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1047,6 +1065,7 @@ function DriversContent() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* 3. CDL */}
                         <DocumentCard
+                          showSkippedDocs={showSkippedDocs}
                           title="3. Commercial Driver License (CDL)"
                           description="Front & back copy of Class A license with expiration tracking"
                           doc={selectedDriver.documents.cdl}
@@ -1075,6 +1094,7 @@ function DriversContent() {
 
                         {/* 4. MEDCard */}
                         <DocumentCard
+                          showSkippedDocs={showSkippedDocs}
                           title="4. Medical Examiner's Certificate (MEDCard)"
                           description="DOT Physical examination certificate (NRCME certified doctor)"
                           doc={selectedDriver.documents.medCard}
@@ -1118,6 +1138,7 @@ function DriversContent() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* 1. MVR */}
                         <DocumentCard
+                          showSkippedDocs={showSkippedDocs}
                           title="1. Motor Vehicle Record (MVR)"
                           description="36-month official state driving violation lookback"
                           doc={selectedDriver.documents.mvr}
@@ -1145,6 +1166,7 @@ function DriversContent() {
                         />
 
                         {/* 5. FMCSA Clearinghouse Query - Checkbox Only (No File Upload Needed) */}
+                        {(!selectedDriver.skippedDocuments?.includes("clearingHouse") || selectedDriver.clearingHouseQuery || selectedDriver.documents.clearingHouse || showSkippedDocs) && (
                         <div
                           className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
                             selectedDriver.clearingHouseQuery || selectedDriver.documents.clearingHouse
@@ -1234,9 +1256,11 @@ function DriversContent() {
                             </button>
                           </div>
                         </div>
+                        )}
 
                         {/* 2. PSP Authorization */}
                         <DocumentCard
+                          showSkippedDocs={showSkippedDocs}
                           title="2. PSP Authorization"
                           description="Driver signed electronic consent for FMCSA crash & inspection report"
                           doc={selectedDriver.documents.pspAuth}
@@ -1267,6 +1291,7 @@ function DriversContent() {
 
                         {/* 2.1 PSP Driver Report */}
                         <DocumentCard
+                          showSkippedDocs={showSkippedDocs}
                           title="2.1 PSP Driver Report"
                           description="FMCSA Pre-Employment Screening Program official 5-year crash & 3-year inspection history"
                           doc={selectedDriver.documents.pspReport}
@@ -1297,6 +1322,7 @@ function DriversContent() {
 
                         {/* Onboarding Document */}
                         <DocumentCard
+                          showSkippedDocs={showSkippedDocs}
                           title="Onboarding Document & Handbook"
                           description="Company driver handbook receipt, safety policies & orientation packet"
                           doc={selectedDriver.documents.onboardingDoc}
@@ -1335,6 +1361,7 @@ function DriversContent() {
                         />
 
                         {/* 6. Application Link & File */}
+                        {(!selectedDriver.skippedDocuments?.includes("applicationFile") || selectedDriver.documents.applicationFile || selectedDriver.documents.applicationLink || showSkippedDocs) && (
                         <div className="p-4 rounded-xl border bg-slate-50/70 border-slate-200 md:col-span-2 space-y-3">
                           <div className="flex items-start justify-between">
                             <div className="flex items-center space-x-2">
@@ -1450,6 +1477,7 @@ function DriversContent() {
                             </div>
                           </div>
                         </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1491,6 +1519,7 @@ function DriversContent() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* 7. Drug Test Custody Form */}
                         <DocumentCard
+                          showSkippedDocs={showSkippedDocs}
                           title="7. Drug Test Custody Form (CCF)"
                           description="Chain of custody form for laboratory urine collection"
                           doc={selectedDriver.documents.drugCustodyForm}
@@ -1527,6 +1556,7 @@ function DriversContent() {
 
                         {/* 8. Drug Test ePassport */}
                         <DocumentCard
+                          showSkippedDocs={showSkippedDocs}
                           title="8. Drug Test ePassport"
                           description="Electronic clinic authorization ticket (Quest / Labcorp / Concentra)"
                           doc={selectedDriver.documents.drugPassport}
@@ -1774,6 +1804,7 @@ function DriversContent() {
 
                         {/* 11. EIN Letter */}
                         <DocumentCard
+                          showSkippedDocs={showSkippedDocs}
                           title="11. EIN Letter / W-9 Verification"
                           description="IRS Employer Identification Number confirmation or signed W-9"
                           doc={selectedDriver.documents.einLetter}
@@ -1808,6 +1839,7 @@ function DriversContent() {
 
                         {/* 12. Driver Lease Agreement */}
                         <DocumentCard
+                          showSkippedDocs={showSkippedDocs}
                           title="12. Driver Lease / Contractor Agreement"
                           description="Independent contractor agreement or truck lease agreement for owner-operators"
                           doc={selectedDriver.documents.leaseAgreement}
@@ -2401,6 +2433,8 @@ interface DocumentCardProps {
   description: string;
   doc: FleetDocument | null | undefined;
   isSkipped?: boolean;
+  hideIfSkipped?: boolean;
+  showSkippedDocs?: boolean;
   onToggleSkip?: () => void;
   onPreview: (targetDoc?: FleetDocument) => void;
   onDownload: (targetDoc?: FleetDocument) => void;
@@ -2414,6 +2448,8 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
   description,
   doc,
   isSkipped = false,
+  hideIfSkipped,
+  showSkippedDocs = false,
   onToggleSkip,
   onPreview,
   onDownload,
@@ -2423,6 +2459,12 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
 }) => {
   const [isDragOverCard, setIsDragOverCard] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
+  // If document is skipped and has no file, omit it from display unless toggled to show
+  const shouldHide = hideIfSkipped !== undefined ? hideIfSkipped : !showSkippedDocs;
+  if (shouldHide && isSkipped && !doc) {
+    return null;
+  }
 
   const historyDocs = doc?.history || [];
 

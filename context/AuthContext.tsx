@@ -39,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     }
-    return initialUsers[0]; // Instant Super Admin session by default
+    return null; // Require explicit login; do not auto-login as demo
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -106,10 +106,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        // 3. Fallback: default to Super Admin
-        const defaultAdmin = initialUsers[0];
-        setCurrentUser(defaultAdmin);
-        localStorage.setItem("zdunje_auth_user", JSON.stringify(defaultAdmin));
+        // 3. No active session found - stay logged out
+        setCurrentUser(null);
       } catch (err) {
         console.error("Failed to restore auth session:", err);
       } finally {
