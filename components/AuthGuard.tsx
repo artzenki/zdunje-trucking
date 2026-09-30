@@ -22,9 +22,52 @@ const ROUTE_TO_MODULE: Record<string, AppModule> = {
 };
 
 export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, isAuthenticated, isLoading, hasPermission } = useAuth();
+  const { currentUser, isAuthenticated, isLoading, hasPermission, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+
+  // Automatic Session Timeout for Inactivity (15 Minutes)
+  useEffect(() => {
+    if (!isAuthenticated || pathname === "/login") return;
+
+    const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity
+    let timeoutTimer: NodeJS.Timeout;
+
+    const performInactivityLogout = async () => {
+      console.warn("User session timed out due to inactivity. Signing out...");
+      await logout();
+      router.push("/login?reason=timeout");
+    };
+
+    const resetInactivityTimer = () => {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      timeoutTimer = setTimeout(performInactivityLogout, INACTIVITY_TIMEOUT_MS);
+    };
+
+    // User activity events to listen to
+    const activityEvents = [
+      "mousedown",
+      "mousemove",
+      "keydown",
+      "scroll",
+      "touchstart",
+      "click",
+    ];
+
+    activityEvents.forEach((event) => {
+      window.addEventListener(event, resetInactivityTimer, { passive: true });
+    });
+
+    // Initialize the timer on mount
+    resetInactivityTimer();
+
+    return () => {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      activityEvents.forEach((event) => {
+        window.removeEventListener(event, resetInactivityTimer);
+      });
+    };
+  }, [isAuthenticated, pathname, logout, router]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && pathname !== "/login") {
