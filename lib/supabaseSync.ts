@@ -233,6 +233,7 @@ export const rowToDriver = (d: Record<string, unknown>): Driver => {
       einLetter: null,
       onboardingDoc: null,
       leaseAgreement: null,
+      terminationDoc: null,
       ...(rawDocs as any),
       drugTestResults: Array.isArray(rawDocs.drugTestResults) ? rawDocs.drugTestResults : [],
       dotRecords: Array.isArray(rawDocs.dotRecords) ? rawDocs.dotRecords : [],

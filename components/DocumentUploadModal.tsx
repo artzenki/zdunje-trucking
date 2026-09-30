@@ -13,6 +13,7 @@ interface DocumentUploadModalProps {
   hasExpiration?: boolean;
   isDrugTestResult?: boolean;
   isDotRecord?: boolean;
+  initialFile?: File | null;
   onUpload: (document: FleetDocument) => void;
 }
 
@@ -24,10 +25,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   hasExpiration = false,
   isDrugTestResult = false,
   isDotRecord = false,
+  initialFile = null,
   onUpload,
 }) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [docName, setDocName] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(initialFile || null);
+  const [docName, setDocName] = useState(initialFile ? initialFile.name : "");
   const [expirationDate, setExpirationDate] = useState("");
   const [testDate, setTestDate] = useState(
     new Date().toISOString().split("T")[0]

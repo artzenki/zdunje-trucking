@@ -37,6 +37,8 @@ import {
   Mail,
   UserX,
   UserCheck,
+  UserMinus,
+  FileBadge,
   Save,
   ChevronDown,
   ChevronUp,
@@ -167,7 +169,7 @@ function DriversContent() {
 
   // Active Folder Tab in Driver View
   const [activeFolderTab, setActiveFolderTab] = useState<
-    "all" | "license" | "drug" | "safety" | "payroll" | "dot"
+    "all" | "license" | "drug" | "safety" | "payroll" | "dot" | "termination"
   >("all");
   const [showSkippedDocs, setShowSkippedDocs] = useState(false);
 
@@ -187,6 +189,7 @@ function DriversContent() {
   const [isDrugTestUpload, setIsDrugTestUpload] = useState(false);
   const [isDotRecordUpload, setIsDotRecordUpload] = useState(false);
   const [hasExpiration, setHasExpiration] = useState(false);
+  const [droppedFileToUpload, setDroppedFileToUpload] = useState<File | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -394,13 +397,43 @@ function DriversContent() {
     > | null,
     expires = false,
     isDrugTest = false,
-    isDotRecord = false
+    isDotRecord = false,
+    file: File | null = null
   ) => {
     setUploadCategory(categoryName);
     setUploadKey(key);
     setHasExpiration(expires);
     setIsDrugTestUpload(isDrugTest);
     setIsDotRecordUpload(isDotRecord);
+    setDroppedFileToUpload(file);
+  };
+
+  const handleUpdateDocumentExpiration = (
+    categoryKey: keyof Omit<
+      DriverType["documents"],
+      "drugTestResults" | "applicationLink" | "dotRecords"
+    >,
+    newExpirationDate: string,
+    histId?: string
+  ) => {
+    if (!selectedDriver) return;
+    const currentDoc = selectedDriver.documents[categoryKey];
+    if (!currentDoc) return;
+
+    if (histId) {
+      const updatedHistory = (currentDoc.history || []).map((h) =>
+        h.id === histId ? { ...h, expirationDate: newExpirationDate } : h
+      );
+      uploadDriverDocument(selectedDriver.id, categoryKey, {
+        ...currentDoc,
+        history: updatedHistory,
+      });
+    } else {
+      uploadDriverDocument(selectedDriver.id, categoryKey, {
+        ...currentDoc,
+        expirationDate: newExpirationDate,
+      });
+    }
   };
 
   const handleDirectDropDriverDoc = async (
@@ -412,6 +445,13 @@ function DriversContent() {
     file: File
   ) => {
     if (!selectedDriver) return;
+
+    // For documents with expirations (like CDL and MEDCard), open the uploader with the file pre-attached so user can enter/verify expiration date!
+    if (categoryKey === "cdl" || categoryKey === "medCard") {
+      openDocumentUploader(categoryName, categoryKey, true, false, false, file);
+      return;
+    }
+
     try {
       const uploadRes = await uploadFileToSupabaseStorage(
         file,
@@ -741,14 +781,19 @@ function DriversContent() {
 
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() =>
+                      onClick={() => {
+                        const willBeInactive = selectedDriver.status !== "Inactive";
                         updateDriver(selectedDriver.id, {
-                          status:
-                            selectedDriver.status === "Inactive"
-                              ? "Active"
-                              : "Inactive",
-                        })
-                      }
+                          status: willBeInactive ? "Inactive" : "Active",
+                        });
+                        if (willBeInactive && !selectedDriver.documents.terminationDoc) {
+                          openDocumentUploader(
+                            "Driver Termination Document",
+                            "terminationDoc",
+                            false
+                          );
+                        }
+                      }}
                       className={`inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
                         selectedDriver.status === "Inactive"
                           ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
@@ -795,19 +840,51 @@ function DriversContent() {
                 </div>
 
                 {selectedDriver.status === "Inactive" && (
-                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-900">
-                    <div className="flex items-center space-x-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>
-                        <strong>Driver is currently Inactive:</strong> Not available for dispatch or load assignments.
-                      </span>
+                  <div className="mt-4 p-4 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between gap-3 text-xs text-amber-900">
+                      <div className="flex items-center space-x-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>
+                          <strong>Driver is currently Inactive:</strong> Not available for dispatch or load assignments.
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => updateDriver(selectedDriver.id, { status: "Active" })}
+                        className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shrink-0 transition-colors shadow-xs"
+                      >
+                        Reactivate Driver
+                      </button>
                     </div>
-                    <button
-                      onClick={() => updateDriver(selectedDriver.id, { status: "Active" })}
-                      className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shrink-0 transition-colors shadow-xs"
-                    >
-                      Reactivate Driver
-                    </button>
+
+                    {/* Termination Record Slot */}
+                    <div className="pt-2 border-t border-amber-200/60">
+                      <DocumentCard
+                        showSkippedDocs={true}
+                        title="Driver Termination / Offboarding Notice"
+                        description="Signed termination notice, separation agreement, resignation letter, or exit document"
+                        doc={selectedDriver.documents.terminationDoc}
+                        badgeText="INACTIVE RECORD"
+                        badgeColor="bg-rose-100 text-rose-800 border-rose-300"
+                        accentBorder={selectedDriver.documents.terminationDoc ? "bg-white border-rose-200" : "bg-rose-50/50 border-dashed border-rose-300"}
+                        onPreview={(tDoc) => setViewingDoc(tDoc || selectedDriver.documents.terminationDoc || null)}
+                        onDownload={(tDoc) =>
+                          downloadDocument(tDoc || selectedDriver.documents.terminationDoc!)
+                        }
+                        onUpload={() =>
+                          openDocumentUploader(
+                            "Driver Termination Document",
+                            "terminationDoc",
+                            false
+                          )
+                        }
+                        onRemove={(histId) =>
+                          removeDriverDocument(selectedDriver.id, "terminationDoc", histId)
+                        }
+                        onDirectDrop={(file) =>
+                          handleDirectDropDriverDoc("terminationDoc", "Driver Termination Document", file)
+                        }
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -1033,6 +1110,19 @@ function DriversContent() {
                       >
                         DOT Records ({(selectedDriver.documents.dotRecords || []).length})
                       </button>
+                      {(selectedDriver.status === "Inactive" || selectedDriver.documents.terminationDoc) && (
+                        <button
+                          onClick={() => setActiveFolderTab("termination")}
+                          className={`px-3 py-1 rounded-lg font-medium transition-colors flex items-center space-x-1.5 ${
+                            activeFolderTab === "termination"
+                              ? "bg-rose-600 text-white"
+                              : "text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200"
+                          }`}
+                        >
+                          <UserMinus className="w-3.5 h-3.5" />
+                          <span>Termination</span>
+                        </button>
+                      )}
                     </div>
 
                     {(selectedDriver.skippedDocuments?.length || 0) > 0 && (
@@ -1070,6 +1160,10 @@ function DriversContent() {
                           description="Front & back copy of Class A license with expiration tracking"
                           doc={selectedDriver.documents.cdl}
                           isSkipped={selectedDriver.skippedDocuments?.includes("cdl")}
+                          allowExpirationEdit={true}
+                          onUpdateExpiration={(newDate, histId) =>
+                            handleUpdateDocumentExpiration("cdl", newDate, histId)
+                          }
                           onToggleSkip={() =>
                             toggleDriverDocumentSkip(selectedDriver.id, "cdl")
                           }
@@ -1099,6 +1193,10 @@ function DriversContent() {
                           description="DOT Physical examination certificate (NRCME certified doctor)"
                           doc={selectedDriver.documents.medCard}
                           isSkipped={selectedDriver.skippedDocuments?.includes("medCard")}
+                          allowExpirationEdit={true}
+                          onUpdateExpiration={(newDate, histId) =>
+                            handleUpdateDocumentExpiration("medCard", newDate, histId)
+                          }
                           onToggleSkip={() =>
                             toggleDriverDocumentSkip(selectedDriver.id, "medCard")
                           }
@@ -2011,6 +2109,58 @@ function DriversContent() {
                       </div>
                     </div>
                   )}
+
+                  {/* FOLDER 6: DRIVER OFFBOARDING & TERMINATION RECORD */}
+                  {(activeFolderTab === "all" ||
+                    activeFolderTab === "termination" ||
+                    selectedDriver.status === "Inactive" ||
+                    selectedDriver.documents.terminationDoc) && (
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <FileBadge className="w-4 h-4 text-rose-600" />
+                        <span>6. Driver Offboarding & Separation Records</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <DocumentCard
+                          showSkippedDocs={true}
+                          title="Driver Termination / Offboarding Notice"
+                          description="Official separation agreement, resignation letter, exit notice, or release document"
+                          doc={selectedDriver.documents.terminationDoc}
+                          badgeText={selectedDriver.status === "Inactive" ? "INACTIVE RECORD" : undefined}
+                          badgeColor="bg-rose-100 text-rose-800 border-rose-300"
+                          accentBorder={
+                            selectedDriver.documents.terminationDoc
+                              ? "bg-white border-rose-200"
+                              : "bg-rose-50/40 border-dashed border-rose-300"
+                          }
+                          onPreview={(tDoc) =>
+                            setViewingDoc(tDoc || selectedDriver.documents.terminationDoc || null)
+                          }
+                          onDownload={(tDoc) =>
+                            downloadDocument(tDoc || selectedDriver.documents.terminationDoc!)
+                          }
+                          onUpload={() =>
+                            openDocumentUploader(
+                              "Driver Termination Document",
+                              "terminationDoc",
+                              false
+                            )
+                          }
+                          onRemove={(histId) =>
+                            removeDriverDocument(selectedDriver.id, "terminationDoc", histId)
+                          }
+                          onDirectDrop={(file) =>
+                            handleDirectDropDriverDoc(
+                              "terminationDoc",
+                              "Driver Termination Document",
+                              file
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
@@ -2406,12 +2556,14 @@ function DriversContent() {
             setUploadKey(null);
             setIsDrugTestUpload(false);
             setIsDotRecordUpload(false);
+            setDroppedFileToUpload(null);
           }}
           category={uploadCategory}
           targetName={`${selectedDriver.firstName} ${selectedDriver.lastName}`}
           hasExpiration={hasExpiration}
           isDrugTestResult={isDrugTestUpload}
           isDotRecord={isDotRecordUpload}
+          initialFile={droppedFileToUpload}
           onUpload={(doc) => {
             if (isDrugTestUpload) {
               addDriverDrugTestResult(selectedDriver.id, doc);
@@ -2420,6 +2572,7 @@ function DriversContent() {
             } else if (uploadKey) {
               uploadDriverDocument(selectedDriver.id, uploadKey, doc);
             }
+            setDroppedFileToUpload(null);
           }}
         />
       )}
@@ -2435,6 +2588,11 @@ interface DocumentCardProps {
   isSkipped?: boolean;
   hideIfSkipped?: boolean;
   showSkippedDocs?: boolean;
+  badgeText?: string;
+  badgeColor?: string;
+  accentBorder?: string;
+  allowExpirationEdit?: boolean;
+  onUpdateExpiration?: (newDate: string, histId?: string) => void;
   onToggleSkip?: () => void;
   onPreview: (targetDoc?: FleetDocument) => void;
   onDownload: (targetDoc?: FleetDocument) => void;
@@ -2450,6 +2608,11 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
   isSkipped = false,
   hideIfSkipped,
   showSkippedDocs = false,
+  badgeText,
+  badgeColor,
+  accentBorder,
+  allowExpirationEdit = false,
+  onUpdateExpiration,
   onToggleSkip,
   onPreview,
   onDownload,
@@ -2459,6 +2622,8 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
 }) => {
   const [isDragOverCard, setIsDragOverCard] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [isEditingExpiration, setIsEditingExpiration] = useState(false);
+  const [customExpiration, setCustomExpiration] = useState(doc?.expirationDate || "");
 
   // If document is skipped and has no file, omit it from display unless toggled to show
   const shouldHide = hideIfSkipped !== undefined ? hideIfSkipped : !showSkippedDocs;
@@ -2503,10 +2668,10 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
         isDragOverCard
           ? "border-emerald-500 bg-emerald-50/70 shadow-lg ring-4 ring-emerald-500/20 scale-[1.01]"
           : doc
-          ? "bg-white border-slate-200 hover:border-emerald-300 shadow-xs"
+          ? accentBorder || "bg-white border-slate-200 hover:border-emerald-300 shadow-xs"
           : isSkipped
           ? "bg-slate-50/70 border-dashed border-slate-300 opacity-80"
-          : "bg-red-50/20 border-dashed border-red-300 hover:border-red-400 shadow-xs"
+          : accentBorder || "bg-red-50/20 border-dashed border-red-300 hover:border-red-400 shadow-xs"
       }`}
     >
       {/* Visual Drop Overlay */}
@@ -2527,15 +2692,28 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
                   ? "bg-emerald-50 text-emerald-600"
                   : isSkipped
                   ? "bg-slate-200 text-slate-500"
+                  : badgeColor
+                  ? "bg-amber-100 text-amber-700"
                   : "bg-red-100 text-red-600"
               }`}
             >
               <FileText className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <h4 className="font-semibold text-slate-900 text-sm truncate" title={title}>
-                {title}
-              </h4>
+              <div className="flex items-center space-x-2">
+                <h4 className="font-semibold text-slate-900 text-sm truncate" title={title}>
+                  {title}
+                </h4>
+                {badgeText && (
+                  <span
+                    className={`px-1.5 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-wider shrink-0 ${
+                      badgeColor || "bg-amber-100 text-amber-800 border border-amber-200"
+                    }`}
+                  >
+                    {badgeText}
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-slate-400 line-clamp-1">{description}</p>
             </div>
           </div>
@@ -2580,11 +2758,68 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
               <span>Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}</span>
               <span>{(doc.fileSize / 1024).toFixed(0)} KB</span>
             </div>
-            {doc.expirationDate && (
-              <p className="text-[11px] font-semibold text-emerald-800 flex items-center space-x-1 pt-0.5">
-                <Clock className="w-3 h-3 text-emerald-600" />
-                <span>Expires: {doc.expirationDate}</span>
-              </p>
+            {/* Expiration Date Display & Inline Editor */}
+            {allowExpirationEdit && onUpdateExpiration ? (
+              <div className="pt-0.5">
+                {isEditingExpiration ? (
+                  <div className="flex items-center space-x-1.5 bg-white p-1.5 rounded-lg border border-emerald-300">
+                    <span className="text-[10px] font-bold text-slate-600">Expires:</span>
+                    <input
+                      type="date"
+                      value={customExpiration}
+                      onChange={(e) => setCustomExpiration(e.target.value)}
+                      className="px-1.5 py-0.5 text-[11px] font-medium border border-slate-200 rounded focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdateExpiration(customExpiration);
+                        setIsEditingExpiration(false);
+                      }}
+                      className="p-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-[10px] font-bold"
+                      title="Save Date"
+                    >
+                      <Save className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomExpiration(doc.expirationDate || "");
+                        setIsEditingExpiration(false);
+                      }}
+                      className="p-1 text-slate-400 hover:text-slate-600 rounded"
+                      title="Cancel"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <p className={`text-[11px] font-semibold flex items-center space-x-1 ${doc.expirationDate ? "text-emerald-800" : "text-amber-700"}`}>
+                      <Clock className="w-3 h-3 text-emerald-600" />
+                      <span>{doc.expirationDate ? `Expires: ${doc.expirationDate}` : "No expiration date set"}</span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomExpiration(doc.expirationDate || "");
+                        setIsEditingExpiration(true);
+                      }}
+                      className="text-[10px] font-semibold text-emerald-700 hover:text-emerald-900 underline flex items-center space-x-0.5"
+                    >
+                      <Edit className="w-2.5 h-2.5 mr-0.5" />
+                      <span>{doc.expirationDate ? "Change Date" : "Set Expiration"}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              doc.expirationDate && (
+                <p className="text-[11px] font-semibold text-emerald-800 flex items-center space-x-1 pt-0.5">
+                  <Clock className="w-3 h-3 text-emerald-600" />
+                  <span>Expires: {doc.expirationDate}</span>
+                </p>
+              )
             )}
 
             {/* Actions on Current File */}

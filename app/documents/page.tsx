@@ -107,6 +107,7 @@ export default function DocumentsPage() {
         "einLetter",
         "onboardingDoc",
         "leaseAgreement",
+        "terminationDoc",
       ];
 
       const isDriverInactive = d.status === "Inactive";

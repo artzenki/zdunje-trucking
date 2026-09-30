@@ -118,6 +118,7 @@ export interface DriverDocuments {
   einLetter: FleetDocument | null; // 11. EIN Letter / W9
   onboardingDoc: FleetDocument | null; // 12. Onboarding Packet / Handbook
   leaseAgreement: FleetDocument | null; // 13. Driver Lease Agreement / Independent Contractor Agreement
+  terminationDoc?: FleetDocument | null; // 14. Driver Termination Letter / Resignation / Offboarding Record
 }
 
 export interface Driver {
