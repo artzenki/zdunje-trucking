@@ -7,6 +7,7 @@ import {
   MaintenanceRecord,
   MaintenanceServiceType,
   MaintenanceStatus,
+  MaintenancePaymentMethod,
   FleetDocument,
 } from "@/types/fleet";
 import {
@@ -21,10 +22,15 @@ import {
   Trash2,
   Edit,
   X,
+  CheckCircle,
+  CreditCard,
+  DollarSign,
+  Tag,
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
 import { downloadDocument } from "@/lib/documentUtils";
+import { uploadFileToSupabaseStorage } from "@/lib/documentStorage";
 
 const SERVICE_TYPES: MaintenanceServiceType[] = [
   "PM-A (Oil & Lube)",
@@ -63,10 +69,14 @@ function MaintenanceContent() {
   );
   const [viewingDoc, setViewingDoc] = useState<FleetDocument | null>(null);
 
-  // Invoice Uploading state
+  // Invoice Uploading state for modal & inline
   const [uploadingForRecordId, setUploadingForRecordId] = useState<
     string | null
   >(null);
+  const [modalInvoiceFile, setModalInvoiceFile] = useState<File | null>(null);
+  const [existingModalDoc, setExistingModalDoc] = useState<FleetDocument | null>(null);
+  const [isInvoiceDragging, setIsInvoiceDragging] = useState(false);
+  const [isSubmittingRecord, setIsSubmittingRecord] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -80,6 +90,8 @@ function MaintenanceContent() {
     partsCost: 350,
     calloutFee: 0,
     taxCost: 0,
+    discountCost: 0,
+    paymentMethod: "EFS" as MaintenancePaymentMethod,
     invoiceNumber: "",
     nextServiceDueMileage: 155000,
     nextServiceDueDate: "",
@@ -100,6 +112,8 @@ function MaintenanceContent() {
       partsCost: 320,
       calloutFee: 0,
       taxCost: 0,
+      discountCost: 0,
+      paymentMethod: "EFS",
       invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
       nextServiceDueMileage: defaultTruck
         ? defaultTruck.currentMileage + 15000
@@ -108,6 +122,8 @@ function MaintenanceContent() {
       status: "Completed",
       description: "",
     });
+    setModalInvoiceFile(null);
+    setExistingModalDoc(null);
     setEditingRecord(null);
     setIsAddModalOpen(true);
   }, [trucks, shops]);
@@ -157,16 +173,25 @@ function MaintenanceContent() {
       partsCost: rec.partsCost,
       calloutFee: rec.calloutFee,
       taxCost: rec.taxCost ?? 0,
+      discountCost: rec.discountCost ?? 0,
+      paymentMethod: rec.paymentMethod || "EFS",
       invoiceNumber: rec.invoiceNumber,
       nextServiceDueMileage: rec.nextServiceDueMileage || 0,
       nextServiceDueDate: rec.nextServiceDueDate || "",
       status: rec.status,
       description: rec.description,
     });
+    setModalInvoiceFile(null);
+    setExistingModalDoc(rec.invoiceDocument || null);
     setIsAddModalOpen(true);
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const isPmOilService = (type: string) => {
+    const lower = type.toLowerCase();
+    return lower.includes("oil") || lower.includes("pm-a") || lower.includes("pm (oil)");
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const truck = trucks.find((t) => t.id === formData.truckId);
     if (!truck) {
@@ -179,40 +204,75 @@ function MaintenanceContent() {
       ? selectedShop.businessName
       : formData.customShopName.trim() || "Independent Vendor";
 
-    const total =
+    const subtotal =
       Number(formData.laborCost) +
       Number(formData.partsCost) +
       Number(formData.calloutFee) +
       Number(formData.taxCost);
+    const total = Math.max(0, subtotal - Number(formData.discountCost || 0));
 
-    const payload = {
-      truckId: truck.id,
-      truckUnitNumber: truck.unitNumber,
-      serviceDate: formData.serviceDate,
-      odometer: Number(formData.odometer),
-      serviceType: formData.serviceType,
-      shopId: formData.shopId || null,
-      shopName,
-      laborCost: Number(formData.laborCost),
-      partsCost: Number(formData.partsCost),
-      calloutFee: Number(formData.calloutFee),
-      taxCost: Number(formData.taxCost),
-      totalCost: total,
-      invoiceNumber: formData.invoiceNumber.trim() || `INV-${Date.now()}`,
-      nextServiceDueMileage: formData.nextServiceDueMileage
-        ? Number(formData.nextServiceDueMileage)
-        : undefined,
-      nextServiceDueDate: formData.nextServiceDueDate || undefined,
-      status: formData.status,
-      description: formData.description.trim(),
-    };
+    setIsSubmittingRecord(true);
+    try {
+      let finalInvoiceDoc = existingModalDoc;
+      if (modalInvoiceFile) {
+        const uploadResult = await uploadFileToSupabaseStorage(
+          modalInvoiceFile,
+          modalInvoiceFile.name,
+          "maintenance"
+        );
+        finalInvoiceDoc = {
+          id: `doc-${Date.now()}`,
+          name: modalInvoiceFile.name,
+          category: "Maintenance Invoice",
+          fileType: uploadResult.fileType || modalInvoiceFile.type || "application/pdf",
+          fileSize: uploadResult.fileSize || modalInvoiceFile.size,
+          uploadedAt: new Date().toISOString(),
+          fileData: uploadResult.fileUrl,
+        };
+      }
 
-    if (editingRecord) {
-      updateMaintenanceRecord(editingRecord.id, payload);
-    } else {
-      addMaintenanceRecord(payload);
+      const isOil = isPmOilService(formData.serviceType);
+
+      const payload = {
+        truckId: truck.id,
+        truckUnitNumber: truck.unitNumber,
+        serviceDate: formData.serviceDate,
+        odometer: Number(formData.odometer),
+        serviceType: formData.serviceType,
+        shopId: formData.shopId || null,
+        shopName,
+        laborCost: Number(formData.laborCost),
+        partsCost: Number(formData.partsCost),
+        calloutFee: Number(formData.calloutFee),
+        taxCost: Number(formData.taxCost),
+        discountCost: Number(formData.discountCost || 0),
+        paymentMethod: formData.paymentMethod,
+        totalCost: total,
+        invoiceNumber: formData.invoiceNumber.trim() || `INV-${Date.now()}`,
+        invoiceDocument: finalInvoiceDoc || null,
+        nextServiceDueMileage:
+          isOil && formData.nextServiceDueMileage
+            ? Number(formData.nextServiceDueMileage)
+            : undefined,
+        nextServiceDueDate: formData.nextServiceDueDate || undefined,
+        status: formData.status,
+        description: formData.description.trim(),
+      };
+
+      if (editingRecord) {
+        updateMaintenanceRecord(editingRecord.id, payload);
+      } else {
+        addMaintenanceRecord(payload);
+      }
+      setIsAddModalOpen(false);
+      setModalInvoiceFile(null);
+      setExistingModalDoc(null);
+    } catch (err) {
+      console.error("Error saving maintenance record:", err);
+      alert("Failed to save maintenance record. Please try again.");
+    } finally {
+      setIsSubmittingRecord(false);
     }
-    setIsAddModalOpen(false);
   };
 
   const handleDelete = (id: string, inv: string) => {
@@ -437,7 +497,18 @@ function MaintenanceContent() {
                         Labor: ${rec.laborCost} • Parts: ${rec.partsCost}
                         {rec.calloutFee > 0 && ` • Callout: $${rec.calloutFee}`}
                         {((rec.taxCost ?? 0) > 0) && ` • Tax: $${rec.taxCost}`}
+                        {((rec.discountCost ?? 0) > 0) && (
+                          <span className="text-emerald-600 font-medium">
+                            {" "}• Discount: -${rec.discountCost}
+                          </span>
+                        )}
                       </p>
+                      {rec.paymentMethod && (
+                        <div className="mt-1 flex items-center justify-end space-x-1 text-[11px] font-medium text-slate-600">
+                          <CreditCard className="w-3 h-3 text-slate-400" />
+                          <span>Paid by: <strong className="text-slate-700">{rec.paymentMethod}</strong></span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Invoice Document */}
@@ -675,21 +746,24 @@ function MaintenanceContent() {
                 {/* Costs Breakdown */}
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      Cost Breakdown ($ USD)
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+                      <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Cost Breakdown ($ USD)</span>
                     </h4>
-                    <span className="text-xs font-extrabold text-slate-900">
-                      Total: $
-                      {(
+                    <span className="text-xs font-extrabold text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                      Net Total: $
+                      {Math.max(
+                        0,
                         Number(formData.laborCost) +
-                        Number(formData.partsCost) +
-                        Number(formData.calloutFee) +
-                        Number(formData.taxCost)
+                          Number(formData.partsCost) +
+                          Number(formData.calloutFee) +
+                          Number(formData.taxCost) -
+                          Number(formData.discountCost || 0)
                       ).toLocaleString()}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                         Labor Cost
@@ -763,6 +837,26 @@ function MaintenanceContent() {
                     </div>
 
                     <div>
+                      <label className="block text-[11px] font-semibold text-emerald-700 mb-1 flex items-center space-x-1">
+                        <Tag className="w-3 h-3 text-emerald-600" />
+                        <span>Discount</span>
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={formData.discountCost}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            discountCost: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        placeholder="0"
+                        className="w-full h-10 px-3 text-sm bg-emerald-50/40 border border-emerald-300 text-emerald-900 font-medium rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                         Invoice #
                       </label>
@@ -780,24 +874,173 @@ function MaintenanceContent() {
                       />
                     </div>
                   </div>
+
+                  {/* Payment Method Selector */}
+                  <div className="pt-2 border-t border-slate-200">
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5 flex items-center space-x-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Paid By / Payment Method</span>
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {(
+                        [
+                          { key: "Driver", label: "Driver" },
+                          { key: "EFS", label: "EFS" },
+                          { key: "CC over the Phone", label: "CC over the Phone" },
+                          { key: "Zelle", label: "Zelle" },
+                        ] as const
+                      ).map((m) => (
+                        <button
+                          key={m.key}
+                          type="button"
+                          onClick={() =>
+                            setFormData({ ...formData, paymentMethod: m.key })
+                          }
+                          className={`h-9 px-3 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center space-x-1.5 ${
+                            formData.paymentMethod === m.key
+                              ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                              : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          <span>{m.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Next Service Due */}
+                {/* Upload Document / Work Order Invoice Tab */}
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 uppercase flex items-center space-x-1.5">
+                    <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Upload Document / Invoice PDF</span>
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Attach the repair shop invoice, work order receipt, or inspection certificate.
+                  </p>
+
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsInvoiceDragging(true);
+                    }}
+                    onDragLeave={() => setIsInvoiceDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsInvoiceDragging(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) setModalInvoiceFile(file);
+                    }}
+                    className={`relative border-2 border-dashed rounded-xl p-3.5 text-center transition-all ${
+                      isInvoiceDragging
+                        ? "border-indigo-500 bg-indigo-50"
+                        : modalInvoiceFile
+                        ? "border-emerald-300 bg-emerald-50/50"
+                        : "border-slate-300 bg-white hover:border-slate-400"
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setModalInvoiceFile(file);
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    {modalInvoiceFile ? (
+                      <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center space-x-2 text-left truncate">
+                          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <div>
+                            <span className="text-xs font-bold text-slate-800 block truncate">
+                              {modalInvoiceFile.name}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              {(modalInvoiceFile.size / 1024).toFixed(0)} KB ready to upload
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setModalInvoiceFile(null);
+                          }}
+                          className="p-1 text-slate-400 hover:text-red-500 rounded"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : existingModalDoc ? (
+                      <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center space-x-2 text-left truncate">
+                          <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
+                          <div>
+                            <span className="text-xs font-semibold text-slate-800 block truncate">
+                              On file: {existingModalDoc.name}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              Drop a new PDF or receipt to replace
+                            </span>
+                          </div>
+                        </div>
+                        <Upload className="w-4 h-4 text-indigo-500 shrink-0" />
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center space-x-2 text-slate-500 py-1">
+                        <Upload className="w-4 h-4 text-slate-400" />
+                        <span className="text-xs font-medium">
+                          Drag & drop invoice PDF / image here or click to browse
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Next Service Due (Only active when Service Type is PM (oil)) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                      Next Service Due (Mileage)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label
+                        className={`block text-xs font-semibold uppercase ${
+                          isPmOilService(formData.serviceType)
+                            ? "text-slate-700"
+                            : "text-slate-400"
+                        }`}
+                      >
+                        Next Service Due (Mileage)
+                      </label>
+                      {!isPmOilService(formData.serviceType) && (
+                        <span className="text-[10px] text-slate-400 italic">
+                          (Active for PM Oil only)
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="number"
-                      value={formData.nextServiceDueMileage}
+                      disabled={!isPmOilService(formData.serviceType)}
+                      value={
+                        isPmOilService(formData.serviceType)
+                          ? formData.nextServiceDueMileage
+                          : ""
+                      }
                       onChange={(e) =>
                         setFormData({
                           ...formData,
                           nextServiceDueMileage: parseInt(e.target.value) || 0,
                         })
                       }
-                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      placeholder={
+                        isPmOilService(formData.serviceType)
+                          ? "e.g. 155000"
+                          : "N/A - PM Oil only"
+                      }
+                      className={`w-full h-10 px-3 text-sm border rounded-lg focus:outline-none transition-colors ${
+                        isPmOilService(formData.serviceType)
+                          ? "border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500"
+                          : "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                      }`}
                     />
                   </div>
 
@@ -846,9 +1089,14 @@ function MaintenanceContent() {
                 </button>
                 <button
                   type="submit"
-                  className="h-10 px-5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors"
+                  disabled={isSubmittingRecord}
+                  className="h-10 px-5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg shadow-sm transition-colors"
                 >
-                  {editingRecord ? "Update Record" : "Save Work Order"}
+                  {isSubmittingRecord
+                    ? "Saving..."
+                    : editingRecord
+                    ? "Update Record"
+                    : "Save Work Order"}
                 </button>
               </div>
             </form>

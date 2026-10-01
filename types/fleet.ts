@@ -1,4 +1,9 @@
-export type OwnershipType = "Lease" | "Own";
+export type OwnershipType =
+  | "Owner Operator"
+  | "Leased"
+  | "Company owned"
+  | "Own"
+  | "Lease";
 export type EquipmentStatus = "Active" | "Inactive" | "In Shop" | "Out of Service" | "Available";
 export type DriverStatus = "Active" | "Inactive" | "On Leave";
 export type ShopType = "Shop" | "Roadside" | "Both";
@@ -91,6 +96,7 @@ export interface Trailer {
   trailerValue: number;
   status: EquipmentStatus;
   assignedTruckId: string | null;
+  leaseCompany?: string;
   notes: string;
   documents: Record<TrailerDocumentKey, FleetDocument | null>;
   customDocuments?: FleetDocument[];
@@ -172,6 +178,12 @@ export interface Applicant {
   notes?: string;
 }
 
+export type MaintenancePaymentMethod =
+  | "Driver"
+  | "EFS"
+  | "CC over the Phone"
+  | "Zelle";
+
 export interface MaintenanceRecord {
   id: string;
   truckId: string;
@@ -185,6 +197,8 @@ export interface MaintenanceRecord {
   partsCost: number;
   calloutFee: number;
   taxCost?: number;
+  discountCost?: number;
+  paymentMethod?: MaintenancePaymentMethod;
   totalCost: number;
   invoiceNumber: string;
   invoiceDocument?: FleetDocument | null;

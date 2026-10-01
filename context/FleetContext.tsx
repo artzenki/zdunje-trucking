@@ -71,7 +71,7 @@ interface FleetContextType {
   toggleTruckDocumentSkip: (truckId: string, documentKey: string) => void;
 
   // Trailers
-  addTrailer: (trailer: Omit<Trailer, "id" | "documents">) => void;
+  addTrailer: (trailer: Omit<Trailer, "id" | "documents"> & { documents?: Partial<Record<TrailerDocumentKey, FleetDocument | null>> }) => void;
   updateTrailer: (id: string, trailer: Partial<Trailer>) => void;
   deleteTrailer: (id: string) => void;
   uploadTrailerDocument: (
@@ -718,9 +718,14 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Trailer Handlers
-  const addTrailer = (data: Omit<Trailer, "id" | "documents">) => {
+  const addTrailer = (
+    data: Omit<Trailer, "id" | "documents"> & {
+      documents?: Partial<Record<TrailerDocumentKey, FleetDocument | null>>;
+    }
+  ) => {
+    const { documents: initialDocs, ...restData } = data;
     const newTrailer: Trailer = {
-      ...data,
+      ...restData,
       id: `trailer-${Date.now()}`,
       documents: {
         title: null,
@@ -729,6 +734,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         insurance: null,
         cabCard: null,
         trailerAgreement: null,
+        ...(initialDocs || {}),
       },
       customDocuments: [],
     };

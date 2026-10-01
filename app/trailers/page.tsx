@@ -122,11 +122,15 @@ function TrailersContent() {
     plateNumber: "",
     isTemporaryPlate: false,
     ownershipType: "Own" as OwnershipType,
+    leaseCompany: "",
     trailerValue: 45000,
     status: "Active" as EquipmentStatus,
     assignedTruckId: "",
     notes: "",
   });
+  const [agreementFile, setAgreementFile] = useState<File | null>(null);
+  const [isAgreementDragging, setIsAgreementDragging] = useState(false);
+  const [isSubmittingTrailer, setIsSubmittingTrailer] = useState(false);
 
   useEffect(() => {
     const id = searchParams.get("id");
@@ -172,11 +176,13 @@ function TrailersContent() {
       plateNumber: "",
       isTemporaryPlate: false,
       ownershipType: "Own",
+      leaseCompany: "",
       trailerValue: 48000,
       status: "Active",
       assignedTruckId: "",
       notes: "",
     });
+    setAgreementFile(null);
     setEditingTrailer(null);
     setIsAddModalOpen(true);
   };
@@ -192,33 +198,86 @@ function TrailersContent() {
       plateNumber: trailer.plateNumber,
       isTemporaryPlate: trailer.isTemporaryPlate,
       ownershipType: trailer.ownershipType,
+      leaseCompany: trailer.leaseCompany || "",
       trailerValue: trailer.trailerValue,
       status: trailer.status,
       assignedTruckId: trailer.assignedTruckId || "",
       notes: trailer.notes,
     });
+    setAgreementFile(null);
     setIsAddModalOpen(true);
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.unitNumber.trim()) {
       alert("Please enter a Unit Number");
       return;
     }
 
-    if (editingTrailer) {
-      updateTrailer(editingTrailer.id, {
-        ...formData,
-        assignedTruckId: formData.assignedTruckId || null,
-      });
-    } else {
-      addTrailer({
-        ...formData,
-        assignedTruckId: formData.assignedTruckId || null,
-      });
+    setIsSubmittingTrailer(true);
+    try {
+      let agreementDocToAttach: FleetDocument | null = null;
+      if (agreementFile) {
+        const uploadResult = await uploadFileToSupabaseStorage(
+          agreementFile,
+          agreementFile.name,
+          "trailers"
+        );
+        agreementDocToAttach = {
+          id: `doc-${Date.now()}`,
+          name: agreementFile.name,
+          category: "Trailer Agreement",
+          fileType: uploadResult.fileType || agreementFile.type || "application/pdf",
+          fileSize: uploadResult.fileSize || agreementFile.size,
+          uploadedAt: new Date().toISOString(),
+          fileData: uploadResult.fileUrl,
+        };
+      }
+
+      if (editingTrailer) {
+        updateTrailer(editingTrailer.id, {
+          ...formData,
+          leaseCompany: formData.leaseCompany.trim() || undefined,
+          assignedTruckId: formData.assignedTruckId || null,
+        });
+
+        if (agreementDocToAttach) {
+          await uploadTrailerDocument(
+            editingTrailer.id,
+            "trailerAgreement",
+            agreementDocToAttach
+          );
+        }
+      } else {
+        const newTrailerPayload: Omit<TrailerType, "id" | "createdAt" | "documents"> = {
+          ...formData,
+          leaseCompany: formData.leaseCompany.trim() || undefined,
+          assignedTruckId: formData.assignedTruckId || null,
+        };
+
+        const initialDocs: Record<TrailerDocumentKey, FleetDocument | null> = {
+          title: null,
+          tax2290: null,
+          dotInspection: null,
+          insurance: null,
+          cabCard: null,
+          trailerAgreement: agreementDocToAttach || null,
+        };
+
+        addTrailer({
+          ...newTrailerPayload,
+          documents: initialDocs,
+        });
+      }
+      setIsAddModalOpen(false);
+      setAgreementFile(null);
+    } catch (err) {
+      console.error("Error saving trailer:", err);
+      alert("Failed to save trailer. Please try again.");
+    } finally {
+      setIsSubmittingTrailer(false);
     }
-    setIsAddModalOpen(false);
   };
 
   const handleDelete = (id: string, unitNumber: string) => {
@@ -559,6 +618,22 @@ function TrailersContent() {
                       ${selectedTrailer.trailerValue.toLocaleString()}
                     </span>
                   </div>
+
+                  {selectedTrailer.leaseCompany && (
+                    <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 col-span-2 sm:col-span-4 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">
+                          Lease Company / Lessor
+                        </span>
+                        <span className="text-sm font-extrabold text-purple-900">
+                          {selectedTrailer.leaseCompany}
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 text-[11px] font-semibold bg-purple-200/70 text-purple-900 rounded-md">
+                        Leased Equipment
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {selectedTrailer.notes && (
@@ -1198,6 +1273,24 @@ function TrailersContent() {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Lease Company
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.leaseCompany}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          leaseCompany: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. Ryder, Penske, Premier Trailer Leasing"
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
                       Trailer Value ($ USD)
                     </label>
                     <input
@@ -1213,7 +1306,9 @@ function TrailersContent() {
                       className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
                     />
                   </div>
+                </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
                       Assigned Truck
@@ -1235,6 +1330,79 @@ function TrailersContent() {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Agreement PDF
+                    </label>
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsAgreementDragging(true);
+                      }}
+                      onDragLeave={() => setIsAgreementDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsAgreementDragging(false);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) setAgreementFile(file);
+                      }}
+                      className={`relative border-2 border-dashed rounded-lg p-2.5 text-center transition-all ${
+                        isAgreementDragging
+                          ? "border-purple-500 bg-purple-50"
+                          : agreementFile
+                          ? "border-emerald-300 bg-emerald-50/40"
+                          : "border-slate-300 bg-white hover:border-slate-400"
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setAgreementFile(file);
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      {agreementFile ? (
+                        <div className="flex items-center justify-between px-2">
+                          <div className="flex items-center space-x-2 text-left truncate">
+                            <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span className="text-xs font-semibold text-slate-800 truncate">
+                              {agreementFile.name}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setAgreementFile(null);
+                            }}
+                            className="p-1 text-slate-400 hover:text-red-500"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : editingTrailer?.documents?.trailerAgreement ? (
+                        <div className="flex items-center justify-between px-2">
+                          <div className="flex items-center space-x-2 text-left truncate">
+                            <CheckCircle className="w-4 h-4 text-purple-600 shrink-0" />
+                            <span className="text-xs text-slate-600 truncate">
+                              On file: {editingTrailer.documents.trailerAgreement.name} (Drop to replace)
+                            </span>
+                          </div>
+                          <Upload className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center space-x-2 text-slate-500 py-0.5">
+                          <Upload className="w-4 h-4 text-slate-400" />
+                          <span className="text-xs font-medium">
+                            Drop Agreement PDF here or click to browse
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1264,9 +1432,14 @@ function TrailersContent() {
                 </button>
                 <button
                   type="submit"
-                  className="h-10 px-5 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-sm transition-colors"
+                  disabled={isSubmittingTrailer}
+                  className="h-10 px-5 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg shadow-sm transition-colors"
                 >
-                  {editingTrailer ? "Update Trailer" : "Save Trailer"}
+                  {isSubmittingTrailer
+                    ? "Saving..."
+                    : editingTrailer
+                    ? "Update Trailer"
+                    : "Save Trailer"}
                 </button>
               </div>
             </form>

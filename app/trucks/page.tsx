@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useFleet } from "@/context/FleetContext";
 import {
@@ -27,6 +27,7 @@ import {
   ChevronDown,
   ChevronUp,
   History,
+  User,
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
@@ -109,6 +110,11 @@ function TrucksContent() {
   const [isUploadCustomDocOpen, setIsUploadCustomDocOpen] = useState(false);
   const [expandedHistoryKey, setExpandedHistoryKey] = useState<string | null>(null);
 
+  // Driver search dropdown state
+  const [isDriverDropdownOpen, setIsDriverDropdownOpen] = useState(false);
+  const [driverSearch, setDriverSearch] = useState("");
+  const driverDropdownRef = useRef<HTMLDivElement>(null);
+
   // Form State
   const [formData, setFormData] = useState({
     unitNumber: "",
@@ -118,7 +124,7 @@ function TrucksContent() {
     vin: "",
     plateNumber: "",
     isTemporaryPlate: false,
-    ownershipType: "Own" as OwnershipType,
+    ownershipType: "Company owned" as OwnershipType,
     truckValue: 125000,
     bestPassSerialNumber: "",
     isBestPassLinked: true,
@@ -164,7 +170,52 @@ function TrucksContent() {
     });
   }, [trucks, search, statusFilter]);
 
+  // Filtered & alphabetically sorted drivers for searchable dropdown in add/edit modal
+  const filteredDriversForSelect = useMemo(() => {
+    const q = driverSearch.toLowerCase().trim();
+    const list = !q
+      ? [...drivers]
+      : drivers.filter((d) => {
+          const fullName = `${d.firstName} ${d.lastName}`.toLowerCase();
+          const state = (d.state || "").toLowerCase();
+          const license = (d.licenseNumber || "").toLowerCase();
+          const phone = (d.phone || "").toLowerCase();
+          return (
+            fullName.includes(q) ||
+            state.includes(q) ||
+            license.includes(q) ||
+            phone.includes(q)
+          );
+        });
+
+    return list.sort((a, b) => {
+      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [drivers, driverSearch]);
+
+  // Close driver dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        driverDropdownRef.current &&
+        !driverDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsDriverDropdownOpen(false);
+      }
+    };
+    if (isDriverDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isDriverDropdownOpen]);
+
   const openAddModal = () => {
+    setIsDriverDropdownOpen(false);
+    setDriverSearch("");
     setFormData({
       unitNumber: "",
       make: "Freightliner",
@@ -173,7 +224,7 @@ function TrucksContent() {
       vin: "",
       plateNumber: "",
       isTemporaryPlate: false,
-      ownershipType: "Own",
+      ownershipType: "Company owned",
       truckValue: 135000,
       bestPassSerialNumber: "",
       isBestPassLinked: false,
@@ -187,6 +238,8 @@ function TrucksContent() {
   };
 
   const openEditModal = (truck: TruckType) => {
+    setIsDriverDropdownOpen(false);
+    setDriverSearch("");
     setEditingTruck(truck);
     setFormData({
       unitNumber: truck.unitNumber,
@@ -1252,7 +1305,13 @@ function TrucksContent() {
                       Ownership Type
                     </label>
                     <select
-                      value={formData.ownershipType}
+                      value={
+                        formData.ownershipType === "Own"
+                          ? "Company owned"
+                          : formData.ownershipType === "Lease"
+                          ? "Leased"
+                          : formData.ownershipType
+                      }
                       onChange={(e) =>
                         setFormData({
                           ...formData,
@@ -1261,8 +1320,9 @@ function TrucksContent() {
                       }
                       className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     >
-                      <option value="Own">Company Owned</option>
-                      <option value="Lease">Leased</option>
+                      <option value="Owner Operator">Owner Operator</option>
+                      <option value="Leased">Leased</option>
+                      <option value="Company owned">Company owned</option>
                     </select>
                   </div>
 
@@ -1321,27 +1381,148 @@ function TrucksContent() {
 
                 {/* Driver & Status */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
+                  {/* Searchable Driver Dropdown */}
+                  <div className="relative" ref={driverDropdownRef}>
                     <label className="block text-xs font-semibold text-slate-700 uppercase mb-1.5">
                       Assigned Driver
                     </label>
-                    <select
-                      value={formData.assignedDriverId}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          assignedDriverId: e.target.value,
-                        })
-                      }
-                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    <div
+                      onClick={() => setIsDriverDropdownOpen(!isDriverDropdownOpen)}
+                      className={`w-full h-10 px-3 border rounded-lg bg-white flex items-center justify-between cursor-pointer transition-colors ${
+                        isDriverDropdownOpen
+                          ? "border-blue-500 ring-2 ring-blue-500/20"
+                          : "border-slate-300 hover:border-slate-400"
+                      }`}
                     >
-                      <option value="">-- Unassigned --</option>
-                      {drivers.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.firstName} {d.lastName} ({d.state} CDL)
-                        </option>
-                      ))}
-                    </select>
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <User className="w-4 h-4 text-slate-400 shrink-0" />
+                        <span className="text-sm truncate">
+                          {(() => {
+                            const d = drivers.find((x) => x.id === formData.assignedDriverId);
+                            if (d) {
+                              return (
+                                <span className="text-slate-900 font-medium">
+                                  {d.firstName} {d.lastName}{" "}
+                                  <span className="text-xs text-slate-400">
+                                    ({d.state} CDL)
+                                  </span>
+                                </span>
+                              );
+                            }
+                            return <span className="text-slate-400">-- Unassigned --</span>;
+                          })()}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-1 pl-1 shrink-0">
+                        {formData.assignedDriverId && (
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFormData({ ...formData, assignedDriverId: "" });
+                            }}
+                            className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 cursor-pointer"
+                            title="Unassign driver"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                        <ChevronDown
+                          className={`w-4 h-4 text-slate-400 transition-transform ${
+                            isDriverDropdownOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Dropdown Menu with integrated search */}
+                    {isDriverDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-100">
+                        <div className="p-2 border-b border-slate-100 bg-slate-50/70">
+                          <div className="relative">
+                            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                            <input
+                              type="text"
+                              autoFocus
+                              value={driverSearch}
+                              onChange={(e) => setDriverSearch(e.target.value)}
+                              placeholder="Search driver by name, state, phone..."
+                              className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                            />
+                            {driverSearch && (
+                              <button
+                                type="button"
+                                onClick={() => setDriverSearch("")}
+                                className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                          {/* Unassigned Option */}
+                          <div
+                            onClick={() => {
+                              setFormData({ ...formData, assignedDriverId: "" });
+                              setIsDriverDropdownOpen(false);
+                            }}
+                            className={`p-2.5 text-xs cursor-pointer flex items-center justify-between hover:bg-slate-50 transition-colors ${
+                              !formData.assignedDriverId
+                                ? "bg-blue-50/70 text-blue-700 font-semibold"
+                                : "text-slate-600"
+                            }`}
+                          >
+                            <span className="italic">-- Unassigned --</span>
+                            {!formData.assignedDriverId && (
+                              <CheckCircle className="w-3.5 h-3.5 text-blue-600" />
+                            )}
+                          </div>
+
+                          {/* Driver List */}
+                          {filteredDriversForSelect.length === 0 ? (
+                            <div className="p-4 text-center text-xs text-slate-400">
+                              No drivers found matching &quot;{driverSearch}&quot;
+                            </div>
+                          ) : (
+                            filteredDriversForSelect.map((d) => {
+                              const isSelected = formData.assignedDriverId === d.id;
+                              return (
+                                <div
+                                  key={d.id}
+                                  onClick={() => {
+                                    setFormData({ ...formData, assignedDriverId: d.id });
+                                    setIsDriverDropdownOpen(false);
+                                  }}
+                                  className={`p-2.5 text-xs cursor-pointer flex items-center justify-between hover:bg-slate-50 transition-colors ${
+                                    isSelected
+                                      ? "bg-blue-50/70 text-blue-700 font-semibold"
+                                      : "text-slate-700"
+                                  }`}
+                                >
+                                  <div>
+                                    <div className="font-medium text-slate-900 flex items-center space-x-1.5">
+                                      <span>
+                                        {d.firstName} {d.lastName}
+                                      </span>
+                                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-normal">
+                                        {d.state} CDL
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">
+                                      {d.phone} • Lic: {d.licenseNumber}
+                                    </p>
+                                  </div>
+                                  {isSelected && (
+                                    <CheckCircle className="w-3.5 h-3.5 text-blue-600 shrink-0 ml-2" />
+                                  )}
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div>
