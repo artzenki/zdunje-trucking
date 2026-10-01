@@ -933,12 +933,15 @@ function DriversContent() {
                     <div className="pt-2 border-t border-amber-200/60">
                       <DocumentCard
                         showSkippedDocs={true}
+                        isOptional={true}
+                        emptyStateBadge="Optional / Offboarding"
+                        emptyStateText="Separation notice / offboarding record (optional for driver qualification file)."
                         title="Driver Termination / Offboarding Notice"
                         description="Signed termination notice, separation agreement, resignation letter, or exit document"
                         doc={selectedDriver.documents.terminationDoc}
                         badgeText="INACTIVE RECORD"
                         badgeColor="bg-rose-100 text-rose-800 border-rose-300"
-                        accentBorder={selectedDriver.documents.terminationDoc ? "bg-white border-rose-200" : "bg-rose-50/50 border-dashed border-rose-300"}
+                        accentBorder={selectedDriver.documents.terminationDoc ? "bg-white border-rose-200" : "bg-slate-50/70 border-dashed border-slate-300"}
                         onPreview={(tDoc) => setViewingDoc(tDoc || selectedDriver.documents.terminationDoc || null)}
                         onDownload={(tDoc) =>
                           downloadDocument(tDoc || selectedDriver.documents.terminationDoc!)
@@ -2434,11 +2437,9 @@ function DriversContent() {
                     </div>
                   )}
 
-                  {/* FOLDER 6: DRIVER OFFBOARDING & TERMINATION RECORD */}
-                  {(activeFolderTab === "all" ||
-                    activeFolderTab === "termination" ||
-                    selectedDriver.status === "Inactive" ||
-                    selectedDriver.documents.terminationDoc) && (
+                  {/* FOLDER 6: DRIVER OFFBOARDING & TERMINATION RECORD (Only shown when driver is inactive or already has termination doc) */}
+                  {(selectedDriver.status === "Inactive" || selectedDriver.documents.terminationDoc) &&
+                    (activeFolderTab === "all" || activeFolderTab === "termination") && (
                     <div className="space-y-3 pt-2">
                       <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
                         <FileBadge className="w-4 h-4 text-rose-600" />
@@ -2448,6 +2449,9 @@ function DriversContent() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <DocumentCard
                           showSkippedDocs={true}
+                          isOptional={true}
+                          emptyStateBadge="Optional / Offboarding"
+                          emptyStateText="Separation notice / offboarding record (optional for driver qualification file)."
                           title="Driver Termination / Offboarding Notice"
                           description="Official separation agreement, resignation letter, exit notice, or release document"
                           doc={selectedDriver.documents.terminationDoc}
@@ -2456,7 +2460,7 @@ function DriversContent() {
                           accentBorder={
                             selectedDriver.documents.terminationDoc
                               ? "bg-white border-rose-200"
-                              : "bg-rose-50/40 border-dashed border-rose-300"
+                              : "bg-slate-50/70 border-dashed border-slate-300"
                           }
                           onPreview={(tDoc) =>
                             setViewingDoc(tDoc || selectedDriver.documents.terminationDoc || null)
@@ -2924,6 +2928,9 @@ interface DocumentCardProps {
   badgeColor?: string;
   accentBorder?: string;
   allowExpirationEdit?: boolean;
+  isOptional?: boolean;
+  emptyStateBadge?: string;
+  emptyStateText?: string;
   onUpdateExpiration?: (newDate: string, histId?: string) => void;
   onToggleSkip?: () => void;
   onPreview: (targetDoc?: FleetDocument) => void;
@@ -2944,6 +2951,9 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
   badgeColor,
   accentBorder,
   allowExpirationEdit = false,
+  isOptional = false,
+  emptyStateBadge,
+  emptyStateText,
   onUpdateExpiration,
   onToggleSkip,
   onPreview,
@@ -3066,6 +3076,10 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
           ) : isSkipped ? (
             <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-700 rounded-full shrink-0">
               ⚪ Not Applicable
+            </span>
+          ) : isOptional ? (
+            <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded-full shrink-0 border border-slate-200">
+              {emptyStateBadge || "Optional / On Exit"}
             </span>
           ) : (
             <span className="px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-800 rounded-full flex items-center space-x-1 shrink-0">
@@ -3295,7 +3309,14 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
           </div>
         )}
 
-        {!doc && !isSkipped && (
+        {!doc && !isSkipped && isOptional && (
+          <div className="mt-2.5 p-3 bg-slate-50 border border-dashed border-slate-200 rounded-lg text-[11px] text-slate-600 text-center">
+            <p className="font-semibold text-slate-700">{emptyStateText || "Optional / offboarding record."}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Drag & drop separation document here or click upload below if applicable</p>
+          </div>
+        )}
+
+        {!doc && !isSkipped && !isOptional && (
           <div className="mt-2.5 p-3 bg-red-50/60 border border-dashed border-red-200 rounded-lg text-[11px] text-red-700 text-center">
             <p className="font-semibold">Required document for driver qualification file.</p>
             <p className="text-[10px] text-red-500 mt-0.5">Drag & drop file here or click upload below</p>
