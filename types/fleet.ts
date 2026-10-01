@@ -32,6 +32,7 @@ export interface FleetDocument {
   description?: string;
   testDate?: string; // for drug test results
   testType?: "Random FMCSA" | "Pre-Employment" | "Post-Accident" | "Reasonable Suspicion" | "Return-to-Duty";
+  clinicName?: string; // for ePassports / clinic authorization tickets
   inspectionLevel?: string; // e.g. "Level 1", "Level 2", "Level 3"
   inspectionResult?: "Clean / No Violations" | "Violations Noted";
   isCurrent?: boolean; // whether this document is the active current version
@@ -66,6 +67,7 @@ export interface Truck {
   notes: string;
   documents: Record<TruckDocumentKey, FleetDocument | null>;
   customDocuments?: FleetDocument[];
+  skippedDocuments?: string[];
 }
 
 export type TrailerDocumentKey =
@@ -92,6 +94,7 @@ export interface Trailer {
   notes: string;
   documents: Record<TrailerDocumentKey, FleetDocument | null>;
   customDocuments?: FleetDocument[];
+  skippedDocuments?: string[];
 }
 
 export interface DriverBankInfo {
@@ -110,8 +113,10 @@ export interface DriverDocuments {
   clearingHouse: FleetDocument | null;
   applicationLink: string; // URL
   applicationFile: FleetDocument | null; // File
-  drugCustodyForm: FleetDocument | null; // 7. Custody & Control Form (CCF)
-  drugPassport: FleetDocument | null; // 8. ePassport
+  drugCustodyForm: FleetDocument | null; // 7. Custody & Control Form (CCF - legacy or current)
+  custodyForms?: FleetDocument[]; // 7.1 Multiple Custody & Control Forms (CCF) Vault
+  drugPassport: FleetDocument | null; // 8. ePassport (single or legacy slot)
+  ePassports?: FleetDocument[]; // 8.1 Multiple ePassports Vault
   drugTestResults: FleetDocument[]; // 9. Multiple files (monthly FMCSA random picks)
   dotRecords: FleetDocument[]; // Driver DOT Records (with date selector & file uploader)
   bankInfoDoc: FleetDocument | null; // 10. Bank info / Voided Check
@@ -179,6 +184,7 @@ export interface MaintenanceRecord {
   laborCost: number;
   partsCost: number;
   calloutFee: number;
+  taxCost?: number;
   totalCost: number;
   invoiceNumber: string;
   invoiceDocument?: FleetDocument | null;
@@ -357,7 +363,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     shops: { view: true, create: false, edit: false, delete: false },
     documents: { view: true, create: true, edit: true, delete: false },
     calendar: { view: true, create: true, edit: true, delete: false },
-    users: { view: true, create: false, edit: false, delete: false },
+    users: { view: false, create: false, edit: false, delete: false },
     settings: { view: false, create: false, edit: false, delete: false },
   },
   Dispatcher: {
@@ -376,7 +382,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     trucks: { view: true, create: false, edit: true, delete: false },
     trailers: { view: true, create: false, edit: true, delete: false },
     drivers: { view: false, create: false, edit: false, delete: false },
-    applicants: { view: false, create: false, edit: false, delete: false },
+    applicants: { view: true, create: false, edit: false, delete: false },
     maintenance: { view: true, create: true, edit: true, delete: false },
     shops: { view: true, create: true, edit: true, delete: false },
     documents: { view: true, create: true, edit: false, delete: false },

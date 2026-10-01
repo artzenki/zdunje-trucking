@@ -403,8 +403,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Super Admin always has full access
       if (currentUser.role === "Super Admin") return true;
 
+      // Users module is strictly restricted to Super Admin only
+      if (module === "users") return false;
+
+      // Applicants is open to all users for viewing by default
+      if (module === "applicants" && action === "view") return true;
+
       const userPermissions = currentUser.permissions || ROLE_DEFAULT_PERMISSIONS[currentUser.role];
-      if (!userPermissions || !userPermissions[module]) return false;
+      if (!userPermissions || !userPermissions[module]) {
+        // If applicants permissions are not yet defined on custom profile, allow view/create/edit
+        if (module === "applicants") return action !== "delete";
+        return false;
+      }
 
       return !!userPermissions[module][action];
     },

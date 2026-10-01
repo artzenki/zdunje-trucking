@@ -90,11 +90,14 @@ function TrucksContent() {
     removeTruckDocument,
     addTruckCustomDocument,
     removeTruckCustomDocument,
+    toggleTruckDocumentSkip,
   } = useFleet();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
+  const [showSkippedDocs, setShowSkippedDocs] = useState(false);
+  const [dragOverTruckDocKey, setDragOverTruckDocKey] = useState<string | null>(null);
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -102,6 +105,7 @@ function TrucksContent() {
   const [viewingDoc, setViewingDoc] = useState<FleetDocument | null>(null);
   const [uploadingDocKey, setUploadingDocKey] =
     useState<TruckDocumentKey | null>(null);
+  const [droppedFileToUpload, setDroppedFileToUpload] = useState<File | null>(null);
   const [isUploadCustomDocOpen, setIsUploadCustomDocOpen] = useState(false);
   const [expandedHistoryKey, setExpandedHistoryKey] = useState<string | null>(null);
 
@@ -249,6 +253,13 @@ function TrucksContent() {
     file: File
   ) => {
     if (!selectedTruck) return;
+    const docDef = DOCUMENT_DEFINITIONS.find((d) => d.key === key);
+    if (docDef?.hasExpiration) {
+      setDroppedFileToUpload(file);
+      setUploadingDocKey(key);
+      return;
+    }
+
     try {
       const uploadRes = await uploadFileToSupabaseStorage(
         file,
@@ -374,10 +385,12 @@ function TrucksContent() {
                   (d) => d.id === truck.assignedDriverId
                 );
 
-                // Count uploaded docs
-                const uploadedDocsCount = Object.values(truck.documents).filter(
-                  Boolean
+                // Count uploaded or skipped docs
+                const uploadedCount = Object.values(truck.documents).filter(Boolean).length;
+                const skippedCount = (truck.skippedDocuments || []).filter(
+                  (key) => !truck.documents[key as TruckDocumentKey]
                 ).length;
+                const totalCompliantDocs = uploadedCount + skippedCount;
 
                 return (
                   <button
@@ -431,8 +444,14 @@ function TrucksContent() {
                               : "Unassigned"}
                           </strong>
                         </span>
-                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold">
-                          {uploadedDocsCount}/6 Docs
+                        <span
+                          className={`px-1.5 py-0.5 rounded font-semibold ${
+                            totalCompliantDocs >= 6
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {totalCompliantDocs}/6 Docs
                         </span>
                       </div>
                     </div>
@@ -627,8 +646,26 @@ function TrucksContent() {
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
+                    {(selectedTruck.skippedDocuments?.length || 0) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowSkippedDocs(!showSkippedDocs)}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                          showSkippedDocs
+                            ? "bg-slate-800 text-white border-slate-900"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                        }`}
+                        title="Toggle visibility of exempt/skipped document slots"
+                      >
+                        <span>{showSkippedDocs ? "Hide Skipped" : `Show Skipped (${selectedTruck.skippedDocuments?.length})`}</span>
+                      </button>
+                    )}
                     <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                      {DOCUMENT_DEFINITIONS.filter((def) => !!selectedTruck.documents?.[def.key]).length} / {DOCUMENT_DEFINITIONS.length} Uploaded
+                      {DOCUMENT_DEFINITIONS.filter(
+                        (def) =>
+                          !!selectedTruck.documents?.[def.key] ||
+                          selectedTruck.skippedDocuments?.includes(def.key)
+                      ).length} / {DOCUMENT_DEFINITIONS.length} Compliant
                     </span>
                   </div>
                 </div>
@@ -637,8 +674,14 @@ function TrucksContent() {
                 <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
                   {DOCUMENT_DEFINITIONS.map((def) => {
                     const doc = selectedTruck.documents?.[def.key];
+                    const isSkipped = selectedTruck.skippedDocuments?.includes(def.key);
                     const historyDocs = doc?.history || [];
                     const isHistoryOpen = expandedHistoryKey === def.key;
+                    const isDraggingThis = dragOverTruckDocKey === def.key;
+
+                    if (!showSkippedDocs && isSkipped && !doc) {
+                      return null;
+                    }
 
                     return (
                       <div
@@ -646,16 +689,38 @@ function TrucksContent() {
                         onDragOver={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          setDragOverTruckDocKey(def.key);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDragOverTruckDocKey(null);
                         }}
                         onDrop={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          setDragOverTruckDocKey(null);
                           if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                             handleDirectDropTruckDoc(def.key, def.label, e.dataTransfer.files[0]);
                           }
                         }}
-                        className="p-4 flex flex-col gap-3 hover:bg-slate-50/70 transition-colors border-b last:border-b-0 border-slate-100"
+                        className={`p-4 flex flex-col gap-3 transition-all border-b last:border-b-0 border-slate-100 relative ${
+                          isDraggingThis
+                            ? "bg-blue-50/80 border-blue-400 ring-2 ring-blue-400/20"
+                            : isSkipped && !doc
+                            ? "bg-slate-50/60 opacity-80"
+                            : "hover:bg-slate-50/70"
+                        }`}
                       >
+                        {/* Drag Drop Overlay */}
+                        {isDraggingThis && (
+                          <div className="absolute inset-0 z-10 bg-blue-600/90 rounded-lg flex flex-col items-center justify-center text-white backdrop-blur-xs pointer-events-none animate-in fade-in duration-100">
+                            <Upload className="w-6 h-6 mb-1 animate-bounce" />
+                            <p className="font-bold text-xs">Drop {def.label} file here to upload</p>
+                            <p className="text-[10px] text-blue-100">Saved as CURRENT FILE</p>
+                          </div>
+                        )}
+
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           {/* Left: Document Info */}
                           <div className="flex items-start space-x-3 min-w-0">
@@ -663,6 +728,8 @@ function TrucksContent() {
                               className={`p-2 rounded-lg shrink-0 mt-0.5 ${
                                 doc
                                   ? "bg-blue-50 text-blue-600"
+                                  : isSkipped
+                                  ? "bg-slate-200 text-slate-500"
                                   : "bg-slate-100 text-slate-400"
                               }`}
                             >
@@ -686,6 +753,10 @@ function TrucksContent() {
                                       <span>CURRENT FILE</span>
                                     </span>
                                   </div>
+                                ) : isSkipped ? (
+                                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-700 rounded-full">
+                                    ⚪ Not Applicable
+                                  </span>
                                 ) : (
                                   <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-600 rounded-full">
                                     Missing
@@ -714,11 +785,16 @@ function TrucksContent() {
                                   )}
                                 </div>
                               )}
+                              {!doc && isSkipped && (
+                                <p className="text-[11px] text-slate-400 italic mt-1">
+                                  Marked as Not Applicable for this unit (100% Compliant).
+                                </p>
+                              )}
                             </div>
                           </div>
 
                           {/* Right: Actions */}
-                          <div className="flex items-center space-x-1.5 shrink-0 self-end sm:self-center">
+                          <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
                             {doc ? (
                               <>
                                 <button
@@ -766,15 +842,44 @@ function TrucksContent() {
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </>
+                            ) : isSkipped ? (
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleTruckDocumentSkip(selectedTruck.id, def.key)}
+                                  className="p-0 text-xs font-medium text-slate-500 hover:text-slate-800 underline transition-colors whitespace-nowrap"
+                                  title="Mark document as required"
+                                >
+                                  Mark Required
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setUploadingDocKey(def.key)}
+                                  className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                >
+                                  <Upload className="w-3 h-3" />
+                                  <span>Upload Anyway</span>
+                                </button>
+                              </div>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => setUploadingDocKey(def.key)}
-                                className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                              >
-                                <Upload className="w-3.5 h-3.5" />
-                                <span>Upload or Drop {def.label}</span>
-                              </button>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setUploadingDocKey(def.key)}
+                                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                >
+                                  <Upload className="w-3.5 h-3.5" />
+                                  <span>Upload or Drop {def.label}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleTruckDocumentSkip(selectedTruck.id, def.key)}
+                                  className="p-0 text-xs font-medium text-slate-500 hover:text-slate-800 underline transition-colors whitespace-nowrap"
+                                  title="Mark this document as not applicable"
+                                >
+                                  Not Applicable
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1357,12 +1462,17 @@ function TrucksContent() {
       {selectedTruck && uploadingDocKey && activeDocDef && (
         <DocumentUploadModal
           isOpen={!!uploadingDocKey}
-          onClose={() => setUploadingDocKey(null)}
+          onClose={() => {
+            setUploadingDocKey(null);
+            setDroppedFileToUpload(null);
+          }}
           category={activeDocDef.label}
           targetName={`Unit #${selectedTruck.unitNumber} (${selectedTruck.make})`}
           hasExpiration={activeDocDef.hasExpiration}
+          initialFile={droppedFileToUpload}
           onUpload={(doc) => {
             uploadTruckDocument(selectedTruck.id, uploadingDocKey, doc);
+            setDroppedFileToUpload(null);
           }}
         />
       )}

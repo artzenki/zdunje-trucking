@@ -82,8 +82,14 @@ function getDriverCompliance(driver: DriverType) {
   // Check file-based required documents
   DRIVER_REQUIRED_DOC_KEYS.forEach(({ key }) => {
     const isSkipped = skipped.includes(key);
-    const doc = driver.documents[key];
-    const hasDoc = !!doc;
+    let hasDoc = false;
+    if (key === "drugCustodyForm") {
+      hasDoc = !!driver.documents.drugCustodyForm || ((driver.documents.custodyForms || []).length > 0);
+    } else if (key === "drugPassport") {
+      hasDoc = !!driver.documents.drugPassport || ((driver.documents.ePassports || []).length > 0);
+    } else {
+      hasDoc = !!driver.documents[key];
+    }
 
     if (isSkipped) {
       skippedCount++;
@@ -126,8 +132,13 @@ function getDriverCompliance(driver: DriverType) {
     }
   }
 
+  const totalCount = uploadedCount + missingCount + skippedCount;
   const percentage =
-    totalRequired > 0 ? Math.round((uploadedCount / totalRequired) * 100) : 100;
+    totalCount > 0
+      ? missingCount === 0
+        ? 100
+        : Math.round(((uploadedCount + skippedCount) / totalCount) * 100)
+      : 100;
   const isCompliant = missingCount === 0;
 
   return {
@@ -154,6 +165,10 @@ function DriversContent() {
     removeDriverDocument,
     addDriverDrugTestResult,
     removeDriverDrugTestResult,
+    addDriverCustodyForm,
+    removeDriverCustodyForm,
+    addDriverEPassport,
+    removeDriverEPassport,
     addDriverDotRecord,
     removeDriverDotRecord,
     updateDriverApplicationLink,
@@ -187,6 +202,8 @@ function DriversContent() {
     > | null
   >(null);
   const [isDrugTestUpload, setIsDrugTestUpload] = useState(false);
+  const [isEPassportUpload, setIsEPassportUpload] = useState(false);
+  const [isCustodyFormUpload, setIsCustodyFormUpload] = useState(false);
   const [isDotRecordUpload, setIsDotRecordUpload] = useState(false);
   const [hasExpiration, setHasExpiration] = useState(false);
   const [droppedFileToUpload, setDroppedFileToUpload] = useState<File | null>(null);
@@ -398,20 +415,24 @@ function DriversContent() {
     expires = false,
     isDrugTest = false,
     isDotRecord = false,
-    file: File | null = null
+    file: File | null = null,
+    isEPassport = false,
+    isCustodyForm = false
   ) => {
     setUploadCategory(categoryName);
     setUploadKey(key);
     setHasExpiration(expires);
     setIsDrugTestUpload(isDrugTest);
     setIsDotRecordUpload(isDotRecord);
+    setIsEPassportUpload(isEPassport);
+    setIsCustodyFormUpload(isCustodyForm);
     setDroppedFileToUpload(file);
   };
 
   const handleUpdateDocumentExpiration = (
     categoryKey: keyof Omit<
       DriverType["documents"],
-      "drugTestResults" | "applicationLink" | "dotRecords"
+      "drugTestResults" | "custodyForms" | "ePassports" | "applicationLink" | "dotRecords"
     >,
     newExpirationDate: string,
     histId?: string
@@ -433,6 +454,58 @@ function DriversContent() {
         ...currentDoc,
         expirationDate: newExpirationDate,
       });
+    }
+  };
+
+  const handleDirectDropEPassport = async (file: File) => {
+    if (!selectedDriver) return;
+    try {
+      const uploadRes = await uploadFileToSupabaseStorage(
+        file,
+        file.name,
+        "drivers"
+      );
+      const newDoc: FleetDocument = {
+        id: `doc-${Date.now()}`,
+        name: file.name,
+        category: "Drug Test ePassport",
+        fileType: file.type || "application/pdf",
+        fileSize: file.size,
+        uploadedAt: new Date().toISOString(),
+        fileData: uploadRes.fileUrl,
+        isCurrent: true,
+        status: "current",
+      };
+      addDriverEPassport(selectedDriver.id, newDoc);
+    } catch (err) {
+      console.error("ePassport direct drop failed", err);
+      alert("Failed to process dropped ePassport file.");
+    }
+  };
+
+  const handleDirectDropCustodyForm = async (file: File) => {
+    if (!selectedDriver) return;
+    try {
+      const uploadRes = await uploadFileToSupabaseStorage(
+        file,
+        file.name,
+        "drivers"
+      );
+      const newDoc: FleetDocument = {
+        id: `doc-${Date.now()}`,
+        name: file.name,
+        category: "Drug Test Custody Form (CCF)",
+        fileType: file.type || "application/pdf",
+        fileSize: file.size,
+        uploadedAt: new Date().toISOString(),
+        fileData: uploadRes.fileUrl,
+        isCurrent: true,
+        status: "current",
+      };
+      addDriverCustodyForm(selectedDriver.id, newDoc);
+    } catch (err) {
+      console.error("Custody Form direct drop failed", err);
+      alert("Failed to process dropped Custody Form file.");
     }
   };
 
@@ -1088,7 +1161,7 @@ function DriversContent() {
                             : "text-slate-600 hover:bg-slate-100"
                         }`}
                       >
-                        Drug Testing ({(selectedDriver.documents.drugTestResults || []).length})
+                        Drug Testing ({(selectedDriver.documents.drugTestResults || []).length + (selectedDriver.documents.ePassports || []).length + (selectedDriver.documents.custodyForms || []).length})
                       </button>
                       <button
                         onClick={() => setActiveFolderTab("payroll")}
@@ -1348,9 +1421,10 @@ function DriversContent() {
                             <button
                               type="button"
                               onClick={() => toggleDriverDocumentSkip(selectedDriver.id, "clearingHouse")}
-                              className="text-[11px] text-slate-400 hover:text-slate-600 font-medium"
+                              className="p-0 text-xs font-medium text-slate-500 hover:text-slate-800 underline transition-colors"
+                              title="Mark clearinghouse query as not applicable (100% Compliant)"
                             >
-                              {selectedDriver.skippedDocuments?.includes("clearingHouse") ? "Require" : "Skip / N/A"}
+                              {selectedDriver.skippedDocuments?.includes("clearingHouse") ? "Mark Required" : "Not Applicable"}
                             </button>
                           </div>
                         </div>
@@ -1598,96 +1672,330 @@ function DriversContent() {
                           </div>
                         </div>
 
-                        <button
-                          onClick={() =>
-                            openDocumentUploader(
-                              "Drug Test Result",
-                              null,
-                              false,
-                              true
-                            )
-                          }
-                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition-colors self-start sm:self-auto"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>+ Add Random Drug Test Result</span>
-                        </button>
+                        <div className="flex items-center space-x-2 self-start sm:self-auto flex-wrap gap-2">
+                          <button
+                            onClick={() =>
+                              openDocumentUploader(
+                                "Drug Test Custody Form (CCF)",
+                                null,
+                                false,
+                                false,
+                                false,
+                                null,
+                                false,
+                                true
+                              )
+                            }
+                            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg shadow-xs transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Add Custody Form</span>
+                          </button>
+                          <button
+                            onClick={() =>
+                              openDocumentUploader(
+                                "Drug Test ePassport",
+                                null,
+                                false,
+                                false,
+                                false,
+                                null,
+                                true,
+                                false
+                              )
+                            }
+                            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Add ePassport</span>
+                          </button>
+                          <button
+                            onClick={() =>
+                              openDocumentUploader(
+                                "Drug Test Result",
+                                null,
+                                false,
+                                true
+                              )
+                            }
+                            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Add Random Drug Test Result</span>
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* 7. Drug Test Custody Form */}
-                        <DocumentCard
-                          showSkippedDocs={showSkippedDocs}
-                          title="7. Drug Test Custody Form (CCF)"
-                          description="Chain of custody form for laboratory urine collection"
-                          doc={selectedDriver.documents.drugCustodyForm}
-                          isSkipped={selectedDriver.skippedDocuments?.includes("drugCustodyForm")}
-                          onToggleSkip={() =>
-                            toggleDriverDocumentSkip(selectedDriver.id, "drugCustodyForm")
+                      {/* 7. DRUG TEST CUSTODY FORMS (MULTI-FILE VAULT) */}
+                      <div 
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                            handleDirectDropCustodyForm(e.dataTransfer.files[0]);
                           }
-                          onPreview={(tDoc) =>
-                            setViewingDoc(tDoc || selectedDriver.documents.drugCustodyForm)
-                          }
-                          onDownload={(tDoc) =>
-                            downloadDocument(
-                              tDoc || selectedDriver.documents.drugCustodyForm!
-                            )
-                          }
-                          onUpload={() =>
-                            openDocumentUploader(
-                              "Drug Test Custody Form (CCF)",
-                              "drugCustodyForm",
-                              false
-                            )
-                          }
-                          onRemove={(histId) =>
-                            removeDriverDocument(
-                              selectedDriver.id,
-                              "drugCustodyForm",
-                              histId
-                            )
-                          }
-                          onDirectDrop={(file) =>
-                            handleDirectDropDriverDoc("drugCustodyForm", "Drug Test Custody Form (CCF)", file)
-                          }
-                        />
+                        }}
+                        className="bg-white rounded-xl border border-slate-200 p-4 space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h5 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center space-x-2">
+                              <span>7. Drug Test Custody & Control Forms (CCF) Vault</span>
+                              <span className="text-[10px] lowercase font-normal px-1.5 py-0.5 bg-teal-50 text-teal-700 rounded border border-teal-200">
+                                multi-document
+                              </span>
+                            </h5>
+                            <p className="text-[11px] text-slate-500">
+                              Official Chain of Custody & Control Forms (CCF) for laboratory urine collection.
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-teal-100 text-teal-800">
+                              {(selectedDriver.documents.custodyForms || []).length} CCFs Logged
+                            </span>
+                            <button
+                              onClick={() =>
+                                openDocumentUploader(
+                                  "Drug Test Custody Form (CCF)",
+                                  null,
+                                  false,
+                                  false,
+                                  false,
+                                  null,
+                                  false,
+                                  true
+                                )
+                              }
+                              className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors shadow-xs"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Upload</span>
+                            </button>
+                          </div>
+                        </div>
 
-                        {/* 8. Drug Test ePassport */}
-                        <DocumentCard
-                          showSkippedDocs={showSkippedDocs}
-                          title="8. Drug Test ePassport"
-                          description="Electronic clinic authorization ticket (Quest / Labcorp / Concentra)"
-                          doc={selectedDriver.documents.drugPassport}
-                          isSkipped={selectedDriver.skippedDocuments?.includes("drugPassport")}
-                          onToggleSkip={() =>
-                            toggleDriverDocumentSkip(selectedDriver.id, "drugPassport")
+                        {(!selectedDriver.documents.custodyForms || selectedDriver.documents.custodyForms.length === 0) ? (
+                          <div 
+                            onClick={() =>
+                              openDocumentUploader(
+                                "Drug Test Custody Form (CCF)",
+                                null,
+                                false,
+                                false,
+                                false,
+                                null,
+                                false,
+                                true
+                              )
+                            }
+                            className="p-6 text-center text-slate-400 text-xs border border-dashed border-slate-200 hover:border-teal-300 hover:bg-teal-50/20 rounded-lg cursor-pointer transition-colors"
+                          >
+                            No custody forms on file yet. Drag & drop file here or click &ldquo;+ Add Custody Form&rdquo; above.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {(selectedDriver.documents.custodyForms || []).map((ccfDoc) => (
+                              <div
+                                key={ccfDoc.id}
+                                className="p-3 bg-slate-50 hover:bg-slate-100/70 rounded-lg border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors"
+                              >
+                                <div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-semibold text-slate-900 text-xs">
+                                      {ccfDoc.name}
+                                    </span>
+                                    <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-teal-100 text-teal-800">
+                                      {ccfDoc.notes || "Custody & Control Form"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-3 text-[11px] text-slate-500 mt-1">
+                                    <span>Form Date: <strong className="text-slate-700">{ccfDoc.testDate || (ccfDoc.uploadedAt ? ccfDoc.uploadedAt.split("T")[0] : "N/A")}</strong></span>
+                                    {ccfDoc.expirationDate && (
+                                      <>
+                                        <span>•</span>
+                                        <span>Expires: <strong className="text-amber-700">{ccfDoc.expirationDate}</strong></span>
+                                      </>
+                                    )}
+                                    {ccfDoc.notes && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="italic">{ccfDoc.notes}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center space-x-1.5 self-end sm:self-center">
+                                  <button
+                                    onClick={() => setViewingDoc(ccfDoc)}
+                                    className="inline-flex items-center space-x-1 px-2 py-1 text-xs font-medium text-slate-700 hover:text-teal-600 bg-white border border-slate-200 rounded-md"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    <span>View</span>
+                                  </button>
+                                  <button
+                                    onClick={() => downloadDocument(ccfDoc)}
+                                    className="inline-flex items-center space-x-1 px-2 py-1 text-xs font-medium text-slate-700 hover:text-teal-600 bg-white border border-slate-200 rounded-md"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    <span>Download</span>
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      removeDriverCustodyForm(
+                                        selectedDriver.id,
+                                        ccfDoc.id
+                                      )
+                                    }
+                                    className="p-1 text-slate-400 hover:text-red-600 rounded"
+                                    title="Delete Custody Form"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 8. DRUG TEST EPASSPORTS (MULTI-FILE VAULT) */}
+                      <div 
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                            handleDirectDropEPassport(e.dataTransfer.files[0]);
                           }
-                          onPreview={(tDoc) =>
-                            setViewingDoc(tDoc || selectedDriver.documents.drugPassport)
-                          }
-                          onDownload={(tDoc) =>
-                            downloadDocument(
-                              tDoc || selectedDriver.documents.drugPassport!
-                            )
-                          }
-                          onUpload={() =>
-                            openDocumentUploader(
-                              "Drug Test ePassport",
-                              "drugPassport",
-                              false
-                            )
-                          }
-                          onRemove={(histId) =>
-                            removeDriverDocument(
-                              selectedDriver.id,
-                              "drugPassport",
-                              histId
-                            )
-                          }
-                          onDirectDrop={(file) =>
-                            handleDirectDropDriverDoc("drugPassport", "Drug Test ePassport", file)
-                          }
-                        />
+                        }}
+                        className="bg-white rounded-xl border border-slate-200 p-4 space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h5 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center space-x-2">
+                              <span>8. Clinic Authorization ePassports Vault</span>
+                              <span className="text-[10px] lowercase font-normal px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded border border-indigo-200">
+                                multi-document
+                              </span>
+                            </h5>
+                            <p className="text-[11px] text-slate-500">
+                              Electronic test authorizations and donor passes (Quest Diagnostics, Labcorp, Concentra).
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-indigo-100 text-indigo-800">
+                              {(selectedDriver.documents.ePassports || []).length} ePassports Logged
+                            </span>
+                            <button
+                              onClick={() =>
+                                openDocumentUploader(
+                                  "Drug Test ePassport",
+                                  null,
+                                  false,
+                                  false,
+                                  false,
+                                  null,
+                                  true
+                                )
+                              }
+                              className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Upload</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {(!selectedDriver.documents.ePassports || selectedDriver.documents.ePassports.length === 0) ? (
+                          <div 
+                            onClick={() =>
+                              openDocumentUploader(
+                                "Drug Test ePassport",
+                                null,
+                                false,
+                                false,
+                                false,
+                                null,
+                                true
+                              )
+                            }
+                            className="p-6 text-center text-slate-400 text-xs border border-dashed border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/20 rounded-lg cursor-pointer transition-colors"
+                          >
+                            No clinic ePassports on file yet. Drag & drop file here or click &ldquo;+ Add ePassport&rdquo; above.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {(selectedDriver.documents.ePassports || []).map((passDoc) => (
+                              <div
+                                key={passDoc.id}
+                                className="p-3 bg-slate-50 hover:bg-slate-100/70 rounded-lg border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors"
+                              >
+                                <div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-semibold text-slate-900 text-xs">
+                                      {passDoc.name}
+                                    </span>
+                                    <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-indigo-100 text-indigo-800">
+                                      {passDoc.clinicName || passDoc.notes || "Clinic Authorization"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-3 text-[11px] text-slate-500 mt-1">
+                                    <span>Auth Date: <strong className="text-slate-700">{passDoc.testDate || (passDoc.uploadedAt ? passDoc.uploadedAt.split("T")[0] : "N/A")}</strong></span>
+                                    {passDoc.expirationDate && (
+                                      <>
+                                        <span>•</span>
+                                        <span>Expires: <strong className="text-amber-700">{passDoc.expirationDate}</strong></span>
+                                      </>
+                                    )}
+                                    {passDoc.notes && passDoc.clinicName && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="italic">{passDoc.notes}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center space-x-1.5 self-end sm:self-center">
+                                  <button
+                                    onClick={() => setViewingDoc(passDoc)}
+                                    className="inline-flex items-center space-x-1 px-2 py-1 text-xs font-medium text-slate-700 hover:text-indigo-600 bg-white border border-slate-200 rounded-md"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    <span>View</span>
+                                  </button>
+                                  <button
+                                    onClick={() => downloadDocument(passDoc)}
+                                    className="inline-flex items-center space-x-1 px-2 py-1 text-xs font-medium text-slate-700 hover:text-indigo-600 bg-white border border-slate-200 rounded-md"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    <span>Download</span>
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      removeDriverEPassport(
+                                        selectedDriver.id,
+                                        passDoc.id
+                                      )
+                                    }
+                                    className="p-1 text-slate-400 hover:text-red-600 rounded"
+                                    title="Delete ePassport"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* 9. DRUG TEST RESULTS (MULTI-FILE VAULT) */}
@@ -1810,6 +2118,10 @@ function DriversContent() {
                                   <CheckCircle className="w-3 h-3 mr-0.5" />
                                   <span>Recorded</span>
                                 </span>
+                              ) : selectedDriver.skippedDocuments?.includes("bankInfo") ? (
+                                <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-700 rounded-full shrink-0">
+                                  ⚪ Not Applicable
+                                </span>
                               ) : (
                                 <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full flex items-center space-x-1 shrink-0">
                                   <AlertTriangle className="w-3 h-3 text-amber-600" />
@@ -1879,16 +2191,28 @@ function DriversContent() {
                           </div>
 
                           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                            {bankSavedNotification ? (
-                              <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
-                                <CheckCircle className="w-3.5 h-3.5" />
-                                <span>Banking Saved!</span>
-                              </span>
-                            ) : (
-                              <span className="text-[11px] text-slate-400">
-                                Updates auto-sync to database
-                              </span>
-                            )}
+                            <div className="flex items-center space-x-2">
+                              {bankSavedNotification ? (
+                                <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  <span>Banking Saved!</span>
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-slate-400">
+                                  Updates auto-sync
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => toggleDriverDocumentSkip(selectedDriver.id, "bankInfo")}
+                                className="p-0 text-xs font-medium text-slate-500 hover:text-slate-800 underline transition-colors"
+                                title="Mark banking information as not applicable (100% Compliant)"
+                              >
+                                {selectedDriver.skippedDocuments?.includes("bankInfo")
+                                  ? "Mark Required"
+                                  : "Not Applicable"}
+                              </button>
+                            </div>
                             <button
                               type="button"
                               onClick={handleSaveQuickBank}
@@ -2556,6 +2880,8 @@ function DriversContent() {
             setUploadKey(null);
             setIsDrugTestUpload(false);
             setIsDotRecordUpload(false);
+            setIsEPassportUpload(false);
+            setIsCustodyFormUpload(false);
             setDroppedFileToUpload(null);
           }}
           category={uploadCategory}
@@ -2567,12 +2893,18 @@ function DriversContent() {
           onUpload={(doc) => {
             if (isDrugTestUpload) {
               addDriverDrugTestResult(selectedDriver.id, doc);
+            } else if (isCustodyFormUpload) {
+              addDriverCustodyForm(selectedDriver.id, doc);
+            } else if (isEPassportUpload) {
+              addDriverEPassport(selectedDriver.id, doc);
             } else if (isDotRecordUpload) {
               addDriverDotRecord(selectedDriver.id, doc);
             } else if (uploadKey) {
               uploadDriverDocument(selectedDriver.id, uploadKey, doc);
             }
             setDroppedFileToUpload(null);
+            setIsEPassportUpload(false);
+            setIsCustodyFormUpload(false);
           }}
         />
       )}
@@ -2732,8 +3064,8 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
               </span>
             </div>
           ) : isSkipped ? (
-            <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-600 rounded-full shrink-0">
-              ⚪ Skipped (N/A)
+            <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-700 rounded-full shrink-0">
+              ⚪ Not Applicable
             </span>
           ) : (
             <span className="px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-800 rounded-full flex items-center space-x-1 shrink-0">
@@ -2959,7 +3291,7 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
 
         {!doc && isSkipped && (
           <div className="mt-2.5 p-2 bg-slate-100/60 rounded-lg text-[11px] text-slate-500 italic">
-            Marked as exempt / not necessary for this driver.
+            Marked as Not Applicable / exempt for this driver (100% Compliant).
           </div>
         )}
 
@@ -3017,10 +3349,10 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
               <button
                 type="button"
                 onClick={onToggleSkip}
-                className="inline-flex items-center space-x-1 px-2.5 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
-                title="Mark this document as not required / exempt for this driver"
+                className="p-0 text-xs font-medium text-slate-500 hover:text-slate-800 underline transition-colors whitespace-nowrap"
+                title="Mark this document as not applicable (100% Compliant)"
               >
-                <span>Skip (N/A)</span>
+                Not Applicable
               </button>
             )}
           </div>

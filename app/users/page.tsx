@@ -74,10 +74,11 @@ const ALL_MODULES: AppModule[] = [
   "trucks",
   "trailers",
   "drivers",
+  "applicants",
   "maintenance",
   "shops",
   "documents",
-  "users",
+  "calendar",
   "settings",
 ];
 
@@ -390,6 +391,39 @@ export default function UsersAndPermissionsPage() {
   const invitedCount = users.filter((u) => u.status === "Invited").length;
   const suspendedCount = users.filter((u) => u.status === "Suspended").length;
   const adminCount = users.filter((u) => u.role === "Super Admin").length;
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="py-16 px-4 max-w-xl mx-auto text-center space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto shadow-sm">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">
+            Super Admin Access Only
+          </h2>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            The <strong>Users & Roles Permissions</strong> management hub is strictly reserved for the <strong>Super Admin</strong>. Other roles cannot view or configure staff members and permissions.
+          </p>
+        </div>
+
+        <div className="bg-slate-100 p-4 rounded-xl text-left text-xs space-y-1.5 border border-slate-200">
+          <div className="flex justify-between font-bold text-slate-700">
+            <span>Signed in as:</span>
+            <span>{currentUser?.name || "User"}</span>
+          </div>
+          <div className="flex justify-between text-slate-600">
+            <span>Role:</span>
+            <span>{currentUser?.role || "Staff"}</span>
+          </div>
+          <div className="flex justify-between text-slate-600">
+            <span>Email:</span>
+            <span>{currentUser?.email}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -854,11 +888,11 @@ export default function UsersAndPermissionsPage() {
 
                       {/* Safety Manager */}
                       <td className="py-4 px-4">
-                        {module === "drivers" || module === "documents" ? (
+                        {module === "drivers" || module === "documents" || module === "applicants" ? (
                           <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
                             Full Control
                           </span>
-                        ) : module === "trucks" || module === "trailers" || module === "users" ? (
+                        ) : module === "trucks" || module === "trailers" || module === "calendar" ? (
                           <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-700 font-medium">
                             View Only
                           </span>
@@ -873,11 +907,11 @@ export default function UsersAndPermissionsPage() {
                           <span className="inline-flex items-center px-2 py-1 rounded bg-blue-50 text-blue-700 font-bold border border-blue-200">
                             Create & Edit
                           </span>
-                        ) : module === "shops" || module === "documents" ? (
+                        ) : module === "shops" || module === "documents" || module === "applicants" ? (
                           <span className="inline-flex items-center px-2 py-1 rounded bg-blue-50 text-blue-700 font-medium border border-blue-100">
                             Upload / Edit
                           </span>
-                        ) : module === "drivers" || module === "maintenance" ? (
+                        ) : module === "drivers" || module === "maintenance" || module === "calendar" ? (
                           <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-700 font-medium">
                             View Only
                           </span>
@@ -892,9 +926,9 @@ export default function UsersAndPermissionsPage() {
                           <span className="inline-flex items-center px-2 py-1 rounded bg-amber-50 text-amber-700 font-bold border border-amber-200">
                             Full Control
                           </span>
-                        ) : module === "trucks" || module === "trailers" || module === "documents" ? (
+                        ) : module === "trucks" || module === "trailers" || module === "documents" || module === "applicants" ? (
                           <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-700 font-medium">
-                            View & Logs
+                            View Only
                           </span>
                         ) : (
                           <span className="text-slate-400 font-mono">— No Access —</span>

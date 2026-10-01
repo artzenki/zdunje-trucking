@@ -44,6 +44,7 @@ export const truckToRow = (t: Truck) => ({
   notes: t.notes || "",
   documents: t.documents || {},
   custom_documents: t.customDocuments || [],
+  skipped_documents: t.skippedDocuments || [],
 });
 
 export const rowToTruck = (t: Record<string, unknown>): Truck => {
@@ -81,6 +82,7 @@ export const rowToTruck = (t: Record<string, unknown>): Truck => {
       ...(rawDocs as any),
     },
     customDocuments: customDocs as any,
+    skippedDocuments: ((t.skipped_documents || t.skippedDocuments || []) as string[]),
   };
 };
 
@@ -100,6 +102,7 @@ export const trailerToRow = (tr: Trailer) => ({
   notes: tr.notes || "",
   documents: tr.documents || {},
   custom_documents: tr.customDocuments || [],
+  skipped_documents: tr.skippedDocuments || [],
 });
 
 export const rowToTrailer = (tr: Record<string, unknown>): Trailer => {
@@ -134,6 +137,7 @@ export const rowToTrailer = (tr: Record<string, unknown>): Trailer => {
       ...(rawDocs as any),
     },
     customDocuments: customDocs as any,
+    skippedDocuments: ((tr.skipped_documents || tr.skippedDocuments || []) as string[]),
   };
 };
 
@@ -235,6 +239,16 @@ export const rowToDriver = (d: Record<string, unknown>): Driver => {
       leaseAgreement: null,
       terminationDoc: null,
       ...(rawDocs as any),
+      custodyForms: Array.isArray(rawDocs.custodyForms)
+        ? rawDocs.custodyForms
+        : rawDocs.drugCustodyForm
+        ? [rawDocs.drugCustodyForm]
+        : [],
+      ePassports: Array.isArray(rawDocs.ePassports)
+        ? rawDocs.ePassports
+        : rawDocs.drugPassport
+        ? [rawDocs.drugPassport]
+        : [],
       drugTestResults: Array.isArray(rawDocs.drugTestResults) ? rawDocs.drugTestResults : [],
       dotRecords: Array.isArray(rawDocs.dotRecords) ? rawDocs.dotRecords : [],
     },
@@ -327,6 +341,7 @@ export const maintenanceToRow = (m: MaintenanceRecord) => ({
   labor_cost: Number(m.laborCost) || 0,
   parts_cost: Number(m.partsCost) || 0,
   callout_fee: Number(m.calloutFee) || 0,
+  tax_cost: Number(m.taxCost) || 0,
   total_cost: Number(m.totalCost) || 0,
   invoice_number: m.invoiceNumber || "",
   invoice_document: m.invoiceDocument || null,
@@ -348,6 +363,7 @@ export const rowToMaintenance = (m: Record<string, unknown>): MaintenanceRecord 
   laborCost: Number(m.labor_cost || 0),
   partsCost: Number(m.parts_cost || 0),
   calloutFee: Number(m.callout_fee || 0),
+  taxCost: Number(m.tax_cost || 0),
   totalCost: Number(m.total_cost || 0),
   invoiceNumber: String(m.invoice_number || ""),
   invoiceDocument: (m.invoice_document || null) as MaintenanceRecord["invoiceDocument"],

@@ -79,6 +79,7 @@ function MaintenanceContent() {
     laborCost: 190,
     partsCost: 350,
     calloutFee: 0,
+    taxCost: 0,
     invoiceNumber: "",
     nextServiceDueMileage: 155000,
     nextServiceDueDate: "",
@@ -98,6 +99,7 @@ function MaintenanceContent() {
       laborCost: 180,
       partsCost: 320,
       calloutFee: 0,
+      taxCost: 0,
       invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
       nextServiceDueMileage: defaultTruck
         ? defaultTruck.currentMileage + 15000
@@ -154,6 +156,7 @@ function MaintenanceContent() {
       laborCost: rec.laborCost,
       partsCost: rec.partsCost,
       calloutFee: rec.calloutFee,
+      taxCost: rec.taxCost ?? 0,
       invoiceNumber: rec.invoiceNumber,
       nextServiceDueMileage: rec.nextServiceDueMileage || 0,
       nextServiceDueDate: rec.nextServiceDueDate || "",
@@ -179,7 +182,8 @@ function MaintenanceContent() {
     const total =
       Number(formData.laborCost) +
       Number(formData.partsCost) +
-      Number(formData.calloutFee);
+      Number(formData.calloutFee) +
+      Number(formData.taxCost);
 
     const payload = {
       truckId: truck.id,
@@ -192,6 +196,7 @@ function MaintenanceContent() {
       laborCost: Number(formData.laborCost),
       partsCost: Number(formData.partsCost),
       calloutFee: Number(formData.calloutFee),
+      taxCost: Number(formData.taxCost),
       totalCost: total,
       invoiceNumber: formData.invoiceNumber.trim() || `INV-${Date.now()}`,
       nextServiceDueMileage: formData.nextServiceDueMileage
@@ -431,6 +436,7 @@ function MaintenanceContent() {
                       <p className="text-[11px] text-slate-400">
                         Labor: ${rec.laborCost} • Parts: ${rec.partsCost}
                         {rec.calloutFee > 0 && ` • Callout: $${rec.calloutFee}`}
+                        {((rec.taxCost ?? 0) > 0) && ` • Tax: $${rec.taxCost}`}
                       </p>
                     </div>
 
@@ -677,18 +683,20 @@ function MaintenanceContent() {
                       {(
                         Number(formData.laborCost) +
                         Number(formData.partsCost) +
-                        Number(formData.calloutFee)
+                        Number(formData.calloutFee) +
+                        Number(formData.taxCost)
                       ).toLocaleString()}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                         Labor Cost
                       </label>
                       <input
                         type="number"
+                        step="any"
                         value={formData.laborCost}
                         onChange={(e) =>
                           setFormData({
@@ -706,6 +714,7 @@ function MaintenanceContent() {
                       </label>
                       <input
                         type="number"
+                        step="any"
                         value={formData.partsCost}
                         onChange={(e) =>
                           setFormData({
@@ -723,11 +732,30 @@ function MaintenanceContent() {
                       </label>
                       <input
                         type="number"
+                        step="any"
                         value={formData.calloutFee}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
                             calloutFee: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Tax
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={formData.taxCost}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            taxCost: parseFloat(e.target.value) || 0,
                           })
                         }
                         className="w-full h-10 px-3 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"

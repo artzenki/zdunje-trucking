@@ -126,6 +126,30 @@ export default function DocumentsPage() {
         }
       });
 
+      // Custody forms (CCF)
+      (dDocs.custodyForms || []).forEach((doc) => {
+        list.push({
+          doc,
+          entityType: "driver",
+          entityId: d.id,
+          entityName: driverName,
+          linkUrl: `/drivers?id=${d.id}`,
+          isInactive: isDriverInactive,
+        });
+      });
+
+      // ePassports
+      (dDocs.ePassports || []).forEach((doc) => {
+        list.push({
+          doc,
+          entityType: "driver",
+          entityId: d.id,
+          entityName: driverName,
+          linkUrl: `/drivers?id=${d.id}`,
+          isInactive: isDriverInactive,
+        });
+      });
+
       // Drug tests
       (dDocs.drugTestResults || []).forEach((doc) => {
         list.push({

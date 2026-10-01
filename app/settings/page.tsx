@@ -256,6 +256,7 @@ export default function SettingsPage() {
         laborCost: Number(m.labor_cost || 0),
         partsCost: Number(m.parts_cost || 0),
         calloutFee: Number(m.callout_fee || 0),
+        taxCost: Number(m.tax_cost || 0),
         totalCost: Number(m.total_cost || 0),
         invoiceNumber: String(m.invoice_number || ""),
         invoiceDocument: (m.invoice_document || null) as MaintenanceRecord["invoiceDocument"],

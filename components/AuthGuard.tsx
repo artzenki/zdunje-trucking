@@ -13,6 +13,7 @@ const ROUTE_TO_MODULE: Record<string, AppModule> = {
   "/trucks": "trucks",
   "/trailers": "trailers",
   "/drivers": "drivers",
+  "/applicants": "applicants",
   "/maintenance": "maintenance",
   "/shops": "shops",
   "/documents": "documents",

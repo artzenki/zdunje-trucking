@@ -68,6 +68,7 @@ interface FleetContextType {
   removeTruckDocument: (truckId: string, key: TruckDocumentKey, historyDocId?: string) => void;
   addTruckCustomDocument: (truckId: string, document: FleetDocument) => void;
   removeTruckCustomDocument: (truckId: string, documentId: string) => void;
+  toggleTruckDocumentSkip: (truckId: string, documentKey: string) => void;
 
   // Trailers
   addTrailer: (trailer: Omit<Trailer, "id" | "documents">) => void;
@@ -81,6 +82,7 @@ interface FleetContextType {
   removeTrailerDocument: (trailerId: string, key: TrailerDocumentKey, historyDocId?: string) => void;
   addTrailerCustomDocument: (trailerId: string, document: FleetDocument) => void;
   removeTrailerCustomDocument: (trailerId: string, documentId: string) => void;
+  toggleTrailerDocumentSkip: (trailerId: string, documentKey: string) => void;
 
   // Drivers
   addDriver: (driver: Omit<Driver, "id" | "documents">) => void;
@@ -104,6 +106,10 @@ interface FleetContextType {
   ) => void;
   addDriverDrugTestResult: (driverId: string, document: FleetDocument) => void;
   removeDriverDrugTestResult: (driverId: string, documentId: string) => void;
+  addDriverCustodyForm: (driverId: string, document: FleetDocument) => void;
+  removeDriverCustodyForm: (driverId: string, documentId: string) => void;
+  addDriverEPassport: (driverId: string, document: FleetDocument) => void;
+  removeDriverEPassport: (driverId: string, documentId: string) => void;
   addDriverDotRecord: (driverId: string, document: FleetDocument) => void;
   removeDriverDotRecord: (driverId: string, documentId: string) => void;
   updateDriverApplicationLink: (driverId: string, link: string) => void;
@@ -693,6 +699,24 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  const toggleTruckDocumentSkip = (truckId: string, documentKey: string) => {
+    setTrucks((prev) =>
+      prev.map((t) => {
+        if (t.id !== truckId) return t;
+        const currentSkipped = t.skippedDocuments || [];
+        const isAlreadySkipped = currentSkipped.includes(documentKey);
+        const updatedTruck: Truck = {
+          ...t,
+          skippedDocuments: isAlreadySkipped
+            ? currentSkipped.filter((k) => k !== documentKey)
+            : [...currentSkipped, documentKey],
+        };
+        cloudUpsert("trucks", truckToRow(updatedTruck));
+        return updatedTruck;
+      })
+    );
+  };
+
   // Trailer Handlers
   const addTrailer = (data: Omit<Trailer, "id" | "documents">) => {
     const newTrailer: Trailer = {
@@ -853,6 +877,24 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           customDocuments: (tr.customDocuments || []).filter(
             (d) => d.id !== documentId
           ),
+        };
+        cloudUpsert("trailers", trailerToRow(updatedTrailer));
+        return updatedTrailer;
+      })
+    );
+  };
+
+  const toggleTrailerDocumentSkip = (trailerId: string, documentKey: string) => {
+    setTrailers((prev) =>
+      prev.map((tr) => {
+        if (tr.id !== trailerId) return tr;
+        const currentSkipped = tr.skippedDocuments || [];
+        const isAlreadySkipped = currentSkipped.includes(documentKey);
+        const updatedTrailer: Trailer = {
+          ...tr,
+          skippedDocuments: isAlreadySkipped
+            ? currentSkipped.filter((k) => k !== documentKey)
+            : [...currentSkipped, documentKey],
         };
         cloudUpsert("trailers", trailerToRow(updatedTrailer));
         return updatedTrailer;
@@ -1040,6 +1082,96 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
             drugTestResults: (d.documents.drugTestResults || []).filter(
               (doc) => doc.id !== documentId
             ),
+          },
+        };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
+      })
+    );
+  };
+
+  const addDriverCustodyForm = (
+    driverId: string,
+    document: FleetDocument
+  ) => {
+    setDrivers((prev) =>
+      prev.map((d) => {
+        if (d.id !== driverId) return d;
+        const updatedDriver: Driver = {
+          ...d,
+          documents: {
+            ...d.documents,
+            drugCustodyForm: document, // Keep most recent as primary drugCustodyForm as well
+            custodyForms: [document, ...(d.documents.custodyForms || [])],
+          },
+        };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
+      })
+    );
+  };
+
+  const removeDriverCustodyForm = (
+    driverId: string,
+    documentId: string
+  ) => {
+    setDrivers((prev) =>
+      prev.map((d) => {
+        if (d.id !== driverId) return d;
+        const filtered = (d.documents.custodyForms || []).filter(
+          (doc) => doc.id !== documentId
+        );
+        const updatedDriver: Driver = {
+          ...d,
+          documents: {
+            ...d.documents,
+            drugCustodyForm: filtered.length > 0 ? filtered[0] : null,
+            custodyForms: filtered,
+          },
+        };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
+      })
+    );
+  };
+
+  const addDriverEPassport = (
+    driverId: string,
+    document: FleetDocument
+  ) => {
+    setDrivers((prev) =>
+      prev.map((d) => {
+        if (d.id !== driverId) return d;
+        const updatedDriver: Driver = {
+          ...d,
+          documents: {
+            ...d.documents,
+            drugPassport: document, // Keep most recent as primary drugPassport as well
+            ePassports: [document, ...(d.documents.ePassports || [])],
+          },
+        };
+        cloudUpsert("drivers", driverToRow(updatedDriver));
+        return updatedDriver;
+      })
+    );
+  };
+
+  const removeDriverEPassport = (
+    driverId: string,
+    documentId: string
+  ) => {
+    setDrivers((prev) =>
+      prev.map((d) => {
+        if (d.id !== driverId) return d;
+        const filtered = (d.documents.ePassports || []).filter(
+          (doc) => doc.id !== documentId
+        );
+        const updatedDriver: Driver = {
+          ...d,
+          documents: {
+            ...d.documents,
+            drugPassport: filtered.length > 0 ? filtered[0] : null,
+            ePassports: filtered,
           },
         };
         cloudUpsert("drivers", driverToRow(updatedDriver));
@@ -1601,6 +1733,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         removeTruckDocument,
         addTruckCustomDocument,
         removeTruckCustomDocument,
+        toggleTruckDocumentSkip,
         addTrailer,
         updateTrailer,
         deleteTrailer,
@@ -1608,6 +1741,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         removeTrailerDocument,
         addTrailerCustomDocument,
         removeTrailerCustomDocument,
+        toggleTrailerDocumentSkip,
         addDriver,
         updateDriver,
         deleteDriver,
@@ -1615,6 +1749,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         removeDriverDocument,
         addDriverDrugTestResult,
         removeDriverDrugTestResult,
+        addDriverCustodyForm,
+        removeDriverCustodyForm,
+        addDriverEPassport,
+        removeDriverEPassport,
         addDriverDotRecord,
         removeDriverDotRecord,
         updateDriverApplicationLink,
