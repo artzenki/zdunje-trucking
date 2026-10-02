@@ -1524,6 +1524,8 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       id: `app-${Date.now()}`,
       appliedDate: applicant.appliedDate || new Date().toISOString().split("T")[0],
       documents: {
+        cdl: null,
+        medCard: null,
         mvr: null,
         pspAuth: null,
         pspReport: null,
@@ -1667,8 +1669,8 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       hireDate: new Date().toISOString().split("T")[0],
       notes: applicant.notes ? `Promoted from applicant on ${new Date().toLocaleDateString()}. Notes: ${applicant.notes}` : "",
       documents: {
-        cdl: null,
-        medCard: null,
+        cdl: applicant.documents.cdl || null,
+        medCard: applicant.documents.medCard || null,
         mvr: applicant.documents.mvr || null,
         pspAuth: applicant.documents.pspAuth || null,
         pspReport: applicant.documents.pspReport || null,

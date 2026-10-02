@@ -45,6 +45,20 @@ const APPLICANT_DOC_FIELDS: {
   sampleName: string;
 }[] = [
   {
+    key: "cdl",
+    label: "Commercial Driver License (CDL)",
+    category: "CDL",
+    description: "Front & Back copy of CDL Class A license (PDF or JPEG)",
+    sampleName: "CDL_License.pdf",
+  },
+  {
+    key: "medCard",
+    label: "Medical Examiner Card (MEDCard)",
+    category: "DOT Medical Card",
+    description: "Valid DOT Medical Certificate / Form MCSA-5876 (PDF or JPEG)",
+    sampleName: "DOT_Medical_Card.pdf",
+  },
+  {
     key: "mvr",
     label: "Motor Vehicle Record (MVR)",
     category: "MVR",
@@ -217,7 +231,7 @@ export default function ApplicantsPage() {
   const handlePromoteToDriver = (app: Applicant) => {
     if (
       confirm(
-        `Promote ${app.firstName} ${app.lastName} to Active Fleet Driver?\n\nThis will transfer personal details, Driver's License, MVR, and PSP documents into the active driver roster.`
+        `Promote ${app.firstName} ${app.lastName} to Active Fleet Driver?\n\nThis will transfer personal details, CDL, MEDCard, MVR, and PSP documents into the active driver roster.`
       )
     ) {
       convertApplicantToDriver(app.id);
@@ -372,10 +386,10 @@ export default function ApplicantsPage() {
             ) : (
               filteredApplicants.map((app) => {
                 const isSelected = selectedApplicant?.id === app.id;
-                const hasMvr = !!app.documents?.mvr;
-                const hasPspAuth = !!app.documents?.pspAuth;
-                const hasPspReport = !!app.documents?.pspReport;
-                const docCount = [hasMvr, hasPspAuth, hasPspReport].filter(Boolean).length;
+                const docCount = APPLICANT_DOC_FIELDS.filter(
+                  (f) => !!app.documents?.[f.key]
+                ).length;
+                const totalDocs = APPLICANT_DOC_FIELDS.length;
 
                 return (
                   <div
@@ -416,7 +430,7 @@ export default function ApplicantsPage() {
                         </span>
                         <span className="text-[10px] text-slate-400 flex items-center space-x-1">
                           <FileText className="w-3 h-3 text-slate-400" />
-                          <span>{docCount}/3 Docs</span>
+                          <span>{docCount}/{totalDocs} Docs</span>
                         </span>
                       </div>
                     </div>
@@ -576,21 +590,21 @@ export default function ApplicantsPage() {
                 )}
               </div>
 
-              {/* Onboarding Documents Section: MVR, PSP Auth, PSP Report */}
+              {/* Onboarding Documents Section: CDL, MEDCard, MVR, PSP Auth, PSP Report */}
               <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-6">
                 <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                   <div>
                     <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
                       <FileCheck className="w-5 h-5 text-blue-600" />
-                      <span>Required Applicant Files (MVR & PSP)</span>
+                      <span>Required Applicant Files (CDL, MEDCard, MVR & PSP)</span>
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Upload, inspect, and maintain version history for required screening documents. Drag and drop any file directly onto the card.
+                      Upload, inspect, and maintain version history for required screening documents (JPEG or PDF). Drag and drop any file directly onto the card.
                     </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {APPLICANT_DOC_FIELDS.map((docField) => {
                     const currentDoc = selectedApplicant.documents[docField.key];
                     const isHistoryOpen = !!expandedHistoryKeys[docField.key];
@@ -776,7 +790,11 @@ export default function ApplicantsPage() {
                             onClick={() => {
                               setUploadCategory(docField.category);
                               setUploadKey(docField.key);
-                              setHasExpiration(docField.key === "mvr");
+                              setHasExpiration(
+                                docField.key === "cdl" ||
+                                  docField.key === "medCard" ||
+                                  docField.key === "mvr"
+                              );
                             }}
                             className="w-full py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center justify-center space-x-1.5"
                           >

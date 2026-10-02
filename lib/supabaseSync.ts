@@ -280,7 +280,7 @@ export const applicantToRow = (a: Applicant) => ({
   email: a.email || "",
   status: a.status || "Under Review",
   applied_date: sanitizeDate(a.appliedDate) || new Date().toISOString().split("T")[0],
-  documents: a.documents || { mvr: null, pspAuth: null, pspReport: null },
+  documents: a.documents || { cdl: null, medCard: null, mvr: null, pspAuth: null, pspReport: null },
   notes: a.notes || "",
 });
 
@@ -299,6 +299,8 @@ export const rowToApplicant = (a: Record<string, unknown>): Applicant => {
     status: (a.status || "Under Review") as ApplicantStatus,
     appliedDate: String(a.applied_date || a.created_at || new Date().toISOString().split("T")[0]),
     documents: {
+      cdl: (rawDocs.cdl as FleetDocument) || null,
+      medCard: (rawDocs.medCard as FleetDocument) || null,
       mvr: (rawDocs.mvr as FleetDocument) || null,
       pspAuth: (rawDocs.pspAuth as FleetDocument) || null,
       pspReport: (rawDocs.pspReport as FleetDocument) || null,

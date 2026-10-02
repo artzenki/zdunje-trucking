@@ -154,9 +154,11 @@ export interface Driver {
   notes: string;
 }
 
-export type ApplicantDocumentKey = "mvr" | "pspAuth" | "pspReport";
+export type ApplicantDocumentKey = "cdl" | "medCard" | "mvr" | "pspAuth" | "pspReport";
 
 export interface ApplicantDocuments {
+  cdl: FleetDocument | null;
+  medCard: FleetDocument | null;
   mvr: FleetDocument | null;
   pspAuth: FleetDocument | null;
   pspReport: FleetDocument | null;
