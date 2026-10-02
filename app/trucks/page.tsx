@@ -83,9 +83,11 @@ function TrucksContent() {
   const searchParams = useSearchParams();
   const {
     trucks,
+    trailers,
     drivers,
     addTruck,
     updateTruck,
+    updateTrailer,
     deleteTruck,
     uploadTruckDocument,
     removeTruckDocument,
@@ -136,6 +138,7 @@ function TrucksContent() {
     assignedDriverId: "",
     isTeamDriver: false,
     secondaryDriverId: "",
+    assignedTrailerId: "",
     status: "Active" as EquipmentStatus,
     currentMileage: 120000,
     notes: "",
@@ -278,6 +281,7 @@ function TrucksContent() {
       assignedDriverId: "",
       isTeamDriver: false,
       secondaryDriverId: "",
+      assignedTrailerId: "",
       status: "Active",
       currentMileage: 0,
       notes: "",
@@ -292,6 +296,7 @@ function TrucksContent() {
     setDriverSearch("");
     setSecondaryDriverSearch("");
     setEditingTruck(truck);
+    const coupledTrailer = trailers.find((tr) => tr.assignedTruckId === truck.id);
     setFormData({
       unitNumber: truck.unitNumber,
       make: truck.make,
@@ -307,6 +312,7 @@ function TrucksContent() {
       assignedDriverId: truck.assignedDriverId || "",
       isTeamDriver: Boolean(truck.isTeamDriver),
       secondaryDriverId: truck.secondaryDriverId || "",
+      assignedTrailerId: coupledTrailer ? coupledTrailer.id : "",
       status: truck.status,
       currentMileage: truck.currentMileage,
       notes: truck.notes,
@@ -326,13 +332,36 @@ function TrucksContent() {
       assignedDriverId: formData.assignedDriverId || null,
       isTeamDriver: Boolean(formData.isTeamDriver),
       secondaryDriverId: formData.isTeamDriver ? (formData.secondaryDriverId || null) : null,
+      // Always safeguard existing documents & customDocuments
+      documents: editingTruck ? editingTruck.documents : undefined,
+      customDocuments: editingTruck ? editingTruck.customDocuments : undefined,
     };
 
+    let targetTruckId = editingTruck ? editingTruck.id : "";
     if (editingTruck) {
       updateTruck(editingTruck.id, payload);
     } else {
       addTruck(payload);
+      // If adding new, find or match by unitNumber
+      const created = trucks.find((t) => t.unitNumber === payload.unitNumber);
+      if (created) targetTruckId = created.id;
     }
+
+    // Bidirectional Trailer Coupling sync
+    if (targetTruckId) {
+      if (formData.assignedTrailerId) {
+        const selectedTr = trailers.find((tr) => tr.id === formData.assignedTrailerId);
+        if (selectedTr && selectedTr.assignedTruckId !== targetTruckId) {
+          updateTrailer(selectedTr.id, { assignedTruckId: targetTruckId });
+        }
+      } else {
+        const existingCoupledTrailer = trailers.find((tr) => tr.assignedTruckId === targetTruckId);
+        if (existingCoupledTrailer) {
+          updateTrailer(existingCoupledTrailer.id, { assignedTruckId: null });
+        }
+      }
+    }
+
     setIsAddModalOpen(false);
   };
 
@@ -1769,6 +1798,45 @@ function TrucksContent() {
                         )}
                       </div>
                     )}
+                  </div>
+
+                  {/* Assigned Semi-Trailer */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-700 uppercase">
+                        Assigned Semi-Trailer
+                      </label>
+                      {formData.assignedTrailerId && (
+                        <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                          Coupled
+                        </span>
+                      )}
+                    </div>
+                    <select
+                      value={formData.assignedTrailerId}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          assignedTrailerId: e.target.value,
+                        })
+                      }
+                      className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    >
+                      <option value="">-- No Trailer Coupled --</option>
+                      {trailers.map((tr) => {
+                        const coupledTruck = tr.assignedTruckId
+                          ? trucks.find((t) => t.id === tr.assignedTruckId)
+                          : null;
+                        return (
+                          <option key={tr.id} value={tr.id}>
+                            Trailer #{tr.unitNumber} ({tr.year} {tr.make}) - Plate: {tr.plateNumber}
+                            {coupledTruck && (!editingTruck || coupledTruck.id !== editingTruck.id)
+                              ? ` [Coupled: Truck #${coupledTruck.unitNumber}]`
+                              : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
                   </div>
 
                   <div>

@@ -599,7 +599,17 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setTrucks((prev) =>
       prev.map((t) => {
         if (t.id !== id) return t;
-        const newT = { ...t, ...updated };
+        const newT: Truck = {
+          ...t,
+          ...updated,
+          documents: updated.documents
+            ? { ...t.documents, ...updated.documents }
+            : t.documents,
+          customDocuments:
+            updated.customDocuments !== undefined
+              ? updated.customDocuments
+              : t.customDocuments,
+        };
         cloudUpsert("trucks", truckToRow(newT));
         return newT;
       })
@@ -882,7 +892,17 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setTrailers((prev) =>
       prev.map((tr) => {
         if (tr.id !== id) return tr;
-        const newTr = { ...tr, ...updated };
+        const newTr: Trailer = {
+          ...tr,
+          ...updated,
+          documents: updated.documents
+            ? { ...tr.documents, ...updated.documents }
+            : tr.documents,
+          customDocuments:
+            updated.customDocuments !== undefined
+              ? updated.customDocuments
+              : tr.customDocuments,
+        };
         cloudUpsert("trailers", trailerToRow(newTr));
         return newTr;
       })
@@ -1109,7 +1129,17 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     setDrivers((prev) =>
       prev.map((d) => {
         if (d.id !== id) return d;
-        const newD = { ...d, ...updated };
+        const newD: Driver = {
+          ...d,
+          ...updated,
+          documents: updated.documents
+            ? { ...d.documents, ...updated.documents }
+            : d.documents,
+          skippedDocuments:
+            updated.skippedDocuments !== undefined
+              ? updated.skippedDocuments
+              : d.skippedDocuments,
+        };
         cloudUpsert("drivers", driverToRow(newD));
         return newD;
       })
@@ -1712,66 +1742,148 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
   // Bulk Add Handlers
   const bulkAddTrucks = (items: Omit<Truck, "id" | "documents">[]) => {
     const timestamp = Date.now();
-    const newTrucks: Truck[] = items.map((data, idx) => ({
-      ...data,
-      id: `truck-${timestamp}-${idx}`,
-      documents: {
-        title: null,
-        tax2290: null,
-        dotInspection: null,
-        insurance: null,
-        cabCard: null,
-        leaseAgreement: null,
-      },
-    }));
-    setTrucks((prev) => [...newTrucks, ...prev]);
-    cloudUpsert("trucks", newTrucks.map(truckToRow));
+    setTrucks((prev) => {
+      const updatedList = [...prev];
+      const toUpsert: Truck[] = [];
+
+      items.forEach((data, idx) => {
+        const existingIdx = updatedList.findIndex(
+          (t) => t.unitNumber.trim().toLowerCase() === data.unitNumber.trim().toLowerCase()
+        );
+        if (existingIdx !== -1) {
+          const existing = updatedList[existingIdx];
+          const merged: Truck = {
+            ...existing,
+            ...data,
+            // Preserve existing document vaults & custom docs!
+            documents: existing.documents,
+            customDocuments: existing.customDocuments,
+          };
+          updatedList[existingIdx] = merged;
+          toUpsert.push(merged);
+        } else {
+          const newTruck: Truck = {
+            ...data,
+            id: `truck-${timestamp}-${idx}`,
+            documents: {
+              title: null,
+              tax2290: null,
+              dotInspection: null,
+              insurance: null,
+              cabCard: null,
+              leaseAgreement: null,
+            },
+            customDocuments: [],
+          };
+          updatedList.unshift(newTruck);
+          toUpsert.push(newTruck);
+        }
+      });
+
+      cloudUpsert("trucks", toUpsert.map(truckToRow));
+      return updatedList;
+    });
   };
 
   const bulkAddTrailers = (items: Omit<Trailer, "id" | "documents">[]) => {
     const timestamp = Date.now();
-    const newTrailers: Trailer[] = items.map((data, idx) => ({
-      ...data,
-      id: `trailer-${timestamp}-${idx}`,
-      documents: {
-        title: null,
-        tax2290: null,
-        dotInspection: null,
-        insurance: null,
-        cabCard: null,
-        trailerAgreement: null,
-      },
-    }));
-    setTrailers((prev) => [...newTrailers, ...prev]);
-    cloudUpsert("trailers", newTrailers.map(trailerToRow));
+    setTrailers((prev) => {
+      const updatedList = [...prev];
+      const toUpsert: Trailer[] = [];
+
+      items.forEach((data, idx) => {
+        const existingIdx = updatedList.findIndex(
+          (tr) => tr.unitNumber.trim().toLowerCase() === data.unitNumber.trim().toLowerCase()
+        );
+        if (existingIdx !== -1) {
+          const existing = updatedList[existingIdx];
+          const merged: Trailer = {
+            ...existing,
+            ...data,
+            documents: existing.documents,
+            customDocuments: existing.customDocuments,
+          };
+          updatedList[existingIdx] = merged;
+          toUpsert.push(merged);
+        } else {
+          const newTrailer: Trailer = {
+            ...data,
+            id: `trailer-${timestamp}-${idx}`,
+            documents: {
+              title: null,
+              tax2290: null,
+              dotInspection: null,
+              insurance: null,
+              cabCard: null,
+              trailerAgreement: null,
+            },
+            customDocuments: [],
+          };
+          updatedList.unshift(newTrailer);
+          toUpsert.push(newTrailer);
+        }
+      });
+
+      cloudUpsert("trailers", toUpsert.map(trailerToRow));
+      return updatedList;
+    });
   };
 
   const bulkAddDrivers = (items: Omit<Driver, "id" | "documents">[]) => {
     const timestamp = Date.now();
-    const newDrivers: Driver[] = items.map((data, idx) => ({
-      ...data,
-      id: `driver-${timestamp}-${idx}`,
-      documents: {
-        mvr: null,
-        pspAuth: null,
-        pspReport: null,
-        cdl: null,
-        medCard: null,
-        clearingHouse: null,
-        applicationLink: "",
-        applicationFile: null,
-        drugCustodyForm: null,
-        drugPassport: null,
-        drugTestResults: [],
-        dotRecords: [],
-        bankInfoDoc: null,
-        einLetter: null,
-        onboardingDoc: null,
-        leaseAgreement: null,
-      },
-    }));
-    setDrivers((prev) => [...newDrivers, ...prev]);
-    cloudUpsert("drivers", newDrivers.map(driverToRow));
+    setDrivers((prev) => {
+      const updatedList = [...prev];
+      const toUpsert: Driver[] = [];
+
+      items.forEach((data, idx) => {
+        const existingIdx = updatedList.findIndex(
+          (d) =>
+            (data.licenseNumber && d.licenseNumber.trim().toLowerCase() === data.licenseNumber.trim().toLowerCase()) ||
+            (`${d.firstName} ${d.lastName}`.trim().toLowerCase() === `${data.firstName} ${data.lastName}`.trim().toLowerCase())
+        );
+
+        if (existingIdx !== -1) {
+          const existing = updatedList[existingIdx];
+          const merged: Driver = {
+            ...existing,
+            ...data,
+            documents: existing.documents,
+            skippedDocuments: existing.skippedDocuments,
+          };
+          updatedList[existingIdx] = merged;
+          toUpsert.push(merged);
+        } else {
+          const newDriver: Driver = {
+            ...data,
+            id: `driver-${timestamp}-${idx}`,
+            documents: {
+              mvr: null,
+              pspAuth: null,
+              pspReport: null,
+              cdl: null,
+              medCard: null,
+              clearingHouse: null,
+              applicationLink: "",
+              applicationFile: null,
+              drugCustodyForm: null,
+              drugPassport: null,
+              drugTestResults: [],
+              dotRecords: [],
+              bankInfoDoc: null,
+              einLetter: null,
+              onboardingDoc: null,
+              leaseAgreement: null,
+            },
+            skippedDocuments: [],
+          };
+          updatedList.unshift(newDriver);
+          toUpsert.push(newDriver);
+        }
+      });
+
+      cloudUpsert("drivers", toUpsert.map(driverToRow));
+      return updatedList;
+    });
   };
 
   const bulkAddShops = (items: Omit<TruckShop, "id">[]) => {
