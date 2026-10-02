@@ -18,6 +18,9 @@ import {
   Radio,
   CalendarDays,
   Check,
+  Copy,
+  Search,
+  ClipboardCheck,
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { FleetDocument } from "@/types/fleet";
@@ -37,10 +40,115 @@ export default function DashboardPage() {
   const [selectedDoc, setSelectedDoc] = useState<FleetDocument | null>(null);
   const [docEntityName] = useState("");
 
+  // Quick Dispatcher Info State
+  const [selectedDispatchDriverId, setSelectedDispatchDriverId] = useState<string>("");
+  const [selectedDispatchTrailerId, setSelectedDispatchTrailerId] = useState<string>("");
+  const [driverSearchQuery, setDriverSearchQuery] = useState("");
+  const [isDriverSearchOpen, setIsDriverSearchOpen] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
   const activeTrucks = trucks.filter((t) => t.status === "Active");
   const inShopTrucks = trucks.filter((t) => t.status === "In Shop");
   const activeTrailers = trailers.filter((tr) => tr.status === "Active");
   const activeDrivers = drivers.filter((d) => d.status === "Active");
+
+  // Filtered & sorted drivers for dispatch selector
+  const sortedDrivers = React.useMemo(() => {
+    return [...drivers].sort((a, b) => {
+      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [drivers]);
+
+  const filteredDispatchDrivers = React.useMemo(() => {
+    const q = driverSearchQuery.toLowerCase().trim();
+    if (!q) return sortedDrivers;
+    return sortedDrivers.filter((d) => {
+      const fullName = `${d.firstName} ${d.lastName}`.toLowerCase();
+      const phone = (d.phone || "").toLowerCase();
+      const cdl = (d.licenseNumber || "").toLowerCase();
+      const assignedTruck = trucks.find((t) => t.id === d.assignedTruckId);
+      const truckUnit = (assignedTruck?.unitNumber || "").toLowerCase();
+      return (
+        fullName.includes(q) ||
+        phone.includes(q) ||
+        cdl.includes(q) ||
+        truckUnit.includes(q)
+      );
+    });
+  }, [sortedDrivers, driverSearchQuery, trucks]);
+
+  // Selected driver, coupled truck, and coupled trailer
+  const currentDispatchDriver = drivers.find((d) => d.id === selectedDispatchDriverId) || null;
+  const currentDispatchTruck = currentDispatchDriver
+    ? trucks.find((t) => t.id === currentDispatchDriver.assignedTruckId) || null
+    : null;
+
+  // Auto-detect trailer coupled to that truck if user hasn't explicitly selected one
+  const detectedTrailer = currentDispatchTruck
+    ? trailers.find((tr) => tr.assignedTruckId === currentDispatchTruck.id) || null
+    : null;
+  const currentDispatchTrailer = selectedDispatchTrailerId
+    ? trailers.find((tr) => tr.id === selectedDispatchTrailerId) || null
+    : detectedTrailer;
+
+  // Format exact text payload for dispatcher
+  const formattedDispatchText = React.useMemo(() => {
+    if (!currentDispatchDriver) return "";
+
+    const truckUnit = currentDispatchTruck?.unitNumber || "N/A";
+    const truckMake = currentDispatchTruck?.make ? currentDispatchTruck.make.toUpperCase() : "N/A";
+    const truckModel = currentDispatchTruck?.model || "N/A";
+    const truckPlate = currentDispatchTruck?.plateNumber || "N/A";
+    const truckVin = currentDispatchTruck?.vin || "N/A";
+    const truckYear = currentDispatchTruck?.year ? String(currentDispatchTruck.year) : "N/A";
+
+    const driverFullName = `${currentDispatchDriver.firstName} ${currentDispatchDriver.lastName}`.trim();
+    const driverPhone = currentDispatchDriver.phone || "N/A";
+
+    const trailerUnit = currentDispatchTrailer?.unitNumber || "N/A";
+    const trailerVin = currentDispatchTrailer?.vin || "N/A";
+    const trailerMake = currentDispatchTrailer?.make || "N/A";
+    const trailerYear = currentDispatchTrailer?.year ? String(currentDispatchTrailer.year) : "N/A";
+    const trailerPlate = currentDispatchTrailer?.plateNumber || "N/A";
+
+    return `Truck Unit: ${truckUnit}
+Make: ${truckMake}
+Model: ${truckModel}
+License Plate: ${truckPlate}
+VIN: ${truckVin}
+Year: ${truckYear}
+
+Driver Name: ${driverFullName}
+Driver Phone Number: ${driverPhone}
+
+Trailer Number: ${trailerUnit}
+Trailer VIN: ${trailerVin}
+Trailer Make: ${trailerMake}
+Trailer Year: ${trailerYear}
+Trailer License Plate: ${trailerPlate}`;
+  }, [currentDispatchDriver, currentDispatchTruck, currentDispatchTrailer]);
+
+  const handleCopyDispatchInfo = async () => {
+    if (!formattedDispatchText) return;
+    try {
+      await navigator.clipboard.writeText(formattedDispatchText);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2500);
+    } catch (err) {
+      console.error("Failed to copy dispatch text:", err);
+      // Fallback prompt or execCommand
+      const textarea = document.createElement("textarea");
+      textarea.value = formattedDispatchText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2500);
+    }
+  };
 
   const urgentAlerts = alerts.filter(
     (a) => a.status === "expired" || a.status === "urgent"
@@ -266,6 +374,251 @@ export default function DashboardPage() {
             <span className="text-slate-500">
               {urgentAlerts.length} Urgent / Expired
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Dispatcher Info / Copy Load Info Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-600 text-white rounded-xl shadow-xs">
+              <ClipboardCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className="font-bold text-slate-900 text-base">
+                  Quick Dispatcher Info & Driver Copy
+                </h3>
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-800 uppercase">
+                  Broker & Rate-Con
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Quickly select a driver to generate and copy truck, driver, and trailer details in one click.
+              </p>
+            </div>
+          </div>
+
+          {formattedDispatchText && (
+            <button
+              onClick={handleCopyDispatchInfo}
+              className={`inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl shadow-xs transition-all ${
+                isCopied
+                  ? "bg-emerald-600 text-white ring-2 ring-emerald-400"
+                  : "bg-blue-600 hover:bg-blue-700 text-white active:scale-98"
+              }`}
+            >
+              {isCopied ? (
+                <>
+                  <Check className="w-4 h-4 text-white animate-bounce" />
+                  <span>Copied to Clipboard!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  <span>Copy Driver Info</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+
+        <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Selection Controls */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* Driver Selector with Live Search */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between">
+                <span>Select Driver</span>
+                {currentDispatchDriver && (
+                  <button
+                    onClick={() => {
+                      setSelectedDispatchDriverId("");
+                      setSelectedDispatchTrailerId("");
+                      setDriverSearchQuery("");
+                    }}
+                    className="text-[11px] font-medium text-slate-400 hover:text-slate-600 normal-case"
+                  >
+                    Clear selection
+                  </button>
+                )}
+              </label>
+
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  value={
+                    isDriverSearchOpen
+                      ? driverSearchQuery
+                      : currentDispatchDriver
+                      ? `${currentDispatchDriver.firstName} ${currentDispatchDriver.lastName} (${currentDispatchDriver.phone || "No phone"})`
+                      : driverSearchQuery
+                  }
+                  onFocus={() => {
+                    setIsDriverSearchOpen(true);
+                    setDriverSearchQuery("");
+                  }}
+                  onChange={(e) => {
+                    setDriverSearchQuery(e.target.value);
+                    setIsDriverSearchOpen(true);
+                  }}
+                  placeholder="Search driver by name, phone, truck #..."
+                  className="w-full pl-9 pr-3 h-10 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+
+                {isDriverSearchOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-20"
+                      onClick={() => setIsDriverSearchOpen(false)}
+                    />
+                    <div className="absolute z-30 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl divide-y divide-slate-100">
+                      {filteredDispatchDrivers.length === 0 ? (
+                        <div className="p-3 text-center text-xs text-slate-400">
+                          No drivers found matching &quot;{driverSearchQuery}&quot;
+                        </div>
+                      ) : (
+                        filteredDispatchDrivers.map((d) => {
+                          const trk = trucks.find((t) => t.id === d.assignedTruckId);
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedDispatchDriverId(d.id);
+                                setSelectedDispatchTrailerId(""); // Reset trailer override to auto-detect
+                                setIsDriverSearchOpen(false);
+                                setDriverSearchQuery("");
+                              }}
+                              className={`w-full text-left px-3.5 py-2.5 text-xs hover:bg-blue-50 transition-colors flex items-center justify-between ${
+                                selectedDispatchDriverId === d.id
+                                  ? "bg-blue-50/80 font-bold text-blue-900"
+                                  : "text-slate-800"
+                              }`}
+                            >
+                              <div>
+                                <span className="font-semibold block">
+                                  {d.firstName} {d.lastName}
+                                </span>
+                                <span className="text-[11px] text-slate-500">
+                                  {d.phone || "No phone"} • {d.state} CDL: {d.licenseNumber}
+                                </span>
+                              </div>
+                              <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-700">
+                                {trk ? `Truck #${trk.unitNumber}` : "Unassigned"}
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Trailer Override Selector */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase">
+                  Trailer
+                </label>
+                {detectedTrailer && !selectedDispatchTrailerId && (
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded font-medium">
+                    Auto-coupled to Truck #{currentDispatchTruck?.unitNumber}
+                  </span>
+                )}
+              </div>
+              <select
+                value={currentDispatchTrailer ? currentDispatchTrailer.id : ""}
+                onChange={(e) => setSelectedDispatchTrailerId(e.target.value)}
+                className="w-full h-10 px-3 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              >
+                <option value="">-- No Trailer Selected --</option>
+                {trailers.map((tr) => (
+                  <option key={tr.id} value={tr.id}>
+                    Trailer #{tr.unitNumber} ({tr.year} {tr.make} - Plate: {tr.plateNumber})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Details Preview Pills */}
+            {currentDispatchDriver && (
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Assigned Truck:</span>
+                  <span className="font-semibold text-slate-800">
+                    {currentDispatchTruck
+                      ? `Unit #${currentDispatchTruck.unitNumber} (${currentDispatchTruck.make} ${currentDispatchTruck.model})`
+                      : "None assigned"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Truck Plate:</span>
+                  <span className="font-mono text-slate-800">
+                    {currentDispatchTruck?.plateNumber || "N/A"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Trailer Unit:</span>
+                  <span className="font-semibold text-slate-800">
+                    {currentDispatchTrailer
+                      ? `Unit #${currentDispatchTrailer.unitNumber} (${currentDispatchTrailer.make})`
+                      : "None"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Formatted Preview Card */}
+          <div className="lg:col-span-7 flex flex-col">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Clipboard Preview (Excel / Broker Format)
+              </span>
+              {currentDispatchDriver && (
+                <button
+                  onClick={handleCopyDispatchInfo}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{isCopied ? "Copied!" : "Copy"}</span>
+                </button>
+              )}
+            </div>
+
+            {currentDispatchDriver ? (
+              <div className="relative flex-1">
+                <pre className="w-full h-full min-h-[260px] p-4 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl overflow-x-auto leading-relaxed border border-slate-800 selection:bg-emerald-800 selection:text-white">
+                  {formattedDispatchText}
+                </pre>
+                <button
+                  onClick={handleCopyDispatchInfo}
+                  className="absolute top-3 right-3 p-2 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-700 transition-colors shadow-sm"
+                  title="Copy to clipboard"
+                >
+                  {isCopied ? (
+                    <Check className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div className="flex-1 min-h-[260px] border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center p-6 text-center text-slate-400 bg-slate-50/50">
+                <ClipboardCheck className="w-10 h-10 text-slate-300 mb-2" />
+                <p className="text-xs font-semibold text-slate-600">
+                  No Driver Selected
+                </p>
+                <p className="text-[11px] text-slate-400 max-w-xs mt-1">
+                  Select a driver from the dropdown on the left to immediately preview and copy their load info.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
