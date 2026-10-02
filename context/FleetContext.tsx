@@ -253,27 +253,44 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           supabase.from("payment_reminders").select("*"),
         ]);
 
-        // Trucks: live from Supabase
-        if (tRes.data && tRes.data.length > 0) {
-          const remoteTrucks = tRes.data.map(rowToTruck);
-          setTrucks(remoteTrucks);
-          localStorage.setItem("zdunje_trucks", JSON.stringify(remoteTrucks));
-        } else if (initialTrucks.length > 0) {
-          await cloudUpsert("trucks", initialTrucks.map(truckToRow));
-          setTrucks(initialTrucks);
-          localStorage.setItem("zdunje_trucks", JSON.stringify(initialTrucks));
-        }
+        // Map remote data
+        let remoteTrucks = tRes.data && tRes.data.length > 0 ? tRes.data.map(rowToTruck) : (initialTrucks.length > 0 ? initialTrucks : []);
+        let remoteDrivers = dRes.data && dRes.data.length > 0 ? dRes.data.map(rowToDriver) : (initialDrivers.length > 0 ? initialDrivers : []);
+        let remoteTrailers = trRes.data && trRes.data.length > 0 ? trRes.data.map(rowToTrailer) : (initialTrailers.length > 0 ? initialTrailers : []);
 
-        // Drivers: live from Supabase
-        if (dRes.data && dRes.data.length > 0) {
-          const remoteDrivers = dRes.data.map(rowToDriver);
-          setDrivers(remoteDrivers);
-          localStorage.setItem("zdunje_drivers", JSON.stringify(remoteDrivers));
-        } else if (initialDrivers.length > 0) {
-          await cloudUpsert("drivers", initialDrivers.map(driverToRow));
-          setDrivers(initialDrivers);
-          localStorage.setItem("zdunje_drivers", JSON.stringify(initialDrivers));
-        }
+        // Bidirectional Reconciliation: Guarantee Trucks <-> Drivers <-> Trailers are 100% interlinked
+        // 1. Cross-link Drivers -> Trucks (if driver has assignedTruckId, ensure truck has assignedDriverId)
+        remoteDrivers.forEach((driver) => {
+          if (driver.assignedTruckId) {
+            const truck = remoteTrucks.find((t) => t.id === driver.assignedTruckId);
+            if (truck && !truck.assignedDriverId) {
+              truck.assignedDriverId = driver.id;
+            }
+          }
+        });
+
+        // 2. Cross-link Trucks -> Drivers (if truck has assignedDriverId, ensure driver has assignedTruckId)
+        remoteTrucks.forEach((truck) => {
+          if (truck.assignedDriverId) {
+            const driver = remoteDrivers.find((d) => d.id === truck.assignedDriverId);
+            if (driver && driver.assignedTruckId !== truck.id) {
+              driver.assignedTruckId = truck.id;
+            }
+          }
+          if (truck.isTeamDriver && truck.secondaryDriverId) {
+            const secDriver = remoteDrivers.find((d) => d.id === truck.secondaryDriverId);
+            if (secDriver && !secDriver.assignedTruckId) {
+              secDriver.assignedTruckId = truck.id;
+            }
+          }
+        });
+
+        // Set state and local cache
+        setTrucks(remoteTrucks);
+        localStorage.setItem("zdunje_trucks", JSON.stringify(remoteTrucks));
+
+        setDrivers(remoteDrivers);
+        localStorage.setItem("zdunje_drivers", JSON.stringify(remoteDrivers));
 
         // Applicants: live from Supabase
         if (appRes.data && appRes.data.length > 0) {
@@ -283,16 +300,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         }
 
         // Trailers: live from Supabase
-        if (trRes.data && trRes.data.length > 0) {
-          const remoteTrailers = trRes.data.map(rowToTrailer);
+        if (remoteTrailers.length > 0) {
           setTrailers(remoteTrailers);
           localStorage.setItem("zdunje_trailers", JSON.stringify(remoteTrailers));
-        } else if (initialTrailers.length > 0) {
-          await cloudUpsert("trailers", initialTrailers.map(trailerToRow));
-          setTrailers(initialTrailers);
-          localStorage.setItem("zdunje_trailers", JSON.stringify(initialTrailers));
         } else {
-          // If Supabase returned 0 trailers, check if local storage had user-created trailers and push them to cloud
           const cachedTr = localStorage.getItem("zdunje_trailers");
           if (cachedTr) {
             try {

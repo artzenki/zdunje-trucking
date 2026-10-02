@@ -297,6 +297,10 @@ function TrucksContent() {
     setSecondaryDriverSearch("");
     setEditingTruck(truck);
     const coupledTrailer = trailers.find((tr) => tr.assignedTruckId === truck.id);
+    const resolvedDriver =
+      (truck.assignedDriverId && drivers.find((d) => d.id === truck.assignedDriverId)) ||
+      drivers.find((d) => d.assignedTruckId === truck.id);
+
     setFormData({
       unitNumber: truck.unitNumber,
       make: truck.make,
@@ -309,7 +313,7 @@ function TrucksContent() {
       truckValue: truck.truckValue,
       bestPassSerialNumber: truck.bestPassSerialNumber,
       isBestPassLinked: truck.isBestPassLinked,
-      assignedDriverId: truck.assignedDriverId || "",
+      assignedDriverId: resolvedDriver ? resolvedDriver.id : (truck.assignedDriverId || ""),
       isTeamDriver: Boolean(truck.isTeamDriver),
       secondaryDriverId: truck.secondaryDriverId || "",
       assignedTrailerId: coupledTrailer ? coupledTrailer.id : "",
@@ -517,9 +521,10 @@ function TrucksContent() {
             ) : (
               filteredTrucks.map((truck) => {
                 const isSelected = selectedTruck?.id === truck.id;
-                const assignedDriver = drivers.find(
-                  (d) => d.id === truck.assignedDriverId
-                );
+                const assignedDriver =
+                  drivers.find((d) => d.id === truck.assignedDriverId) ||
+                  drivers.find((d) => d.assignedTruckId === truck.id);
+                const coupledTrailer = trailers.find((tr) => tr.assignedTruckId === truck.id);
 
                 // Count uploaded or skipped docs
                 const uploadedCount = Object.values(truck.documents).filter(Boolean).length;
@@ -592,6 +597,11 @@ function TrucksContent() {
                               "Unassigned"
                             )}
                           </strong>
+                          {coupledTrailer && (
+                            <span className="block text-[10px] text-emerald-600 font-medium mt-0.5">
+                              Coupled: Trailer #{coupledTrailer.unitNumber}
+                            </span>
+                          )}
                         </span>
                         <span
                           className={`px-1.5 py-0.5 rounded font-semibold ${
@@ -709,8 +719,8 @@ function TrucksContent() {
                   </div>
                 </div>
 
-                {/* Key Spec Badges */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-5">
+                  {/* Key Spec Badges */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-5">
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                     <span className="text-[11px] font-semibold text-slate-400 block uppercase">
                       License Plate
@@ -759,28 +769,53 @@ function TrucksContent() {
                       Assigned Driver
                     </span>
                     <span className="text-xs font-bold text-slate-900 mt-1 block">
-                      {drivers.find((d) => d.id === selectedTruck.assignedDriverId) ? (
-                        <div>
+                      {(() => {
+                        const primaryD =
+                          drivers.find((d) => d.id === selectedTruck.assignedDriverId) ||
+                          drivers.find((d) => d.assignedTruckId === selectedTruck.id);
+                        if (!primaryD) return "No Driver Assigned";
+                        return (
                           <div>
-                            {drivers.find((d) => d.id === selectedTruck.assignedDriverId)?.firstName}{" "}
-                            {drivers.find((d) => d.id === selectedTruck.assignedDriverId)?.lastName}
-                          </div>
-                          {selectedTruck.isTeamDriver && selectedTruck.secondaryDriverId && (
-                            <div className="text-[11px] text-indigo-700 font-medium mt-0.5 flex items-center gap-1">
-                              <span>+</span>
-                              <span>
-                                {drivers.find((d) => d.id === selectedTruck.secondaryDriverId)?.firstName}{" "}
-                                {drivers.find((d) => d.id === selectedTruck.secondaryDriverId)?.lastName}
-                              </span>
-                              <span className="px-1 py-0.2 text-[9px] bg-indigo-100 text-indigo-800 rounded font-semibold">
-                                Team
-                              </span>
+                            <div>
+                              {primaryD.firstName} {primaryD.lastName}
                             </div>
-                          )}
-                        </div>
-                      ) : (
-                        "No Driver Assigned"
-                      )}
+                            {selectedTruck.isTeamDriver && selectedTruck.secondaryDriverId && (
+                              <div className="text-[11px] text-indigo-700 font-medium mt-0.5 flex items-center gap-1">
+                                <span>+</span>
+                                <span>
+                                  {drivers.find((d) => d.id === selectedTruck.secondaryDriverId)?.firstName}{" "}
+                                  {drivers.find((d) => d.id === selectedTruck.secondaryDriverId)?.lastName}
+                                </span>
+                                <span className="px-1 py-0.2 text-[9px] bg-indigo-100 text-indigo-800 rounded font-semibold">
+                                  Team
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[11px] font-semibold text-slate-400 block uppercase">
+                      Coupled Semi-Trailer
+                    </span>
+                    <span className="text-xs font-bold text-slate-900 mt-1 block">
+                      {(() => {
+                        const tr = trailers.find((t) => t.assignedTruckId === selectedTruck.id);
+                        if (tr) {
+                          return (
+                            <div>
+                              <span className="text-emerald-700 font-bold">Trailer #{tr.unitNumber}</span>
+                              <div className="text-[10px] text-slate-400 font-normal mt-0.5">
+                                {tr.make} • {tr.plateNumber}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return <span className="text-slate-400">None Coupled</span>;
+                      })()}
                     </span>
                   </div>
                 </div>

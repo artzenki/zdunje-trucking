@@ -84,6 +84,7 @@ function TrailersContent() {
   const {
     trailers,
     trucks,
+    drivers,
     addTrailer,
     updateTrailer,
     deleteTrailer,
@@ -474,13 +475,28 @@ function TrailersContent() {
                       </div>
 
                       <div className="mt-2 flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500 flex items-center space-x-1">
-                          <Truck className="w-3 h-3 text-slate-400" />
-                          <span>
-                            {assignedTruck
-                              ? `Coupled to Unit #${assignedTruck.unitNumber}`
-                              : "Uncoupled"}
+                        <span className="text-slate-500">
+                          <span className="flex items-center space-x-1">
+                            <Truck className="w-3 h-3 text-slate-400" />
+                            <span>
+                              {assignedTruck
+                                ? `Coupled to Unit #${assignedTruck.unitNumber}`
+                                : "Uncoupled"}
+                            </span>
                           </span>
+                          {assignedTruck && (() => {
+                            const trDriver =
+                              drivers.find((d) => d.id === assignedTruck.assignedDriverId) ||
+                              drivers.find((d) => d.assignedTruckId === assignedTruck.id);
+                            if (trDriver) {
+                              return (
+                                <span className="block text-[10px] text-slate-400 mt-0.5">
+                                  Driver: {trDriver.firstName} {trDriver.lastName}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </span>
                         <span
                           className={`px-1.5 py-0.5 rounded font-semibold ${
@@ -597,16 +613,26 @@ function TrailersContent() {
 
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                     <span className="text-[11px] font-semibold text-slate-400 block uppercase">
-                      Assigned Truck
+                      Assigned Truck & Driver
                     </span>
                     <span className="text-xs font-bold text-slate-900 mt-1 block">
-                      {trucks.find((t) => t.id === selectedTrailer.assignedTruckId)
-                        ? `Unit #${
-                            trucks.find(
-                              (t) => t.id === selectedTrailer.assignedTruckId
-                            )?.unitNumber
-                          }`
-                        : "Uncoupled / Yard"}
+                      {(() => {
+                        const trTruck = trucks.find((t) => t.id === selectedTrailer.assignedTruckId);
+                        if (!trTruck) return "Uncoupled / Yard";
+                        const trDriver =
+                          drivers.find((d) => d.id === trTruck.assignedDriverId) ||
+                          drivers.find((d) => d.assignedTruckId === trTruck.id);
+                        return (
+                          <div>
+                            <span>Unit #{trTruck.unitNumber}</span>
+                            {trDriver && (
+                              <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                                Driver: {trDriver.firstName} {trDriver.lastName}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </span>
                   </div>
 
