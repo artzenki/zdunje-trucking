@@ -158,8 +158,10 @@ function DriversContent() {
     drivers,
     applicants,
     trucks,
+    trailers,
     addDriver,
     updateDriver,
+    updateTrailer,
     deleteDriver,
     uploadDriverDocument,
     removeDriverDocument,
@@ -220,6 +222,7 @@ function DriversContent() {
     licenseNumber: "",
     status: "Active" as DriverStatus,
     assignedTruckId: "",
+    assignedTrailerId: "",
     hireDate: new Date().toISOString().split("T")[0],
     accountNumber: "",
     routingNumber: "",
@@ -320,6 +323,7 @@ function DriversContent() {
       licenseNumber: "",
       status: "Active",
       assignedTruckId: "",
+      assignedTrailerId: "",
       hireDate: new Date().toISOString().split("T")[0],
       accountNumber: "",
       routingNumber: "",
@@ -333,6 +337,11 @@ function DriversContent() {
 
   const openEditModal = (driver: DriverType) => {
     setEditingDriver(driver);
+    // Find trailer coupled to this truck
+    const coupledTrailer = driver.assignedTruckId
+      ? trailers.find((tr) => tr.assignedTruckId === driver.assignedTruckId)
+      : null;
+
     setFormData({
       firstName: driver.firstName,
       middleName: driver.middleName,
@@ -344,6 +353,7 @@ function DriversContent() {
       licenseNumber: driver.licenseNumber,
       status: driver.status,
       assignedTruckId: driver.assignedTruckId || "",
+      assignedTrailerId: coupledTrailer ? coupledTrailer.id : "",
       hireDate: driver.hireDate,
       accountNumber: driver.bankInfo.accountNumber,
       routingNumber: driver.bankInfo.routingNumber,
@@ -389,6 +399,21 @@ function DriversContent() {
     } else {
       addDriver(payload);
     }
+
+    // Sync Trailer Coupling: If a trailer is selected and a truck is selected, couple trailer to that truck
+    if (payload.assignedTruckId && formData.assignedTrailerId) {
+      const selectedTr = trailers.find((tr) => tr.id === formData.assignedTrailerId);
+      if (selectedTr && selectedTr.assignedTruckId !== payload.assignedTruckId) {
+        updateTrailer(selectedTr.id, { assignedTruckId: payload.assignedTruckId });
+      }
+    } else if (payload.assignedTruckId && !formData.assignedTrailerId) {
+      // If user explicitly cleared the trailer for this truck
+      const existingCoupledTrailer = trailers.find((tr) => tr.assignedTruckId === payload.assignedTruckId);
+      if (existingCoupledTrailer) {
+        updateTrailer(existingCoupledTrailer.id, { assignedTruckId: null });
+      }
+    }
+
     setIsAddModalOpen(false);
   };
 
@@ -702,6 +727,9 @@ function DriversContent() {
                 const assignedTruck = trucks.find(
                   (t) => t.id === driver.assignedTruckId
                 );
+                const coupledTrailer = assignedTruck
+                  ? trailers.find((tr) => tr.assignedTruckId === assignedTruck.id)
+                  : null;
                 const comp = getDriverCompliance(driver);
 
                 return (
@@ -756,7 +784,7 @@ function DriversContent() {
                           <Truck className="w-3 h-3 text-slate-400 shrink-0" />
                           <span className="truncate">
                             {assignedTruck
-                              ? `Unit #${assignedTruck.unitNumber}`
+                              ? `Unit #${assignedTruck.unitNumber}${coupledTrailer ? ` + TR #${coupledTrailer.unitNumber}` : ""}`
                               : "Unassigned"}
                           </span>
                         </span>
@@ -989,18 +1017,34 @@ function DriversContent() {
                         <span>No email on file</span>
                       </span>
                     )}
-                    <span className="text-xs text-slate-600 block mt-1.5 pt-1.5 border-t border-slate-200/60">
-                      Truck:{" "}
-                      <strong className="text-slate-800">
-                        {trucks.find((t) => t.id === selectedDriver.assignedTruckId)
-                          ? `Unit #${
-                              trucks.find(
-                                (t) => t.id === selectedDriver.assignedTruckId
-                              )?.unitNumber
-                            }`
-                          : "Unassigned"}
-                      </strong>
-                    </span>
+                    <div className="mt-1.5 pt-1.5 border-t border-slate-200/60 space-y-0.5 text-xs text-slate-600">
+                      <div>
+                        Truck:{" "}
+                        <strong className="text-slate-800">
+                          {trucks.find((t) => t.id === selectedDriver.assignedTruckId)
+                            ? `Unit #${
+                                trucks.find(
+                                  (t) => t.id === selectedDriver.assignedTruckId
+                                )?.unitNumber
+                              }`
+                            : "Unassigned"}
+                        </strong>
+                      </div>
+                      {selectedDriver.assignedTruckId && (
+                        <div>
+                          Trailer:{" "}
+                          <strong className="text-slate-800">
+                            {trailers.find((tr) => tr.assignedTruckId === selectedDriver.assignedTruckId)
+                              ? `Unit #${
+                                  trailers.find(
+                                    (tr) => tr.assignedTruckId === selectedDriver.assignedTruckId
+                                  )?.unitNumber
+                                }`
+                              : "None coupled"}
+                          </strong>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
@@ -2727,12 +2771,17 @@ function DriversContent() {
                     </label>
                     <select
                       value={formData.assignedTruckId}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const newTruckId = e.target.value;
+                        const autoTrailer = newTruckId
+                          ? trailers.find((tr) => tr.assignedTruckId === newTruckId)
+                          : null;
                         setFormData({
                           ...formData,
-                          assignedTruckId: e.target.value,
-                        })
-                      }
+                          assignedTruckId: newTruckId,
+                          assignedTrailerId: autoTrailer ? autoTrailer.id : formData.assignedTrailerId,
+                        });
+                      }}
                       className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     >
                       <option value="">-- No Truck Assigned --</option>
@@ -2743,6 +2792,43 @@ function DriversContent() {
                       ))}
                     </select>
                   </div>
+                </div>
+
+                {/* Assigned Trailer Field */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 uppercase">
+                      Assigned Semi-Trailer
+                    </label>
+                    {formData.assignedTruckId && (
+                      <span className="text-[10px] text-slate-400">
+                        Auto-couples to Unit #{trucks.find((t) => t.id === formData.assignedTruckId)?.unitNumber || ""}
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    value={formData.assignedTrailerId}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        assignedTrailerId: e.target.value,
+                      })
+                    }
+                    className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    <option value="">-- No Trailer Assigned --</option>
+                    {trailers.map((tr) => {
+                      const coupledTruck = tr.assignedTruckId
+                        ? trucks.find((t) => t.id === tr.assignedTruckId)
+                        : null;
+                      return (
+                        <option key={tr.id} value={tr.id}>
+                          Trailer #{tr.unitNumber} ({tr.year} {tr.make}) - Plate: {tr.plateNumber}
+                          {coupledTruck ? ` [Coupled: Truck #${coupledTruck.unitNumber}]` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
 
                 {/* Bank Info Fields */}

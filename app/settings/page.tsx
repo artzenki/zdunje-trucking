@@ -368,6 +368,7 @@ export default function SettingsPage() {
         "plateNumber",
         "isTemporaryPlate",
         "ownershipType",
+        "leaseCompany",
         "trailerValue",
         "status",
         "notes",
@@ -380,7 +381,8 @@ export default function SettingsPage() {
         "1GRAN5320ND194821",
         "TL-78201",
         "false",
-        "Own",
+        "Leased",
+        "Premier Trailer Leasing",
         "44000",
         "Active",
         "Side skirts and tire inflation system",
@@ -474,6 +476,120 @@ export default function SettingsPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const downloadAllTemplates = () => {
+    const categories: ImportCategory[] = ["trucks", "trailers", "drivers", "shops"];
+    categories.forEach((cat, index) => {
+      setTimeout(() => {
+        downloadCsvTemplate(cat);
+      }, index * 250);
+    });
+  };
+
+  // Export live records to CSV
+  const exportCurrentDataToCsv = (cat: ImportCategory) => {
+    const sanitize = (val: unknown) => {
+      if (val === null || val === undefined) return "";
+      const str = String(val);
+      if (str.includes(",") || str.includes(";") || str.includes("\n") || str.includes('"')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const filename = `zdunje_${cat}_export_${new Date().toISOString().split("T")[0]}.csv`;
+    let headers: string[] = [];
+    let rows: string[][] = [];
+
+    if (cat === "trucks") {
+      headers = templates.trucks.headers;
+      rows = trucks.map((t) => [
+        sanitize(t.unitNumber),
+        sanitize(t.make),
+        sanitize(t.model),
+        sanitize(t.year),
+        sanitize(t.vin),
+        sanitize(t.plateNumber),
+        sanitize(t.isTemporaryPlate),
+        sanitize(t.ownershipType),
+        sanitize(t.truckValue),
+        sanitize(t.bestPassSerialNumber),
+        sanitize(t.status),
+        sanitize(t.currentMileage),
+        sanitize(t.notes),
+      ]);
+    } else if (cat === "trailers") {
+      headers = templates.trailers.headers;
+      rows = trailers.map((tr) => [
+        sanitize(tr.unitNumber),
+        sanitize(tr.make),
+        sanitize(tr.model),
+        sanitize(tr.year),
+        sanitize(tr.vin),
+        sanitize(tr.plateNumber),
+        sanitize(tr.isTemporaryPlate),
+        sanitize(tr.ownershipType),
+        sanitize(tr.leaseCompany || ""),
+        sanitize(tr.trailerValue),
+        sanitize(tr.status),
+        sanitize(tr.notes),
+      ]);
+    } else if (cat === "drivers") {
+      headers = templates.drivers.headers;
+      rows = drivers.map((d) => [
+        sanitize(d.firstName),
+        sanitize(d.middleName),
+        sanitize(d.lastName),
+        sanitize(d.dateOfBirth),
+        sanitize(d.email),
+        sanitize(d.phone),
+        sanitize(d.state),
+        sanitize(d.licenseNumber),
+        sanitize(d.status),
+        sanitize(d.hireDate),
+        sanitize(d.bankInfo?.bankName),
+        sanitize(d.bankInfo?.routingNumber),
+        sanitize(d.bankInfo?.accountNumber),
+        sanitize(d.notes),
+      ]);
+    } else if (cat === "shops") {
+      headers = templates.shops.headers;
+      rows = shops.map((s) => [
+        sanitize(s.businessName),
+        sanitize(s.businessAddress),
+        sanitize(s.state),
+        sanitize(s.phone),
+        sanitize(s.shopType),
+        sanitize(s.repairCategories?.join("; ") || ""),
+        sanitize(s.descriptionOfWork),
+        sanitize(s.googleMapsUrl),
+        sanitize(s.laborRatePerHour),
+        sanitize(s.calloutFee),
+        sanitize(s.rating),
+        sanitize(s.notes),
+      ]);
+    }
+
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportAllCurrentData = () => {
+    const categories: ImportCategory[] = ["trucks", "trailers", "drivers", "shops"];
+    categories.forEach((cat, index) => {
+      setTimeout(() => {
+        exportCurrentDataToCsv(cat);
+      }, index * 250);
+    });
   };
 
   const parseCSV = (text: string) => {
@@ -575,6 +691,7 @@ export default function SettingsPage() {
           plateNumber: r.plateNumber || "TL-" + Math.floor(Math.random() * 90000 + 10000),
           isTemporaryPlate: r.isTemporaryPlate === "true",
           ownershipType: (r.ownershipType as OwnershipType) || "Own",
+          leaseCompany: r.leaseCompany || undefined,
           trailerValue: parseFloat(r.trailerValue) || 45000,
           status: (r.status as EquipmentStatus) || "Active",
           assignedTruckId: null,
@@ -909,13 +1026,46 @@ export default function SettingsPage() {
               <p className="truncate">{templates[activeCategory].headers.join(", ")}</p>
             </div>
 
-            <button
-              onClick={() => downloadCsvTemplate(activeCategory)}
-              className="w-full inline-flex items-center justify-center space-x-2 px-4 py-2.5 text-xs font-bold text-slate-900 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-all shadow-md shadow-emerald-500/20"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download {activeCategory.toUpperCase()} Template (.CSV)</span>
-            </button>
+            <div className="space-y-2 pt-1">
+              <button
+                onClick={() => downloadCsvTemplate(activeCategory)}
+                className="w-full inline-flex items-center justify-center space-x-2 px-4 py-2.5 text-xs font-bold text-slate-900 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-all shadow-md shadow-emerald-500/20"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download {activeCategory.toUpperCase()} Template (.CSV)</span>
+              </button>
+
+              <button
+                onClick={downloadAllTemplates}
+                className="w-full inline-flex items-center justify-center space-x-2 px-4 py-2 text-xs font-semibold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download ALL 4 CSV Templates</span>
+              </button>
+            </div>
+
+            {/* Export Current Data Section */}
+            <div className="pt-3 border-t border-slate-700/60 space-y-2">
+              <span className="block text-slate-300 font-bold uppercase text-[10px] tracking-wider">
+                Export Current Database:
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => exportCurrentDataToCsv(activeCategory)}
+                  className="inline-flex items-center justify-center space-x-1.5 px-3 py-2 text-[11px] font-semibold text-blue-300 hover:text-white bg-slate-950/60 hover:bg-blue-900/40 border border-slate-700 rounded-lg transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export {activeCategory}</span>
+                </button>
+                <button
+                  onClick={exportAllCurrentData}
+                  className="inline-flex items-center justify-center space-x-1.5 px-3 py-2 text-[11px] font-semibold text-emerald-300 hover:text-white bg-slate-950/60 hover:bg-emerald-900/40 border border-slate-700 rounded-lg transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export All Fleet</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Clean Slate / Wipe Card */}

@@ -291,6 +291,20 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           await cloudUpsert("trailers", initialTrailers.map(trailerToRow));
           setTrailers(initialTrailers);
           localStorage.setItem("zdunje_trailers", JSON.stringify(initialTrailers));
+        } else {
+          // If Supabase returned 0 trailers, check if local storage had user-created trailers and push them to cloud
+          const cachedTr = localStorage.getItem("zdunje_trailers");
+          if (cachedTr) {
+            try {
+              const parsed: Trailer[] = JSON.parse(cachedTr);
+              if (parsed.length > 0) {
+                setTrailers(parsed);
+                await cloudUpsert("trailers", parsed.map(trailerToRow));
+              }
+            } catch (err) {
+              console.warn("Failed restoring cached trailers:", err);
+            }
+          }
         }
 
         // Shops: live from Supabase
