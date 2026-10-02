@@ -67,6 +67,8 @@ export interface Truck {
   bestPassSerialNumber: string;
   isBestPassLinked: boolean;
   assignedDriverId: string | null;
+  isTeamDriver?: boolean;
+  secondaryDriverId?: string | null;
   status: EquipmentStatus;
   currentMileage: number;
   notes: string;

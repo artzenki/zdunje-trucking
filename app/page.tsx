@@ -107,6 +107,13 @@ export default function DashboardPage() {
     const driverFullName = `${currentDispatchDriver.firstName} ${currentDispatchDriver.lastName}`.trim();
     const driverPhone = currentDispatchDriver.phone || "N/A";
 
+    const secondaryDriver = currentDispatchTruck?.isTeamDriver && currentDispatchTruck?.secondaryDriverId
+      ? drivers.find((d) => d.id === currentDispatchTruck.secondaryDriverId) || null
+      : null;
+    const secondaryDriverText = secondaryDriver
+      ? `\nDriver 2 Name: ${secondaryDriver.firstName} ${secondaryDriver.lastName}\nDriver 2 Phone Number: ${secondaryDriver.phone || "N/A"}`
+      : "";
+
     const trailerUnit = currentDispatchTrailer?.unitNumber || "N/A";
     const trailerVin = currentDispatchTrailer?.vin || "N/A";
     const trailerMake = currentDispatchTrailer?.make || "N/A";
@@ -121,14 +128,14 @@ VIN: ${truckVin}
 Year: ${truckYear}
 
 Driver Name: ${driverFullName}
-Driver Phone Number: ${driverPhone}
+Driver Phone Number: ${driverPhone}${secondaryDriverText}
 
 Trailer Number: ${trailerUnit}
 Trailer VIN: ${trailerVin}
 Trailer Make: ${trailerMake}
 Trailer Year: ${trailerYear}
 Trailer License Plate: ${trailerPlate}`;
-  }, [currentDispatchDriver, currentDispatchTruck, currentDispatchTrailer]);
+  }, [currentDispatchDriver, currentDispatchTruck, currentDispatchTrailer, drivers]);
 
   const handleCopyDispatchInfo = async () => {
     if (!formattedDispatchText) return;

@@ -39,6 +39,8 @@ export const truckToRow = (t: Truck) => ({
   best_pass_serial_number: t.bestPassSerialNumber || null,
   is_best_pass_linked: t.isBestPassLinked || false,
   assigned_driver_id: t.assignedDriverId || null,
+  is_team_driver: !!t.isTeamDriver,
+  secondary_driver_id: t.secondaryDriverId || null,
   status: t.status,
   current_mileage: t.currentMileage || 0,
   notes: t.notes || "",
@@ -69,6 +71,12 @@ export const rowToTruck = (t: Record<string, unknown>): Truck => {
     bestPassSerialNumber: String(t.best_pass_serial_number || ""),
     isBestPassLinked: Boolean(t.is_best_pass_linked),
     assignedDriverId: t.assigned_driver_id ? String(t.assigned_driver_id) : null,
+    isTeamDriver: Boolean(t.is_team_driver || t.isTeamDriver),
+    secondaryDriverId: t.secondary_driver_id
+      ? String(t.secondary_driver_id)
+      : t.secondaryDriverId
+      ? String(t.secondaryDriverId)
+      : null,
     status: t.status as EquipmentStatus,
     currentMileage: Number(t.current_mileage || 0),
     notes: String(t.notes || ""),

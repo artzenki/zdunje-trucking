@@ -566,6 +566,19 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         })
       );
     }
+    // Interlink: If new truck has a team secondary driver, link their assignedTruckId
+    if (data.isTeamDriver && data.secondaryDriverId) {
+      setDrivers((prev) =>
+        prev.map((d) => {
+          if (d.id === data.secondaryDriverId) {
+            const updatedD: Driver = { ...d, assignedTruckId: newTruckId };
+            cloudUpsert("drivers", driverToRow(updatedD));
+            return updatedD;
+          }
+          return d;
+        })
+      );
+    }
   };
 
   const updateTruck = (id: string, updated: Partial<Truck>) => {
@@ -578,12 +591,15 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       })
     );
 
-    // Interlink: If assignedDriverId changed
+    // Current truck record for comparison
+    const existingTruck = trucks.find((t) => t.id === id);
+
+    // Interlink: Primary Driver
     if ("assignedDriverId" in updated) {
       const newDriverId = updated.assignedDriverId || null;
       setDrivers((prevDrivers) =>
         prevDrivers.map((d) => {
-          // If this driver is the newly assigned driver
+          // If this driver is the newly assigned primary driver
           if (newDriverId && d.id === newDriverId) {
             if (d.assignedTruckId !== id) {
               const updatedD: Driver = { ...d, assignedTruckId: id };
@@ -592,8 +608,9 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
             }
             return d;
           }
-          // If this driver was previously assigned to this truck, but is no longer
-          if (d.assignedTruckId === id && d.id !== newDriverId) {
+          // If this driver was previously assigned to this truck (and is not the secondary driver), but is no longer
+          const currentSecondary = "secondaryDriverId" in updated ? updated.secondaryDriverId : existingTruck?.secondaryDriverId;
+          if (d.assignedTruckId === id && d.id !== newDriverId && d.id !== currentSecondary) {
             const unlinkedD: Driver = { ...d, assignedTruckId: null };
             cloudUpsert("drivers", driverToRow(unlinkedD));
             return unlinkedD;
@@ -602,7 +619,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         })
       );
 
-      // Also clean up any other trucks if newDriverId was previously assigned to them
+      // Clean up other trucks where newDriverId was primary
       if (newDriverId) {
         setTrucks((prevTrucks) =>
           prevTrucks.map((t) => {
@@ -615,6 +632,33 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           })
         );
       }
+    }
+
+    // Interlink: Secondary / Team Driver
+    if ("secondaryDriverId" in updated || "isTeamDriver" in updated) {
+      const isTeam = updated.isTeamDriver !== undefined ? updated.isTeamDriver : existingTruck?.isTeamDriver;
+      const newSecondaryId = isTeam ? (updated.secondaryDriverId || null) : null;
+      const currentPrimary = "assignedDriverId" in updated ? updated.assignedDriverId : existingTruck?.assignedDriverId;
+
+      setDrivers((prevDrivers) =>
+        prevDrivers.map((d) => {
+          if (newSecondaryId && d.id === newSecondaryId) {
+            if (d.assignedTruckId !== id) {
+              const updatedD: Driver = { ...d, assignedTruckId: id };
+              cloudUpsert("drivers", driverToRow(updatedD));
+              return updatedD;
+            }
+            return d;
+          }
+          // If this driver was the secondary driver on this truck, but is no longer (and not primary)
+          if (existingTruck?.secondaryDriverId && d.id === existingTruck.secondaryDriverId && d.id !== newSecondaryId && d.id !== currentPrimary) {
+            const unlinkedD: Driver = { ...d, assignedTruckId: null };
+            cloudUpsert("drivers", driverToRow(unlinkedD));
+            return unlinkedD;
+          }
+          return d;
+        })
+      );
     }
   };
 

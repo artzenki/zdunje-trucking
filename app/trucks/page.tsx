@@ -115,6 +115,11 @@ function TrucksContent() {
   const [driverSearch, setDriverSearch] = useState("");
   const driverDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Secondary / Co-Driver search dropdown state
+  const [isSecondaryDriverDropdownOpen, setIsSecondaryDriverDropdownOpen] = useState(false);
+  const [secondaryDriverSearch, setSecondaryDriverSearch] = useState("");
+  const secondaryDriverDropdownRef = useRef<HTMLDivElement>(null);
+
   // Form State
   const [formData, setFormData] = useState({
     unitNumber: "",
@@ -129,6 +134,8 @@ function TrucksContent() {
     bestPassSerialNumber: "",
     isBestPassLinked: true,
     assignedDriverId: "",
+    isTeamDriver: false,
+    secondaryDriverId: "",
     status: "Active" as EquipmentStatus,
     currentMileage: 120000,
     notes: "",
@@ -195,6 +202,38 @@ function TrucksContent() {
     });
   }, [drivers, driverSearch]);
 
+  // Filtered & alphabetically sorted drivers for secondary driver dropdown
+  const filteredSecondaryDriversForSelect = useMemo(() => {
+    const q = secondaryDriverSearch.toLowerCase().trim();
+    // Exclude the currently chosen primary driver from co-driver choices
+    const list = drivers.filter((d) => d.id !== formData.assignedDriverId);
+    if (!q) {
+      return [...list].sort((a, b) => {
+        const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+        const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+    }
+    return list
+      .filter((d) => {
+        const fullName = `${d.firstName} ${d.lastName}`.toLowerCase();
+        const state = (d.state || "").toLowerCase();
+        const license = (d.licenseNumber || "").toLowerCase();
+        const phone = (d.phone || "").toLowerCase();
+        return (
+          fullName.includes(q) ||
+          state.includes(q) ||
+          license.includes(q) ||
+          phone.includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+        const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+  }, [drivers, secondaryDriverSearch, formData.assignedDriverId]);
+
   // Close driver dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -204,18 +243,26 @@ function TrucksContent() {
       ) {
         setIsDriverDropdownOpen(false);
       }
+      if (
+        secondaryDriverDropdownRef.current &&
+        !secondaryDriverDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsSecondaryDriverDropdownOpen(false);
+      }
     };
-    if (isDriverDropdownOpen) {
+    if (isDriverDropdownOpen || isSecondaryDriverDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isDriverDropdownOpen]);
+  }, [isDriverDropdownOpen, isSecondaryDriverDropdownOpen]);
 
   const openAddModal = () => {
     setIsDriverDropdownOpen(false);
+    setIsSecondaryDriverDropdownOpen(false);
     setDriverSearch("");
+    setSecondaryDriverSearch("");
     setFormData({
       unitNumber: "",
       make: "Freightliner",
@@ -229,6 +276,8 @@ function TrucksContent() {
       bestPassSerialNumber: "",
       isBestPassLinked: false,
       assignedDriverId: "",
+      isTeamDriver: false,
+      secondaryDriverId: "",
       status: "Active",
       currentMileage: 0,
       notes: "",
@@ -239,7 +288,9 @@ function TrucksContent() {
 
   const openEditModal = (truck: TruckType) => {
     setIsDriverDropdownOpen(false);
+    setIsSecondaryDriverDropdownOpen(false);
     setDriverSearch("");
+    setSecondaryDriverSearch("");
     setEditingTruck(truck);
     setFormData({
       unitNumber: truck.unitNumber,
@@ -254,6 +305,8 @@ function TrucksContent() {
       bestPassSerialNumber: truck.bestPassSerialNumber,
       isBestPassLinked: truck.isBestPassLinked,
       assignedDriverId: truck.assignedDriverId || "",
+      isTeamDriver: Boolean(truck.isTeamDriver),
+      secondaryDriverId: truck.secondaryDriverId || "",
       status: truck.status,
       currentMileage: truck.currentMileage,
       notes: truck.notes,
@@ -268,16 +321,17 @@ function TrucksContent() {
       return;
     }
 
+    const payload = {
+      ...formData,
+      assignedDriverId: formData.assignedDriverId || null,
+      isTeamDriver: Boolean(formData.isTeamDriver),
+      secondaryDriverId: formData.isTeamDriver ? (formData.secondaryDriverId || null) : null,
+    };
+
     if (editingTruck) {
-      updateTruck(editingTruck.id, {
-        ...formData,
-        assignedDriverId: formData.assignedDriverId || null,
-      });
+      updateTruck(editingTruck.id, payload);
     } else {
-      addTruck({
-        ...formData,
-        assignedDriverId: formData.assignedDriverId || null,
-      });
+      addTruck(payload);
     }
     setIsAddModalOpen(false);
   };
@@ -492,9 +546,22 @@ function TrucksContent() {
                         <span className="text-slate-500">
                           Driver:{" "}
                           <strong className="text-slate-700">
-                            {assignedDriver
-                              ? `${assignedDriver.firstName} ${assignedDriver.lastName}`
-                              : "Unassigned"}
+                            {assignedDriver ? (
+                              truck.isTeamDriver && truck.secondaryDriverId ? (
+                                <>
+                                  {assignedDriver.firstName} {assignedDriver.lastName} &amp;{" "}
+                                  {drivers.find((d) => d.id === truck.secondaryDriverId)?.firstName || "Driver 2"}{" "}
+                                  {drivers.find((d) => d.id === truck.secondaryDriverId)?.lastName || ""}
+                                  <span className="ml-1 px-1 py-0.2 text-[9px] bg-indigo-100 text-indigo-700 rounded font-semibold">
+                                    Team
+                                  </span>
+                                </>
+                              ) : (
+                                `${assignedDriver.firstName} ${assignedDriver.lastName}`
+                              )
+                            ) : (
+                              "Unassigned"
+                            )}
                           </strong>
                         </span>
                         <span
@@ -663,17 +730,28 @@ function TrucksContent() {
                       Assigned Driver
                     </span>
                     <span className="text-xs font-bold text-slate-900 mt-1 block">
-                      {drivers.find((d) => d.id === selectedTruck.assignedDriverId)
-                        ? `${
-                            drivers.find(
-                              (d) => d.id === selectedTruck.assignedDriverId
-                            )?.firstName
-                          } ${
-                            drivers.find(
-                              (d) => d.id === selectedTruck.assignedDriverId
-                            )?.lastName
-                          }`
-                        : "No Driver Assigned"}
+                      {drivers.find((d) => d.id === selectedTruck.assignedDriverId) ? (
+                        <div>
+                          <div>
+                            {drivers.find((d) => d.id === selectedTruck.assignedDriverId)?.firstName}{" "}
+                            {drivers.find((d) => d.id === selectedTruck.assignedDriverId)?.lastName}
+                          </div>
+                          {selectedTruck.isTeamDriver && selectedTruck.secondaryDriverId && (
+                            <div className="text-[11px] text-indigo-700 font-medium mt-0.5 flex items-center gap-1">
+                              <span>+</span>
+                              <span>
+                                {drivers.find((d) => d.id === selectedTruck.secondaryDriverId)?.firstName}{" "}
+                                {drivers.find((d) => d.id === selectedTruck.secondaryDriverId)?.lastName}
+                              </span>
+                              <span className="px-1 py-0.2 text-[9px] bg-indigo-100 text-indigo-800 rounded font-semibold">
+                                Team
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        "No Driver Assigned"
+                      )}
                     </span>
                   </div>
                 </div>
@@ -1521,6 +1599,174 @@ function TrucksContent() {
                             })
                           )}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Team Drivers Checkbox */}
+                    <div className="mt-2.5 pt-2 border-t border-slate-100">
+                      <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={formData.isTeamDriver}
+                          onChange={(e) => {
+                            const isChecked = e.target.checked;
+                            setFormData({
+                              ...formData,
+                              isTeamDriver: isChecked,
+                              secondaryDriverId: isChecked ? formData.secondaryDriverId : "",
+                            });
+                          }}
+                          className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                        />
+                        <span className="text-slate-800">Team Drivers? (Enable 2nd Driver)</span>
+                      </label>
+                    </div>
+
+                    {/* Conditional 2nd / Co-Driver Dropdown */}
+                    {formData.isTeamDriver && (
+                      <div className="mt-2.5 relative animate-in fade-in slide-in-from-top-2 duration-150" ref={secondaryDriverDropdownRef}>
+                        <label className="block text-[11px] font-bold text-indigo-800 uppercase mb-1 flex items-center justify-between">
+                          <span>Co-Driver / 2nd Driver</span>
+                          <span className="text-[10px] font-normal text-indigo-600 lowercase bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200">
+                            team driver 2
+                          </span>
+                        </label>
+                        <div
+                          onClick={() => setIsSecondaryDriverDropdownOpen(!isSecondaryDriverDropdownOpen)}
+                          className={`w-full h-10 px-3 border rounded-lg bg-indigo-50/30 flex items-center justify-between cursor-pointer transition-colors ${
+                            isSecondaryDriverDropdownOpen
+                              ? "border-indigo-500 ring-2 ring-indigo-500/20"
+                              : "border-indigo-200 hover:border-indigo-300"
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2 min-w-0 flex-1">
+                            <User className="w-4 h-4 text-indigo-500 shrink-0" />
+                            <span className="text-sm truncate">
+                              {(() => {
+                                const d = drivers.find((x) => x.id === formData.secondaryDriverId);
+                                if (d) {
+                                  return (
+                                    <span className="text-slate-900 font-semibold">
+                                      {d.firstName} {d.lastName}{" "}
+                                      <span className="text-xs text-slate-400 font-normal">
+                                        ({d.state} CDL)
+                                      </span>
+                                    </span>
+                                  );
+                                }
+                                return <span className="text-slate-400">-- Select 2nd Driver --</span>;
+                              })()}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-1 pl-1 shrink-0">
+                            {formData.secondaryDriverId && (
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFormData({ ...formData, secondaryDriverId: "" });
+                                }}
+                                className="p-1 hover:bg-indigo-100 rounded text-slate-400 hover:text-slate-600 cursor-pointer"
+                                title="Remove 2nd driver"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </span>
+                            )}
+                            <ChevronDown
+                              className={`w-4 h-4 text-indigo-500 transition-transform ${
+                                isSecondaryDriverDropdownOpen ? "rotate-180" : ""
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Secondary Dropdown Menu */}
+                        {isSecondaryDriverDropdownOpen && (
+                          <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-indigo-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-100">
+                            <div className="p-2 border-b border-indigo-100 bg-indigo-50/60">
+                              <div className="relative">
+                                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={secondaryDriverSearch}
+                                  onChange={(e) => setSecondaryDriverSearch(e.target.value)}
+                                  placeholder="Search co-driver by name, state, phone..."
+                                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800"
+                                />
+                                {secondaryDriverSearch && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSecondaryDriverSearch("")}
+                                    className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                              {/* None Option */}
+                              <div
+                                onClick={() => {
+                                  setFormData({ ...formData, secondaryDriverId: "" });
+                                  setIsSecondaryDriverDropdownOpen(false);
+                                }}
+                                className={`p-2.5 text-xs cursor-pointer flex items-center justify-between hover:bg-slate-50 transition-colors ${
+                                  !formData.secondaryDriverId
+                                    ? "bg-indigo-50/70 text-indigo-700 font-semibold"
+                                    : "text-slate-600"
+                                }`}
+                              >
+                                <span className="italic">-- None Selected --</span>
+                                {!formData.secondaryDriverId && (
+                                  <CheckCircle className="w-3.5 h-3.5 text-indigo-600" />
+                                )}
+                              </div>
+
+                              {filteredSecondaryDriversForSelect.length === 0 ? (
+                                <div className="p-4 text-center text-xs text-slate-400">
+                                  No co-drivers found matching &quot;{secondaryDriverSearch}&quot;
+                                </div>
+                              ) : (
+                                filteredSecondaryDriversForSelect.map((d) => {
+                                  const isSelected = formData.secondaryDriverId === d.id;
+                                  return (
+                                    <div
+                                      key={d.id}
+                                      onClick={() => {
+                                        setFormData({ ...formData, secondaryDriverId: d.id });
+                                        setIsSecondaryDriverDropdownOpen(false);
+                                      }}
+                                      className={`p-2.5 text-xs cursor-pointer flex items-center justify-between hover:bg-indigo-50/40 transition-colors ${
+                                        isSelected
+                                          ? "bg-indigo-50 text-indigo-800 font-semibold"
+                                          : "text-slate-700"
+                                      }`}
+                                    >
+                                      <div>
+                                        <div className="font-medium text-slate-900 flex items-center space-x-1.5">
+                                          <span>
+                                            {d.firstName} {d.lastName}
+                                          </span>
+                                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 font-normal border border-indigo-200">
+                                            {d.state} CDL
+                                          </span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-400 mt-0.5">
+                                          {d.phone} • Lic: {d.licenseNumber}
+                                        </p>
+                                      </div>
+                                      {isSelected && (
+                                        <CheckCircle className="w-3.5 h-3.5 text-indigo-600 shrink-0 ml-2" />
+                                      )}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
