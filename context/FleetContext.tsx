@@ -536,9 +536,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Truck Handlers
   const addTruck = (data: Omit<Truck, "id" | "documents">) => {
+    const newTruckId = `truck-${Date.now()}`;
     const newTruck: Truck = {
       ...data,
-      id: `truck-${Date.now()}`,
+      id: newTruckId,
       documents: {
         title: null,
         tax2290: null,
@@ -551,6 +552,20 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     setTrucks((prev) => [newTruck, ...prev]);
     cloudUpsert("trucks", truckToRow(newTruck));
+
+    // Interlink: If new truck has an assigned driver, link driver's assignedTruckId
+    if (data.assignedDriverId) {
+      setDrivers((prev) =>
+        prev.map((d) => {
+          if (d.id === data.assignedDriverId) {
+            const updatedD: Driver = { ...d, assignedTruckId: newTruckId };
+            cloudUpsert("drivers", driverToRow(updatedD));
+            return updatedD;
+          }
+          return d;
+        })
+      );
+    }
   };
 
   const updateTruck = (id: string, updated: Partial<Truck>) => {
@@ -562,11 +577,74 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         return newT;
       })
     );
+
+    // Interlink: If assignedDriverId changed
+    if ("assignedDriverId" in updated) {
+      const newDriverId = updated.assignedDriverId || null;
+      setDrivers((prevDrivers) =>
+        prevDrivers.map((d) => {
+          // If this driver is the newly assigned driver
+          if (newDriverId && d.id === newDriverId) {
+            if (d.assignedTruckId !== id) {
+              const updatedD: Driver = { ...d, assignedTruckId: id };
+              cloudUpsert("drivers", driverToRow(updatedD));
+              return updatedD;
+            }
+            return d;
+          }
+          // If this driver was previously assigned to this truck, but is no longer
+          if (d.assignedTruckId === id && d.id !== newDriverId) {
+            const unlinkedD: Driver = { ...d, assignedTruckId: null };
+            cloudUpsert("drivers", driverToRow(unlinkedD));
+            return unlinkedD;
+          }
+          return d;
+        })
+      );
+
+      // Also clean up any other trucks if newDriverId was previously assigned to them
+      if (newDriverId) {
+        setTrucks((prevTrucks) =>
+          prevTrucks.map((t) => {
+            if (t.id !== id && t.assignedDriverId === newDriverId) {
+              const unlinkedT: Truck = { ...t, assignedDriverId: null };
+              cloudUpsert("trucks", truckToRow(unlinkedT));
+              return unlinkedT;
+            }
+            return t;
+          })
+        );
+      }
+    }
   };
 
   const deleteTruck = (id: string) => {
     setTrucks((prev) => prev.filter((t) => t.id !== id));
     cloudDelete("trucks", id);
+
+    // Interlink: Unlink any drivers assigned to this truck
+    setDrivers((prev) =>
+      prev.map((d) => {
+        if (d.assignedTruckId === id) {
+          const unlinkedD: Driver = { ...d, assignedTruckId: null };
+          cloudUpsert("drivers", driverToRow(unlinkedD));
+          return unlinkedD;
+        }
+        return d;
+      })
+    );
+
+    // Interlink: Uncouple any trailers assigned to this truck
+    setTrailers((prev) =>
+      prev.map((tr) => {
+        if (tr.assignedTruckId === id) {
+          const uncoupledTr: Trailer = { ...tr, assignedTruckId: null };
+          cloudUpsert("trailers", trailerToRow(uncoupledTr));
+          return uncoupledTr;
+        }
+        return tr;
+      })
+    );
   };
 
   const uploadTruckDocument = (
@@ -751,6 +829,23 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         return newTr;
       })
     );
+
+    // If assignedTruckId is being set or changed, uncouple any other trailer coupled to that truck
+    if ("assignedTruckId" in updated) {
+      const newTruckId = updated.assignedTruckId || null;
+      if (newTruckId) {
+        setTrailers((prevTrailers) =>
+          prevTrailers.map((tr) => {
+            if (tr.id !== id && tr.assignedTruckId === newTruckId) {
+              const uncoupled: Trailer = { ...tr, assignedTruckId: null };
+              cloudUpsert("trailers", trailerToRow(uncoupled));
+              return uncoupled;
+            }
+            return tr;
+          })
+        );
+      }
+    }
   };
 
   const deleteTrailer = (id: string) => {
@@ -910,9 +1005,10 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Driver Handlers
   const addDriver = (data: Omit<Driver, "id" | "documents">) => {
+    const newDriverId = `driver-${Date.now()}`;
     const newDriver: Driver = {
       ...data,
-      id: `driver-${Date.now()}`,
+      id: newDriverId,
       documents: {
         mvr: null,
         pspAuth: null,
@@ -935,6 +1031,20 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     setDrivers((prev) => [newDriver, ...prev]);
     cloudUpsert("drivers", driverToRow(newDriver));
+
+    // Interlink: If new driver is assigned to a truck, update truck's assignedDriverId
+    if (data.assignedTruckId) {
+      setTrucks((prev) =>
+        prev.map((t) => {
+          if (t.id === data.assignedTruckId) {
+            const updatedT: Truck = { ...t, assignedDriverId: newDriverId };
+            cloudUpsert("trucks", truckToRow(updatedT));
+            return updatedT;
+          }
+          return t;
+        })
+      );
+    }
   };
 
   const updateDriver = (id: string, updated: Partial<Driver>) => {
@@ -946,11 +1056,62 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         return newD;
       })
     );
+
+    // Interlink: If assignedTruckId changed
+    if ("assignedTruckId" in updated) {
+      const newTruckId = updated.assignedTruckId || null;
+      setTrucks((prevTrucks) =>
+        prevTrucks.map((t) => {
+          // If this truck is the newly assigned truck
+          if (newTruckId && t.id === newTruckId) {
+            if (t.assignedDriverId !== id) {
+              const updatedT: Truck = { ...t, assignedDriverId: id };
+              cloudUpsert("trucks", truckToRow(updatedT));
+              return updatedT;
+            }
+            return t;
+          }
+          // If this truck was previously assigned to this driver, but is no longer
+          if (t.assignedDriverId === id && t.id !== newTruckId) {
+            const unlinkedT: Truck = { ...t, assignedDriverId: null };
+            cloudUpsert("trucks", truckToRow(unlinkedT));
+            return unlinkedT;
+          }
+          return t;
+        })
+      );
+
+      // Also clean up any other drivers if newTruckId was previously assigned to them
+      if (newTruckId) {
+        setDrivers((prevDrivers) =>
+          prevDrivers.map((d) => {
+            if (d.id !== id && d.assignedTruckId === newTruckId) {
+              const unlinkedD: Driver = { ...d, assignedTruckId: null };
+              cloudUpsert("drivers", driverToRow(unlinkedD));
+              return unlinkedD;
+            }
+            return d;
+          })
+        );
+      }
+    }
   };
 
   const deleteDriver = (id: string) => {
     setDrivers((prev) => prev.filter((d) => d.id !== id));
     cloudDelete("drivers", id);
+
+    // Interlink: Unlink any trucks assigned to this driver
+    setTrucks((prev) =>
+      prev.map((t) => {
+        if (t.assignedDriverId === id) {
+          const unlinkedT: Truck = { ...t, assignedDriverId: null };
+          cloudUpsert("trucks", truckToRow(unlinkedT));
+          return unlinkedT;
+        }
+        return t;
+      })
+    );
   };
 
   const uploadDriverDocument = (
