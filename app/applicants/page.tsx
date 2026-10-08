@@ -31,6 +31,9 @@ import {
   ArrowRightCircle,
   FileCheck,
   CheckCircle2,
+  FileSpreadsheet,
+  AlertTriangle,
+  Check,
 } from "lucide-react";
 import { DocumentViewerModal } from "@/components/DocumentViewerModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
@@ -91,11 +94,20 @@ export default function ApplicantsPage() {
     uploadApplicantDocument,
     removeApplicantDocument,
     convertApplicantToDriver,
+    bulkAddApplicants,
   } = useFleet();
 
   const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicantStatus | "all">("all");
+
+  // CSV Import States
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+  const [csvParsedRows, setCsvParsedRows] = useState<Record<string, string>[]>([]);
+  const [csvFileName, setCsvFileName] = useState("");
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const [csvSuccess, setCsvSuccess] = useState<string | null>(null);
+  const csvFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Document Modal States
   const [viewingDoc, setViewingDoc] = useState<FleetDocument | null>(null);
@@ -272,6 +284,143 @@ export default function ApplicantsPage() {
     }
   };
 
+  // CSV Helpers for Applicants
+  const downloadApplicantCsvTemplate = () => {
+    const headers = [
+      "firstName",
+      "middleName",
+      "lastName",
+      "dateOfBirth",
+      "phone",
+      "email",
+      "state",
+      "licenseNumber",
+      "status",
+      "appliedDate",
+      "notes",
+    ];
+    const example = [
+      "Alex",
+      "Robert",
+      "Johnson",
+      "1986-11-20",
+      "(773) 555-0199",
+      "alex.johnson@example.com",
+      "IL",
+      "J492-8172-9102",
+      "Under Review",
+      new Date().toISOString().split("T")[0],
+      "3 years OTR experience, CDL-A clean record",
+    ];
+
+    const csvData = `${headers.join(",")}\n${example.map((v) => `"${v}"`).join(",")}\n`;
+    const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "zdunje_applicants_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const parseCsvText = (text: string) => {
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (lines.length < 2) {
+      throw new Error("CSV must have at least 1 header line and 1 data row.");
+    }
+
+    const rawHeaders = lines[0].split(",").map((h) => h.replace(/^["']|["']$/g, "").trim());
+    const rows: Record<string, string>[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      const rowValues: string[] = [];
+      let inQuote = false;
+      let currentVal = "";
+
+      for (let c = 0; c < line.length; c++) {
+        const char = line[c];
+        if (char === '"' || char === "'") {
+          inQuote = !inQuote;
+        } else if (char === "," && !inQuote) {
+          rowValues.push(currentVal.trim());
+          currentVal = "";
+        } else {
+          currentVal += char;
+        }
+      }
+      rowValues.push(currentVal.trim());
+
+      const rowObj: Record<string, string> = {};
+      rawHeaders.forEach((header, index) => {
+        rowObj[header] = rowValues[index] ? rowValues[index].replace(/^["']|["']$/g, "") : "";
+      });
+      rows.push(rowObj);
+    }
+    return rows;
+  };
+
+  const handleCsvFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCsvError(null);
+    setCsvSuccess(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = parseCsvText(content);
+        setCsvParsedRows(parsed);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to parse CSV file.";
+        setCsvError(message);
+        setCsvParsedRows([]);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const executeCsvImport = () => {
+    if (csvParsedRows.length === 0) return;
+    setCsvError(null);
+
+    try {
+      const items = csvParsedRows.map((r) => ({
+        firstName: r.firstName || "Applicant",
+        middleName: r.middleName || "",
+        lastName: r.lastName || "",
+        dateOfBirth: r.dateOfBirth || "1990-01-01",
+        phone: r.phone || "(555) 000-0000",
+        email: r.email || "",
+        state: r.state || "IL",
+        licenseNumber: r.licenseNumber || "A" + Math.floor(Math.random() * 9000000 + 1000000),
+        status: (r.status as ApplicantStatus) || "Under Review",
+        appliedDate: r.appliedDate || new Date().toISOString().split("T")[0],
+        notes: r.notes || "",
+      }));
+
+      bulkAddApplicants(items);
+      setCsvSuccess(`Successfully imported ${items.length} applicants!`);
+      setTimeout(() => {
+        setIsCsvModalOpen(false);
+        setCsvParsedRows([]);
+        setCsvFileName("");
+        setCsvSuccess(null);
+      }, 1500);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to commit applicants.";
+      setCsvError(message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -290,13 +439,28 @@ export default function ApplicantsPage() {
           </p>
         </div>
 
-        <button
-          onClick={openAddModal}
-          className="inline-flex items-center space-x-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Applicant</span>
-        </button>
+        <div className="flex items-center space-x-2 self-start sm:self-auto">
+          <button
+            onClick={() => {
+              setCsvError(null);
+              setCsvSuccess(null);
+              setCsvParsedRows([]);
+              setCsvFileName("");
+              setIsCsvModalOpen(true);
+            }}
+            className="inline-flex items-center space-x-2 px-3.5 py-2.5 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-xs transition-colors"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Import CSV</span>
+          </button>
+          <button
+            onClick={openAddModal}
+            className="inline-flex items-center space-x-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Applicant</span>
+          </button>
+        </div>
       </div>
 
       {/* Driver / Applicant Tab Switcher */}
@@ -1027,6 +1191,160 @@ export default function ApplicantsPage() {
           onClose={() => setViewingDoc(null)}
           document={viewingDoc}
         />
+      )}
+
+      {/* CSV Import Modal */}
+      {isCsvModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Import Driver Applicants via CSV
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Upload your applicants spreadsheet to bulk-create applicant profiles.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCsvModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Template Download Card */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-slate-900 block">
+                  Official Applicants CSV Template
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Includes firstName, lastName, phone, dateOfBirth, state, licenseNumber, etc.
+                </span>
+              </div>
+              <button
+                onClick={downloadApplicantCsvTemplate}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-lg transition-colors shrink-0"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Template (.CSV)</span>
+              </button>
+            </div>
+
+            {/* Drop Zone */}
+            <div className="space-y-3">
+              <input
+                ref={csvFileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleCsvFileUpload}
+                className="hidden"
+                id="applicant-csv-input"
+              />
+              <label
+                htmlFor="applicant-csv-input"
+                className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl cursor-pointer bg-slate-50/50 hover:bg-blue-50/30 transition-all text-center"
+              >
+                <div className="p-3 bg-white border border-slate-200 rounded-full text-blue-600 shadow-xs mb-2">
+                  <Upload className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-800">
+                  {csvFileName ? csvFileName : "Click to select or drag your applicants CSV here"}
+                </span>
+                <span className="text-[11px] text-slate-400 mt-1">
+                  Accepts comma-separated (.csv) files exported from Excel, Google Sheets, or Numbers
+                </span>
+              </label>
+            </div>
+
+            {/* Error Message */}
+            {csvError && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start space-x-2.5 text-rose-800 text-xs">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-bold">Import Error:</strong>
+                  <span>{csvError}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {csvSuccess && (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start space-x-2.5 text-emerald-800 text-xs">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-bold">Success!</strong>
+                  <span>{csvSuccess}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Preview Table */}
+            {csvParsedRows.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">
+                    {csvParsedRows.length} Rows Detected (Previewing first 5)
+                  </span>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto max-h-56">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-100 text-slate-700 sticky top-0 font-bold border-b border-slate-200">
+                      <tr>
+                        <th className="p-2 text-[10px]">#</th>
+                        {Object.keys(csvParsedRows[0] || {}).map((header) => (
+                          <th key={header} className="p-2 text-[10px] whitespace-nowrap">
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {csvParsedRows.slice(0, 5).map((row, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/80">
+                          <td className="p-2 font-bold text-slate-400 text-[10px]">{idx + 1}</td>
+                          {Object.values(row).map((val, cIdx) => (
+                            <td key={cIdx} className="p-2 whitespace-nowrap text-slate-800 text-[11px]">
+                              {val || <span className="text-slate-300 italic">empty</span>}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsCsvModalOpen(false)}
+                className="px-4 py-2 font-medium text-slate-600 hover:bg-slate-100 rounded-xl text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={csvParsedRows.length === 0}
+                onClick={executeCsvImport}
+                className="px-4 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-xs text-xs flex items-center space-x-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Confirm & Import {csvParsedRows.length} Applicants</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

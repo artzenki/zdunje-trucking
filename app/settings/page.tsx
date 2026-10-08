@@ -21,11 +21,13 @@ import {
   RefreshCw,
   CloudUpload,
   CloudDownload,
+  UserCheck,
 } from "lucide-react";
 import {
   OwnershipType,
   EquipmentStatus,
   DriverStatus,
+  ApplicantStatus,
   ShopType,
   Truck as TruckType,
   Trailer as TrailerType,
@@ -42,7 +44,7 @@ import {
   ModulePermissions,
 } from "@/types/fleet";
 
-type ImportCategory = "trucks" | "trailers" | "drivers" | "shops";
+type ImportCategory = "trucks" | "trailers" | "drivers" | "shops" | "applicants";
 
 export default function SettingsPage() {
   const {
@@ -58,6 +60,7 @@ export default function SettingsPage() {
     bulkAddTrailers,
     bulkAddDrivers,
     bulkAddShops,
+    bulkAddApplicants,
     setAllFleetData,
     resetDataToDemo,
     syncWithCloud,
@@ -457,6 +460,36 @@ export default function SettingsPage() {
       ],
       description: "Import trusted maintenance repair shops and 24/7 roadside emergency vendors.",
     },
+    applicants: {
+      filename: "zdunje_applicants_template.csv",
+      headers: [
+        "firstName",
+        "middleName",
+        "lastName",
+        "dateOfBirth",
+        "phone",
+        "email",
+        "state",
+        "licenseNumber",
+        "status",
+        "appliedDate",
+        "notes",
+      ],
+      example: [
+        "Alex",
+        "Robert",
+        "Johnson",
+        "1986-11-20",
+        "(773) 555-0199",
+        "alex.johnson@example.com",
+        "IL",
+        "J492-8172-9102",
+        "Under Review",
+        "2026-10-01",
+        "3 years OTR experience, dry van & reefer background",
+      ],
+      description: "Import driver applicants for pre-employment qualification (MVR, PSP, CDL & MEDCard).",
+    },
   };
 
   const downloadCsvTemplate = (cat: ImportCategory) => {
@@ -479,7 +512,7 @@ export default function SettingsPage() {
   };
 
   const downloadAllTemplates = () => {
-    const categories: ImportCategory[] = ["trucks", "trailers", "drivers", "shops"];
+    const categories: ImportCategory[] = ["trucks", "trailers", "drivers", "shops", "applicants"];
     categories.forEach((cat, index) => {
       setTimeout(() => {
         downloadCsvTemplate(cat);
@@ -569,6 +602,21 @@ export default function SettingsPage() {
         sanitize(s.rating),
         sanitize(s.notes),
       ]);
+    } else if (cat === "applicants") {
+      headers = templates.applicants.headers;
+      rows = applicants.map((a) => [
+        sanitize(a.firstName),
+        sanitize(a.middleName || ""),
+        sanitize(a.lastName),
+        sanitize(a.dateOfBirth),
+        sanitize(a.phone),
+        sanitize(a.email || ""),
+        sanitize(a.state),
+        sanitize(a.licenseNumber),
+        sanitize(a.status),
+        sanitize(a.appliedDate),
+        sanitize(a.notes || ""),
+      ]);
     }
 
     const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -584,7 +632,7 @@ export default function SettingsPage() {
   };
 
   const exportAllCurrentData = () => {
-    const categories: ImportCategory[] = ["trucks", "trailers", "drivers", "shops"];
+    const categories: ImportCategory[] = ["trucks", "trailers", "drivers", "shops", "applicants"];
     categories.forEach((cat, index) => {
       setTimeout(() => {
         exportCurrentDataToCsv(cat);
@@ -740,6 +788,22 @@ export default function SettingsPage() {
         }));
         bulkAddShops(items);
         setImportSuccess(`Successfully imported ${items.length} shops! Click "Push to Cloud" to sync to Supabase.`);
+      } else if (activeCategory === "applicants") {
+        const items = parsedRows.map((r) => ({
+          firstName: r.firstName || "Applicant",
+          middleName: r.middleName || "",
+          lastName: r.lastName || "",
+          dateOfBirth: r.dateOfBirth || "1990-01-01",
+          phone: r.phone || "(555) 000-0000",
+          email: r.email || "",
+          state: r.state || "IL",
+          licenseNumber: r.licenseNumber || "A" + Math.floor(Math.random() * 9000000 + 1000000),
+          status: (r.status as ApplicantStatus) || "Under Review",
+          appliedDate: r.appliedDate || new Date().toISOString().split("T")[0],
+          notes: r.notes || "",
+        }));
+        bulkAddApplicants(items);
+        setImportSuccess(`Successfully imported ${items.length} applicants! Click "Push to Cloud" to sync to Supabase.`);
       }
 
       setParsedRows([]);
@@ -1002,6 +1066,37 @@ export default function SettingsPage() {
                   {shops.length}
                 </span>
               </button>
+
+              <button
+                onClick={() => {
+                  setActiveCategory("applicants");
+                  setParsedRows([]);
+                  setParseError(null);
+                  setImportSuccess(null);
+                }}
+                className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all ${
+                  activeCategory === "applicants"
+                    ? "bg-purple-50/70 border-purple-500 shadow-xs ring-1 ring-purple-500"
+                    : "border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div
+                    className={`p-2 rounded-lg ${
+                      activeCategory === "applicants" ? "bg-purple-600 text-white" : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    <UserCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900">Driver Applicants</h4>
+                    <p className="text-[11px] text-slate-500">Screening, MVR, PSP, CDL & MED</p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-slate-600 px-2 py-0.5 bg-white border border-slate-200 rounded-md">
+                  {applicants.length}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -1040,7 +1135,7 @@ export default function SettingsPage() {
                 className="w-full inline-flex items-center justify-center space-x-2 px-4 py-2 text-xs font-semibold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Download ALL 4 CSV Templates</span>
+                <span>Download ALL 5 CSV Templates</span>
               </button>
             </div>
 

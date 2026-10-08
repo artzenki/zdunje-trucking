@@ -152,6 +152,7 @@ interface FleetContextType {
   bulkAddTrailers: (trailers: Omit<Trailer, "id" | "documents">[]) => void;
   bulkAddDrivers: (drivers: Omit<Driver, "id" | "documents">[]) => void;
   bulkAddShops: (shops: Omit<TruckShop, "id">[]) => void;
+  bulkAddApplicants: (applicants: Omit<Applicant, "id" | "documents">[]) => void;
 
   // Users & Permissions
   users: AppUser[];
@@ -1909,6 +1910,51 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     cloudUpsert("shops", newShops.map(shopToRow));
   };
 
+  const bulkAddApplicants = (items: Omit<Applicant, "id" | "documents">[]) => {
+    const timestamp = Date.now();
+    setApplicants((prev) => {
+      const updatedList = [...prev];
+      const toUpsert: Applicant[] = [];
+
+      items.forEach((data, idx) => {
+        const existingIdx = updatedList.findIndex(
+          (a) =>
+            (data.licenseNumber && a.licenseNumber?.trim().toLowerCase() === data.licenseNumber.trim().toLowerCase()) ||
+            (`${a.firstName} ${a.lastName}`.trim().toLowerCase() === `${data.firstName} ${data.lastName}`.trim().toLowerCase())
+        );
+
+        if (existingIdx !== -1) {
+          const existing = updatedList[existingIdx];
+          const merged: Applicant = {
+            ...existing,
+            ...data,
+            documents: existing.documents,
+          };
+          updatedList[existingIdx] = merged;
+          toUpsert.push(merged);
+        } else {
+          const newApplicant: Applicant = {
+            ...data,
+            id: `app-${timestamp}-${idx}`,
+            appliedDate: data.appliedDate || new Date().toISOString().split("T")[0],
+            documents: {
+              cdl: null,
+              medCard: null,
+              mvr: null,
+              pspAuth: null,
+              pspReport: null,
+            },
+          };
+          updatedList.unshift(newApplicant);
+          toUpsert.push(newApplicant);
+        }
+      });
+
+      cloudUpsert("applicants", toUpsert.map(applicantToRow));
+      return updatedList;
+    });
+  };
+
   // User Management
   const addUser = (newUser: Omit<AppUser, "id" | "createdAt">) => {
     const user: AppUser = {
@@ -2123,6 +2169,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         bulkAddTrailers,
         bulkAddDrivers,
         bulkAddShops,
+        bulkAddApplicants,
         setAllFleetData,
         resetDataToDemo,
         cloudSyncStatus,

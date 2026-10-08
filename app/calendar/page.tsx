@@ -6,13 +6,13 @@ import {
   PaymentReminder,
   PaymentCategory,
   PaymentReminderStatus,
+  FleetDocument,
 } from "@/types/fleet";
 import {
   CalendarDays,
   Plus,
   Clock,
   DollarSign,
-  CheckCircle2,
   AlertCircle,
   ChevronLeft,
   ChevronRight,
@@ -24,6 +24,10 @@ import {
   Check,
   X,
   Repeat,
+  ShieldAlert,
+  Users,
+  Award,
+  FileText,
 } from "lucide-react";
 
 const CATEGORY_COLORS: Record<
@@ -109,7 +113,12 @@ function CalendarPageContent() {
   const [viewMode, setViewMode] = useState<"calendar" | "agenda">("calendar");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Completed">("All");
+  // Today ISO
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  // Category & Type filters
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
+  const [calendarType, setCalendarType] = useState<"all" | "payments" | "expirations">("all");
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -130,8 +139,93 @@ function CalendarPageContent() {
     recurrence: "Monthly" as "Once" | "Weekly" | "Monthly" | "Quarterly" | "Yearly",
   });
 
-  // Today ISO
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  // Driver Expiration Events
+  const driverExpirations = useMemo(() => {
+    const events: {
+      id: string;
+      driverId: string;
+      driverName: string;
+      phone: string;
+      licenseNumber: string;
+      documentType: "CDL" | "Medical Card (MEDCard)" | "MVR" | "Other";
+      documentName: string;
+      date: string; // YYYY-MM-DD
+      daysRemaining: number;
+      status: "expired" | "urgent" | "due_soon" | "upcoming";
+      category: "Driver Expiration";
+    }[] = [];
+
+    const today = new Date(todayStr);
+
+    (drivers || []).forEach((d) => {
+      if (d.status === "Inactive") return; // active driver tracking
+      const name = `${d.firstName} ${d.lastName}`;
+      const dDocs = d.documents || {};
+
+      const checkDocExp = (
+        doc: FleetDocument | null | undefined,
+        docType: "CDL" | "Medical Card (MEDCard)" | "MVR" | "Other"
+      ) => {
+        if (!doc || !doc.expirationDate) return;
+        const expDate = doc.expirationDate.split("T")[0];
+        const expObj = new Date(expDate);
+        const diffTime = expObj.getTime() - today.getTime();
+        const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        events.push({
+          id: `driver-exp-${d.id}-${docType}-${expDate}`,
+          driverId: d.id,
+          driverName: name,
+          phone: d.phone,
+          licenseNumber: d.licenseNumber,
+          documentType: docType,
+          documentName: doc.name || docType,
+          date: expDate,
+          daysRemaining,
+          status:
+            daysRemaining <= 0
+              ? "expired"
+              : daysRemaining <= 15
+              ? "urgent"
+              : daysRemaining <= 30
+              ? "due_soon"
+              : "upcoming",
+          category: "Driver Expiration",
+        });
+      };
+
+      checkDocExp(dDocs.cdl, "CDL");
+      checkDocExp(dDocs.medCard, "Medical Card (MEDCard)");
+      checkDocExp(dDocs.mvr, "MVR");
+    });
+
+    return events;
+  }, [drivers, todayStr]);
+
+  // Group driver expirations by date
+  const expirationsByDate = useMemo(() => {
+    const map: Record<string, typeof driverExpirations> = {};
+    driverExpirations.forEach((item) => {
+      if (!map[item.date]) map[item.date] = [];
+      map[item.date].push(item);
+    });
+    return map;
+  }, [driverExpirations]);
+
+  // Expiration metrics
+  const expirationMetrics = useMemo(() => {
+    const dueWithin30 = driverExpirations.filter((e) => e.daysRemaining >= 0 && e.daysRemaining <= 30);
+    const expired = driverExpirations.filter((e) => e.daysRemaining < 0);
+    const cdlCount = dueWithin30.filter((e) => e.documentType === "CDL").length;
+    const medCardCount = dueWithin30.filter((e) => e.documentType === "Medical Card (MEDCard)").length;
+
+    return {
+      dueWithin30Count: dueWithin30.length,
+      expiredCount: expired.length,
+      cdlDueCount: cdlCount,
+      medCardDueCount: medCardCount,
+    };
+  }, [driverExpirations]);
 
   // Filtered Reminders
   const filteredReminders = useMemo(() => {
@@ -279,6 +373,11 @@ function CalendarPageContent() {
     return remindersByDate[selectedDay] || [];
   }, [selectedDay, remindersByDate]);
 
+  const activeDayExpirations = useMemo(() => {
+    if (!selectedDay) return [];
+    return expirationsByDate[selectedDay] || [];
+  }, [selectedDay, expirationsByDate]);
+
   return (
     <div className="space-y-6">
       {/* Top Header & Overview */}
@@ -332,52 +431,153 @@ function CalendarPageContent() {
         </div>
       </div>
 
-      {/* Metrics Banner */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Pending Total</span>
-            <DollarSign className="w-4 h-4 text-blue-600" />
-          </div>
-          <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">
-            ${metrics.totalPendingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <span className="text-[11px] text-slate-400">Scheduled payouts</span>
+      {/* Calendar Mode Selector Tabs: Payments vs Driver Document Expirations */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div className="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600">
+          <button
+            onClick={() => setCalendarType("all")}
+            className={`px-3 py-1.5 rounded-lg transition-all ${
+              calendarType === "all"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "hover:text-slate-900"
+            }`}
+          >
+            All Events ({reminders.length + driverExpirations.length})
+          </button>
+          <button
+            onClick={() => setCalendarType("expirations")}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg transition-all ${
+              calendarType === "expirations"
+                ? "bg-amber-500 text-white shadow-xs"
+                : "hover:text-amber-800"
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span>Driver Expirations ({driverExpirations.length})</span>
+            {expirationMetrics.dueWithin30Count > 0 && (
+              <span className="px-1.5 py-0.2 bg-amber-600 text-white rounded-full text-[10px]">
+                {expirationMetrics.dueWithin30Count} due
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setCalendarType("payments")}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg transition-all ${
+              calendarType === "payments"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "hover:text-blue-800"
+            }`}
+          >
+            <DollarSign className="w-3.5 h-3.5" />
+            <span>Payment Reminders ({reminders.length})</span>
+          </button>
         </div>
 
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Due Today</span>
-            <Clock className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">
-            {metrics.dueTodayCount}
-          </div>
-          <span className="text-[11px] text-amber-600 font-medium">Requires attention today</span>
-        </div>
-
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Overdue</span>
-            <AlertCircle className="w-4 h-4 text-rose-500" />
-          </div>
-          <div className="mt-2 text-2xl font-black text-rose-600 tracking-tight">
-            {metrics.overdueCount}
-          </div>
-          <span className="text-[11px] text-rose-500 font-medium">Past due date</span>
-        </div>
-
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Completed</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-          </div>
-          <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">
-            {metrics.completedCount}
-          </div>
-          <span className="text-[11px] text-slate-400">Paid & settled records</span>
+        {/* 1 Month Prior Notice Indicator */}
+        <div className="inline-flex items-center space-x-2 px-3 py-1.5 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-900">
+          <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            <strong>1-Month Expiration Alert:</strong> Highlights CDL & MEDCard renewals due within 30 days.
+          </span>
         </div>
       </div>
+
+      {/* Metrics Banner */}
+      {calendarType === "expirations" ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-semibold uppercase tracking-wider">Due in 30 Days</span>
+              <Clock className="w-4 h-4 text-amber-600" />
+            </div>
+            <div className="mt-2 text-2xl font-black text-amber-600 tracking-tight">
+              {expirationMetrics.dueWithin30Count}
+            </div>
+            <span className="text-[11px] text-amber-700 font-medium">Requires renewal / appointment</span>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-semibold uppercase tracking-wider">CDL Due (30d)</span>
+              <Award className="w-4 h-4 text-blue-600" />
+            </div>
+            <div className="mt-2 text-2xl font-black text-blue-700 tracking-tight">
+              {expirationMetrics.cdlDueCount}
+            </div>
+            <span className="text-[11px] text-slate-400">Driver License renewals</span>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-semibold uppercase tracking-wider">MEDCard Due (30d)</span>
+              <FileText className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="mt-2 text-2xl font-black text-emerald-700 tracking-tight">
+              {expirationMetrics.medCardDueCount}
+            </div>
+            <span className="text-[11px] text-slate-400">DOT Physical Exam renewals</span>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-semibold uppercase tracking-wider">Expired</span>
+              <AlertCircle className="w-4 h-4 text-rose-500" />
+            </div>
+            <div className="mt-2 text-2xl font-black text-rose-600 tracking-tight">
+              {expirationMetrics.expiredCount}
+            </div>
+            <span className="text-[11px] text-rose-500 font-medium">Out of compliance</span>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-semibold uppercase tracking-wider">Pending Total</span>
+              <DollarSign className="w-4 h-4 text-blue-600" />
+            </div>
+            <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">
+              ${metrics.totalPendingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <span className="text-[11px] text-slate-400">Scheduled payouts</span>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-semibold uppercase tracking-wider">Due Today</span>
+              <Clock className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">
+              {metrics.dueTodayCount}
+            </div>
+            <span className="text-[11px] text-amber-600 font-medium">Requires attention today</span>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-semibold uppercase tracking-wider">Expiring / Overdue</span>
+              <AlertCircle className="w-4 h-4 text-rose-500" />
+            </div>
+            <div className="mt-2 text-2xl font-black text-rose-600 tracking-tight">
+              {metrics.overdueCount + expirationMetrics.expiredCount}
+            </div>
+            <span className="text-[11px] text-rose-500 font-medium">
+              {metrics.overdueCount} payments, {expirationMetrics.expiredCount} docs
+            </span>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-semibold uppercase tracking-wider">Driver Expirations (30d)</span>
+              <ShieldAlert className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="mt-2 text-2xl font-black text-amber-600 tracking-tight">
+              {expirationMetrics.dueWithin30Count}
+            </div>
+            <span className="text-[11px] text-slate-400">CDL & MEDCard due soon</span>
+          </div>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -479,7 +679,10 @@ function CalendarPageContent() {
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const dayNum = i + 1;
                 const formattedDay = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-                const dayReminders = remindersByDate[formattedDay] || [];
+                const dayReminders = (calendarType === "expirations" ? [] : remindersByDate[formattedDay]) || [];
+                const dayExpirations = (calendarType === "payments" ? [] : expirationsByDate[formattedDay]) || [];
+                const totalDayItems = dayReminders.length + dayExpirations.length;
+                const hasExpirations = dayExpirations.length > 0;
                 const isToday = formattedDay === todayStr;
                 const isSelected = selectedDay === formattedDay;
 
@@ -490,8 +693,10 @@ function CalendarPageContent() {
                     className={`min-h-[88px] p-2 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
                       isSelected
                         ? "border-blue-600 bg-blue-50/30 ring-2 ring-blue-500/20 shadow-sm"
+                        : hasExpirations
+                        ? "border-amber-300 bg-amber-50/20 hover:border-amber-400"
                         : isToday
-                        ? "border-amber-300 bg-amber-50/20"
+                        ? "border-blue-300 bg-blue-50/20"
                         : "border-slate-200/70 hover:border-slate-300 bg-white hover:bg-slate-50/60"
                     }`}
                   >
@@ -502,43 +707,79 @@ function CalendarPageContent() {
                             ? "bg-blue-600 text-white"
                             : isSelected
                             ? "bg-slate-900 text-white"
+                            : hasExpirations
+                            ? "bg-amber-500 text-white"
                             : "text-slate-700"
                         }`}
                       >
                         {dayNum}
                       </span>
-                      {dayReminders.length > 0 && (
-                        <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600">
-                          {dayReminders.length}
-                        </span>
+                      {totalDayItems > 0 && (
+                        <div className="flex items-center space-x-1">
+                          {hasExpirations && (
+                            <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 flex items-center space-x-0.5">
+                              <ShieldAlert className="w-2.5 h-2.5" />
+                              <span>{dayExpirations.length}</span>
+                            </span>
+                          )}
+                          {dayReminders.length > 0 && (
+                            <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600">
+                              {dayReminders.length}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
 
-                    {/* Compact Reminders List inside day */}
+                    {/* Compact Items List inside day (Expirations first, then Reminders) */}
                     <div className="space-y-1 mt-1 overflow-hidden">
-                      {dayReminders.slice(0, 2).map((item) => (
+                      {/* Driver Expirations inside Day Cell */}
+                      {dayExpirations.slice(0, 2).map((exp) => (
                         <div
-                          key={item.id}
-                          className={`text-[10px] px-1.5 py-0.5 rounded truncate font-semibold flex items-center space-x-1 ${
-                            item.status === "Completed"
-                              ? "bg-emerald-100 text-emerald-800 line-through opacity-70"
-                              : CATEGORY_COLORS[item.category]?.bg || "bg-blue-50 text-blue-700"
+                          key={exp.id}
+                          className={`text-[10px] px-1.5 py-0.5 rounded truncate font-bold flex items-center space-x-1 ${
+                            exp.status === "expired"
+                              ? "bg-rose-100 text-rose-800"
+                              : exp.status === "urgent"
+                              ? "bg-amber-100 text-amber-900"
+                              : "bg-orange-50 text-orange-800 border border-orange-200/60"
                           }`}
-                          title={`${item.time} - ${item.name} (${item.status})`}
+                          title={`${exp.driverName} - ${exp.documentType} Expiring (${exp.daysRemaining <= 0 ? "EXPIRED" : exp.daysRemaining + " days left"})`}
                         >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                              item.status === "Completed"
-                                ? "bg-emerald-500"
-                                : CATEGORY_COLORS[item.category]?.dot || "bg-blue-600"
-                            }`}
-                          />
-                          <span className="truncate">{item.time} {item.name}</span>
+                          <ShieldAlert className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                          <span className="truncate">
+                            {exp.documentType === "Medical Card (MEDCard)" ? "MED" : exp.documentType}: {exp.driverName}
+                          </span>
                         </div>
                       ))}
-                      {dayReminders.length > 2 && (
+
+                      {/* Payment Reminders inside Day Cell */}
+                      {dayReminders
+                        .slice(0, Math.max(0, 2 - dayExpirations.length))
+                        .map((item) => (
+                          <div
+                            key={item.id}
+                            className={`text-[10px] px-1.5 py-0.5 rounded truncate font-semibold flex items-center space-x-1 ${
+                              item.status === "Completed"
+                                ? "bg-emerald-100 text-emerald-800 line-through opacity-70"
+                                : CATEGORY_COLORS[item.category]?.bg || "bg-blue-50 text-blue-700"
+                            }`}
+                            title={`${item.time} - ${item.name} (${item.status})`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                item.status === "Completed"
+                                  ? "bg-emerald-500"
+                                  : CATEGORY_COLORS[item.category]?.dot || "bg-blue-600"
+                              }`}
+                            />
+                            <span className="truncate">{item.time} {item.name}</span>
+                          </div>
+                        ))}
+
+                      {totalDayItems > 2 && (
                         <span className="text-[9px] font-bold text-slate-400 pl-1">
-                          +{dayReminders.length - 2} more
+                          +{totalDayItems - 2} more
                         </span>
                       )}
                     </div>
@@ -579,13 +820,13 @@ function CalendarPageContent() {
             </div>
 
             {selectedDay ? (
-              activeDayReminders.length === 0 ? (
+              activeDayReminders.length === 0 && activeDayExpirations.length === 0 ? (
                 <div className="py-12 text-center space-y-3">
                   <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mx-auto">
                     <CalendarDays className="w-6 h-6" />
                   </div>
                   <p className="text-xs text-slate-500 font-medium">
-                    No payment reminders scheduled for this date.
+                    No payment reminders or driver document expirations for this date.
                   </p>
                   <button
                     onClick={() => handleOpenCreateModal(selectedDay)}
@@ -597,6 +838,65 @@ function CalendarPageContent() {
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                  {/* Driver Expirations for the Selected Day */}
+                  {activeDayExpirations.map((exp) => (
+                    <div
+                      key={exp.id}
+                      className="p-3.5 rounded-xl border border-amber-300 bg-amber-50/40 shadow-xs space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
+                            <ShieldAlert className="w-3 h-3 text-amber-600" />
+                            <span>DRIVER EXPIRATION (1 MO PRIOR NOTICE)</span>
+                          </span>
+                          <h4 className="text-xs font-bold text-slate-900">
+                            {exp.driverName} - {exp.documentType} Renewal Due
+                          </h4>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${
+                            exp.status === "expired"
+                              ? "bg-rose-100 text-rose-800"
+                              : exp.status === "urgent"
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {exp.daysRemaining <= 0
+                            ? "EXPIRED"
+                            : exp.daysRemaining === 0
+                            ? "Due Today"
+                            : `${exp.daysRemaining} days remaining`}
+                        </span>
+                      </div>
+
+                      <div className="text-[11px] text-slate-600 space-y-1 bg-white p-2.5 rounded-lg border border-amber-200/60">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Document:</span>
+                          <span className="font-semibold text-slate-800">{exp.documentName}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">CDL License #:</span>
+                          <span className="font-mono text-slate-700">{exp.licenseNumber || "N/A"}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Driver Phone:</span>
+                          <span className="font-medium text-blue-700">{exp.phone || "N/A"}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-1 flex items-center justify-end">
+                        <a
+                          href={`/drivers?id=${exp.driverId}`}
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-bold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg transition-colors"
+                        >
+                          <Users className="w-3 h-3" />
+                          <span>View Driver Profile & Upload New Doc</span>
+                        </a>
+                      </div>
+                    </div>
+                  ))}
                   {activeDayReminders.map((item) => (
                     <div
                       key={item.id}
@@ -714,21 +1014,110 @@ function CalendarPageContent() {
 
       {/* AGENDA / LIST VIEW */}
       {viewMode === "agenda" && (
-        <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-900">
-              Chronological Reminders List ({filteredReminders.length})
-            </h2>
-            <span className="text-xs text-slate-500">Sorted by payment due date</span>
-          </div>
+        <div className="space-y-6">
+          {/* Driver Document Expirations Section in Agenda */}
+          {(calendarType === "all" || calendarType === "expirations") && driverExpirations.length > 0 && (
+            <div className="bg-white border border-amber-200/80 rounded-2xl shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-amber-100 bg-amber-50/50 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <ShieldAlert className="w-4 h-4 text-amber-600" />
+                  <h2 className="text-sm font-bold text-slate-900">
+                    Driver Qualification Expirations ({driverExpirations.length})
+                  </h2>
+                </div>
+                <span className="text-xs text-amber-800 font-semibold">
+                  1 Month Prior Notice & Status
+                </span>
+              </div>
 
-          {filteredReminders.length === 0 ? (
-            <div className="p-12 text-center space-y-2">
-              <CalendarDays className="w-8 h-8 text-slate-300 mx-auto" />
-              <p className="text-xs text-slate-500 font-medium">No payment reminders match your filters.</p>
+              <div className="divide-y divide-amber-100/60">
+                {driverExpirations
+                  .slice()
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map((exp) => (
+                    <div
+                      key={exp.id}
+                      className="p-4 hover:bg-amber-50/30 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
+                    >
+                      <div className="flex items-start space-x-3 flex-1">
+                        <div className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+                          <ShieldAlert className="w-4 h-4" />
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900">
+                              {exp.documentType}
+                            </span>
+
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                                exp.status === "expired"
+                                  ? "bg-rose-100 text-rose-800"
+                                  : exp.status === "urgent"
+                                  ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                  : "bg-amber-100 text-amber-900"
+                              }`}
+                            >
+                              {exp.daysRemaining <= 0
+                                ? "EXPIRED"
+                                : exp.daysRemaining === 0
+                                ? "Expires Today"
+                                : `Expires in ${exp.daysRemaining} days`}
+                            </span>
+                          </div>
+
+                          <h3 className="text-sm font-bold text-slate-900">
+                            {exp.driverName} - {exp.documentName}
+                          </h3>
+
+                          <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 pt-1">
+                            <span className="flex items-center space-x-1 font-semibold text-slate-700">
+                              <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Expiration: {exp.date}</span>
+                            </span>
+                            <span className="text-slate-500">
+                              License: <strong>{exp.licenseNumber || "N/A"}</strong>
+                            </span>
+                            <span className="text-slate-500">
+                              Phone: <strong>{exp.phone || "N/A"}</strong>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <a
+                          href={`/drivers?id=${exp.driverId}`}
+                          className="px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-colors flex items-center space-x-1.5"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          <span>View Driver Profile</span>
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+              </div>
             </div>
-          ) : (
-            <div className="divide-y divide-slate-100">
+          )}
+
+          {/* Payment Reminders Section in Agenda */}
+          {(calendarType === "all" || calendarType === "payments") && (
+            <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <h2 className="text-sm font-bold text-slate-900">
+                  Chronological Reminders List ({filteredReminders.length})
+                </h2>
+                <span className="text-xs text-slate-500">Sorted by payment due date</span>
+              </div>
+
+              {filteredReminders.length === 0 ? (
+                <div className="p-12 text-center space-y-2">
+                  <CalendarDays className="w-8 h-8 text-slate-300 mx-auto" />
+                  <p className="text-xs text-slate-500 font-medium">No payment reminders match your filters.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
               {filteredReminders
                 .slice()
                 .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
@@ -860,6 +1249,8 @@ function CalendarPageContent() {
                 })}
             </div>
           )}
+        </div>
+      )}
         </div>
       )}
 
