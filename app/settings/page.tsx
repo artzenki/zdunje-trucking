@@ -267,7 +267,10 @@ export default function SettingsPage() {
         id: String(s.id),
         businessName: String(s.business_name),
         businessAddress: String(s.business_address || ""),
+        address: s.address !== undefined && s.address !== null ? String(s.address) : undefined,
+        city: s.city !== undefined && s.city !== null ? String(s.city) : undefined,
         state: String(s.state || "IL"),
+        zip: s.zip !== undefined && s.zip !== null ? String(s.zip) : undefined,
         phone: String(s.phone || ""),
         shopType: (s.shop_type || "Both") as ShopType,
         repairCategories: (s.repair_categories || []) as string[],
@@ -465,7 +468,10 @@ export default function SettingsPage() {
       headers: [
         "businessName",
         "businessAddress",
+        "address",
+        "city",
         "state",
+        "zip",
         "phone",
         "shopType",
         "repairCategories",
@@ -479,7 +485,10 @@ export default function SettingsPage() {
       example: [
         "Speedco Truck Lube & Tire #308",
         "2500 E 175th St, Lansing, IL 60438",
+        "2500 E 175th St",
+        "Lansing",
         "IL",
+        "60438",
         "(708) 474-0400",
         "Shop",
         "PM-A (Oil & Lube); Tires & Alignment",
@@ -623,7 +632,10 @@ export default function SettingsPage() {
       rows = shops.map((s) => [
         sanitize(s.businessName),
         sanitize(s.businessAddress),
+        sanitize(s.address || ""),
+        sanitize(s.city || ""),
         sanitize(s.state),
+        sanitize(s.zip || ""),
         sanitize(s.phone),
         sanitize(s.shopType),
         sanitize(s.repairCategories?.join("; ") || ""),
@@ -802,22 +814,39 @@ export default function SettingsPage() {
         bulkAddDrivers(items);
         setImportSuccess(`Successfully imported ${items.length} drivers! Click "Push to Cloud" to sync to Supabase.`);
       } else if (activeCategory === "shops") {
-        const items = parsedRows.map((r) => ({
-          businessName: r.businessName || "Fleet Service Center",
-          businessAddress: r.businessAddress || "",
-          state: r.state || "IL",
-          phone: r.phone || "",
-          shopType: (r.shopType as ShopType) || "Both",
-          repairCategories: r.repairCategories
-            ? r.repairCategories.split(";").map((c) => c.trim())
-            : ["PM-A (Oil & Lube)", "Tires & Alignment"],
-          descriptionOfWork: r.descriptionOfWork || "",
-          googleMapsUrl: r.googleMapsUrl || "",
-          laborRatePerHour: parseFloat(r.laborRatePerHour) || 135,
-          calloutFee: parseFloat(r.calloutFee) || 0,
-          rating: parseInt(r.rating, 10) || 5,
-          notes: r.notes || "",
-        }));
+        const items = parsedRows.map((r) => {
+          const streetAddr = r.address || "";
+          const cityVal = r.city || "";
+          const stateVal = (r.state || "IL").trim().toUpperCase();
+          const zipVal = r.zip || "";
+
+          // Synthesize full businessAddress if not explicitly provided
+          const fullAddress =
+            r.businessAddress ||
+            [streetAddr, cityVal, stateVal ? `${stateVal} ${zipVal}`.trim() : zipVal]
+              .filter(Boolean)
+              .join(", ");
+
+          return {
+            businessName: r.businessName || "Fleet Service Center",
+            businessAddress: fullAddress,
+            address: streetAddr,
+            city: cityVal,
+            state: stateVal || "IL",
+            zip: zipVal,
+            phone: r.phone || "",
+            shopType: (r.shopType as ShopType) || "Both",
+            repairCategories: r.repairCategories
+              ? r.repairCategories.split(";").map((c) => c.trim())
+              : ["PM-A (Oil & Lube)", "Tires & Alignment"],
+            descriptionOfWork: r.descriptionOfWork || "",
+            googleMapsUrl: r.googleMapsUrl || "",
+            laborRatePerHour: parseFloat(r.laborRatePerHour) || 135,
+            calloutFee: parseFloat(r.calloutFee) || 0,
+            rating: parseInt(r.rating, 10) || 5,
+            notes: r.notes || "",
+          };
+        });
         bulkAddShops(items);
         setImportSuccess(`Successfully imported ${items.length} shops! Click "Push to Cloud" to sync to Supabase.`);
       } else if (activeCategory === "applicants") {

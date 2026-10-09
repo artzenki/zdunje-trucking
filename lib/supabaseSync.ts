@@ -313,7 +313,10 @@ export const shopToRow = (s: TruckShop) => ({
   id: s.id,
   business_name: s.businessName,
   business_address: s.businessAddress || "",
+  address: s.address || "",
+  city: s.city || "",
   state: s.state || "IL",
+  zip: s.zip || "",
   phone: s.phone || "",
   shop_type: s.shopType || "Both",
   repair_categories: s.repairCategories || [],
@@ -325,21 +328,27 @@ export const shopToRow = (s: TruckShop) => ({
   notes: s.notes || "",
 });
 
-export const rowToShop = (s: Record<string, unknown>): TruckShop => ({
-  id: String(s.id),
-  businessName: String(s.business_name),
-  businessAddress: String(s.business_address || ""),
-  state: String(s.state || "IL"),
-  phone: String(s.phone || ""),
-  shopType: (s.shop_type || "Both") as ShopType,
-  repairCategories: (s.repair_categories || []) as string[],
-  descriptionOfWork: String(s.description_of_work || ""),
-  googleMapsUrl: String(s.google_maps_url || ""),
-  laborRatePerHour: Number(s.labor_rate_per_hour || 0),
-  calloutFee: Number(s.callout_fee || 0),
-  rating: Number(s.rating || 5),
-  notes: String(s.notes || ""),
-});
+export const rowToShop = (s: Record<string, unknown>): TruckShop => {
+  const fullAddress = String(s.business_address || "");
+  return {
+    id: String(s.id),
+    businessName: String(s.business_name),
+    businessAddress: fullAddress,
+    address: s.address !== undefined && s.address !== null ? String(s.address) : undefined,
+    city: s.city !== undefined && s.city !== null ? String(s.city) : undefined,
+    state: String(s.state || "IL"),
+    zip: s.zip !== undefined && s.zip !== null ? String(s.zip) : undefined,
+    phone: String(s.phone || ""),
+    shopType: (s.shop_type || "Both") as ShopType,
+    repairCategories: (s.repair_categories || []) as string[],
+    descriptionOfWork: String(s.description_of_work || ""),
+    googleMapsUrl: String(s.google_maps_url || ""),
+    laborRatePerHour: Number(s.labor_rate_per_hour || 0),
+    calloutFee: Number(s.callout_fee || 0),
+    rating: Number(s.rating || 5),
+    notes: String(s.notes || ""),
+  };
+};
 
 export const maintenanceToRow = (m: MaintenanceRecord) => ({
   id: m.id,

@@ -216,7 +216,10 @@ export interface TruckShop {
   id: string;
   businessName: string;
   businessAddress: string;
-  state: string;
+  address?: string; // Street Address
+  city?: string; // City
+  state: string; // State (2-letter or name)
+  zip?: string; // ZIP / Postal code
   phone: string;
   shopType: ShopType;
   repairCategories: string[];
