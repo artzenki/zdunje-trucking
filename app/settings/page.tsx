@@ -22,7 +22,19 @@ import {
   CloudUpload,
   CloudDownload,
   UserCheck,
+  FolderArchive,
+  FileText,
+  Archive,
+  AlertCircle,
+  FileDown,
 } from "lucide-react";
+import {
+  ExportCategoryKey,
+  ExportDataFormat,
+  ExportPackageType,
+  ExportProgress,
+  buildFleetExportArchive,
+} from "@/lib/fleetExporter";
 import {
   OwnershipType,
   EquipmentStatus,
@@ -73,6 +85,26 @@ export default function SettingsPage() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Settings Sub-tab: Import vs Export
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"import" | "export">("import");
+
+  // Export Center Configuration State
+  const [exportCategories, setExportCategories] = useState<ExportCategoryKey[]>([
+    "drivers",
+    "applicants",
+    "trucks",
+    "trailers",
+    "maintenance",
+    "shops",
+    "payments",
+  ]);
+  const [exportFormat, setExportFormat] = useState<ExportDataFormat>("xlsx");
+  const [exportPackageType, setExportPackageType] = useState<ExportPackageType>("full_archive");
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
+  const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
+  const [exportErrorMessage, setExportErrorMessage] = useState<string | null>(null);
 
   // Supabase Sync States
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
@@ -835,6 +867,86 @@ export default function SettingsPage() {
     }
   };
 
+  // Toggle export category selection
+  const toggleExportCategory = (key: ExportCategoryKey) => {
+    setExportCategories((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
+  const selectAllExportCategories = () => {
+    setExportCategories([
+      "drivers",
+      "applicants",
+      "trucks",
+      "trailers",
+      "maintenance",
+      "shops",
+      "payments",
+    ]);
+  };
+
+  const deselectAllExportCategories = () => {
+    setExportCategories([]);
+  };
+
+  // Trigger master export
+  const handleMasterExport = async () => {
+    if (exportCategories.length === 0) {
+      setExportErrorMessage("Please select at least one fleet category to export.");
+      return;
+    }
+
+    setIsExporting(true);
+    setExportErrorMessage(null);
+    setExportSuccessMessage(null);
+    setExportProgress({
+      totalSteps: 100,
+      currentStep: 1,
+      percentage: 2,
+      statusMessage: "Initializing export engine...",
+    });
+
+    try {
+      const { blob, fileName } = await buildFleetExportArchive({
+        categories: exportCategories,
+        format: exportFormat,
+        packageType: exportPackageType,
+        fleetData: {
+          drivers,
+          applicants: applicants || [],
+          trucks,
+          trailers,
+          maintenance: maintenanceRecords,
+          shops,
+          payments: reminders,
+        },
+        onProgress: (p) => {
+          setExportProgress(p);
+        },
+      });
+
+      // Trigger Browser Download
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setExportSuccessMessage(
+        `Successfully exported "${fileName}"! Check your downloads folder.`
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Export encountered an unexpected error.";
+      setExportErrorMessage(`Export failed: ${msg}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-12">
       {/* Header */}
@@ -932,8 +1044,39 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Main Grid: CSV Importer & Template Download */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Sub-Tabs: Import Data vs Export Center */}
+      <div className="flex items-center space-x-3 border-b border-slate-200 pb-1">
+        <button
+          onClick={() => setActiveSettingsTab("import")}
+          className={`flex items-center space-x-2 px-5 py-3 rounded-xl font-bold text-sm transition-all border-b-2 -mb-1 ${
+            activeSettingsTab === "import"
+              ? "border-blue-600 text-blue-600 bg-blue-50/50 shadow-xs"
+              : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+          }`}
+        >
+          <Upload className="w-4 h-4" />
+          <span>Import CSV Data</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSettingsTab("export")}
+          className={`flex items-center space-x-2 px-5 py-3 rounded-xl font-bold text-sm transition-all border-b-2 -mb-1 ${
+            activeSettingsTab === "export"
+              ? "border-emerald-600 text-emerald-700 bg-emerald-50/50 shadow-xs"
+              : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+          }`}
+        >
+          <FolderArchive className="w-4 h-4 text-emerald-600" />
+          <span>Fleet Export & Document Archive</span>
+          <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+            Dossier & .ZIP
+          </span>
+        </button>
+      </div>
+
+      {/* CONDITIONAL CONTENT: IMPORT VIEW */}
+      {activeSettingsTab === "import" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Category Selector & Templates */}
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
@@ -1316,6 +1459,580 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      )}
+
+      {/* CONDITIONAL CONTENT: EXPORT & ARCHIVE CENTER */}
+      {activeSettingsTab === "export" && (
+        <div className="space-y-6 animate-in fade-in-50 duration-200">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 border border-emerald-900/50 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                <FolderArchive className="w-4 h-4" />
+                <span>Enterprise Fleet Archive & Dossier Exporter</span>
+              </div>
+              <h2 className="text-xl font-black text-white tracking-tight">
+                Download Organized Dossiers, Document Vaults & Spreadsheets
+              </h2>
+              <p className="text-xs text-slate-300">
+                Generate a complete backup package with individual folders per driver and vehicle.
+                For any unfiled documents, automated <span className="font-mono text-emerald-300 font-semibold">(empty)</span> folders are generated with audit notices.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2 shrink-0">
+              <button
+                onClick={selectAllExportCategories}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all"
+              >
+                Select All
+              </button>
+              <button
+                onClick={deselectAllExportCategories}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 rounded-xl transition-all"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          {/* Feedback Banners */}
+          {exportSuccessMessage && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center space-x-3 text-emerald-800 text-xs shadow-xs">
+              <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div className="flex-1 font-semibold">{exportSuccessMessage}</div>
+              <button
+                onClick={() => setExportSuccessMessage(null)}
+                className="text-emerald-600 hover:text-emerald-900 text-xs font-bold"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {exportErrorMessage && (
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center space-x-3 text-rose-800 text-xs shadow-xs">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+              <div className="flex-1 font-semibold">{exportErrorMessage}</div>
+              <button
+                onClick={() => setExportErrorMessage(null)}
+                className="text-rose-600 hover:text-rose-900 text-xs font-bold"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {/* Progress Modal / Banner */}
+          {isExporting && exportProgress && (
+            <div className="p-5 bg-slate-900 border border-emerald-500/50 rounded-2xl text-white shadow-xl space-y-3 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-2 font-bold text-emerald-400">
+                  <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+                  <span>{exportProgress.statusMessage}</span>
+                </div>
+                <span className="font-mono text-xs font-extrabold text-emerald-300">
+                  {exportProgress.percentage}%
+                </span>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${exportProgress.percentage}%` }}
+                ></div>
+              </div>
+
+              <p className="text-[11px] text-slate-400 italic">
+                Please keep this page open while we assemble folders, embed documents, and build your archive.
+              </p>
+            </div>
+          )}
+
+          {/* Configuration Form Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left 2 Cols: Step 1 (Categories) & Step 2 (Package & Format) */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Step 1: Select Fleet Entities */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center space-x-2">
+                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[11px] flex items-center justify-center font-black">
+                        1
+                      </span>
+                      <span>Choose Fleet Modules to Include</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Check each department you want included in this export.
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                    {exportCategories.length} Selected
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Drivers */}
+                  <label
+                    className={`flex items-start space-x-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      exportCategories.includes("drivers")
+                        ? "bg-emerald-50/70 border-emerald-500 shadow-xs ring-1 ring-emerald-500"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={exportCategories.includes("drivers")}
+                      onChange={() => toggleExportCategory("drivers")}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                          <Users className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Drivers Dossiers</span>
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {drivers.length} Profiles
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        CDL, MedCard, MVR, PSP, Drug Tests, Bank Docs & 16 Subfolders
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Applicants */}
+                  <label
+                    className={`flex items-start space-x-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      exportCategories.includes("applicants")
+                        ? "bg-emerald-50/70 border-emerald-500 shadow-xs ring-1 ring-emerald-500"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={exportCategories.includes("applicants")}
+                      onChange={() => toggleExportCategory("applicants")}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                          <UserCheck className="w-3.5 h-3.5 text-purple-600" />
+                          <span>Pre-Employment Applicants</span>
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {(applicants || []).length} Profiles
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Application sheets, CDL, MEDCard, MVR & PSP Authorizations
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Trucks */}
+                  <label
+                    className={`flex items-start space-x-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      exportCategories.includes("trucks")
+                        ? "bg-emerald-50/70 border-emerald-500 shadow-xs ring-1 ring-emerald-500"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={exportCategories.includes("trucks")}
+                      onChange={() => toggleExportCategory("trucks")}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                          <Truck className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Truck Power Units</span>
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {trucks.length} Trucks
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Cab Cards, Titles, Annual Inspections, COI, 2290 Tax & Leases
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Trailers */}
+                  <label
+                    className={`flex items-start space-x-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      exportCategories.includes("trailers")
+                        ? "bg-emerald-50/70 border-emerald-500 shadow-xs ring-1 ring-emerald-500"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={exportCategories.includes("trailers")}
+                      onChange={() => toggleExportCategory("trailers")}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                          <Container className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Trailers & Reefers</span>
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {trailers.length} Trailers
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Registrations, Annual Inspections, Insurance & Lease Docs
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Maintenance Records */}
+                  <label
+                    className={`flex items-start space-x-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      exportCategories.includes("maintenance")
+                        ? "bg-emerald-50/70 border-emerald-500 shadow-xs ring-1 ring-emerald-500"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={exportCategories.includes("maintenance")}
+                      onChange={() => toggleExportCategory("maintenance")}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                          <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Maintenance & Invoices</span>
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {maintenanceRecords.length} Work Orders
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Repair records, parts/labor breakdowns, invoices & warranties
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Shops & Vendors */}
+                  <label
+                    className={`flex items-start space-x-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      exportCategories.includes("shops")
+                        ? "bg-emerald-50/70 border-emerald-500 shadow-xs ring-1 ring-emerald-500"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={exportCategories.includes("shops")}
+                      onChange={() => toggleExportCategory("shops")}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                          <Store className="w-3.5 h-3.5 text-teal-600" />
+                          <span>Repair Shops & Vendors</span>
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {shops.length} Vendors
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        National shop directory, hourly labor rates & contact details
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Financial & Payment Reminders */}
+                  <label
+                    className={`flex items-start space-x-3 p-3.5 rounded-xl border cursor-pointer transition-all sm:col-span-2 ${
+                      exportCategories.includes("payments")
+                        ? "bg-emerald-50/70 border-emerald-500 shadow-xs ring-1 ring-emerald-500"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={exportCategories.includes("payments")}
+                      onChange={() => toggleExportCategory("payments")}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Payment Schedules & Financial Reminders</span>
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {reminders.length} Reminders
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Truck leases, insurance installments, IFTA / 2290 tax deadlines & settlements
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Step 2: Export Package Type & Data Format */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6 shadow-xs">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center space-x-2">
+                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[11px] flex items-center justify-center font-black">
+                      2
+                    </span>
+                    <span>Select Export Package & Format</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Choose whether you need a full file archive with document folders or data spreadsheets only.
+                  </p>
+                </div>
+
+                {/* Package Type Radio Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Full Archive (.ZIP) */}
+                  <div
+                    onClick={() => setExportPackageType("full_archive")}
+                    className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                      exportPackageType === "full_archive"
+                        ? "bg-emerald-50/60 border-emerald-500 ring-2 ring-emerald-500 shadow-xs"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg">
+                            <FolderArchive className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-black text-slate-900 block">
+                              Full Dossier Archive (.ZIP)
+                            </span>
+                            <span className="text-[10px] text-emerald-700 font-extrabold uppercase tracking-wide">
+                              Recommended
+                            </span>
+                          </div>
+                        </div>
+                        <input
+                          type="radio"
+                          name="packageType"
+                          checked={exportPackageType === "full_archive"}
+                          onChange={() => setExportPackageType("full_archive")}
+                          className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        Generates a comprehensive ZIP archive with structured subfolders per driver and vehicle.
+                        Missing files receive automatic <strong>(empty)</strong> subfolders with audit notices.
+                      </p>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-200/80 text-[11px] text-slate-500 flex items-center space-x-1.5">
+                      <Archive className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Includes all uploaded PDFs, images & metadata</span>
+                    </div>
+                  </div>
+
+                  {/* Data Only */}
+                  <div
+                    onClick={() => setExportPackageType("data_only")}
+                    className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                      exportPackageType === "data_only"
+                        ? "bg-blue-50/60 border-blue-500 ring-2 ring-blue-500 shadow-xs"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-2 bg-blue-100 text-blue-700 rounded-lg">
+                            <FileSpreadsheet className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-black text-slate-900 block">
+                              Database Spreadsheets Only
+                            </span>
+                            <span className="text-[10px] text-blue-700 font-extrabold uppercase tracking-wide">
+                              Fast Download
+                            </span>
+                          </div>
+                        </div>
+                        <input
+                          type="radio"
+                          name="packageType"
+                          checked={exportPackageType === "data_only"}
+                          onChange={() => setExportPackageType("data_only")}
+                          className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                        />
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        Exports pure database table records into formatted spreadsheet sheets without downloading binary document PDFs or attachments.
+                      </p>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-200/80 text-[11px] text-slate-500 flex items-center space-x-1.5">
+                      <FileText className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Instant tabular summary of all equipment & drivers</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* File Format Selection (XLSX vs CSV) */}
+                <div className="pt-2 border-t border-slate-100 space-y-3">
+                  <span className="text-xs font-bold text-slate-700 block uppercase tracking-wider">
+                    Format for Metadata Sheets:
+                  </span>
+                  <div className="grid grid-cols-2 gap-3 max-w-md">
+                    <label
+                      className={`flex items-center space-x-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                        exportFormat === "xlsx"
+                          ? "bg-emerald-50 border-emerald-500 font-bold text-emerald-900 ring-1 ring-emerald-500"
+                          : "border-slate-200 hover:bg-slate-50 text-slate-700"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="exportFormat"
+                        checked={exportFormat === "xlsx"}
+                        onChange={() => setExportFormat("xlsx")}
+                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div className="text-xs">
+                        <span className="block font-bold">Microsoft Excel (.XLSX)</span>
+                        <span className="text-[10px] text-slate-500 font-normal">Formatted multi-tab workbook</span>
+                      </div>
+                    </label>
+
+                    <label
+                      className={`flex items-center space-x-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                        exportFormat === "csv"
+                          ? "bg-emerald-50 border-emerald-500 font-bold text-emerald-900 ring-1 ring-emerald-500"
+                          : "border-slate-200 hover:bg-slate-50 text-slate-700"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="exportFormat"
+                        checked={exportFormat === "csv"}
+                        onChange={() => setExportFormat("csv")}
+                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div className="text-xs">
+                        <span className="block font-bold">Standard CSV (.CSV)</span>
+                        <span className="text-[10px] text-slate-500 font-normal">Universal plain-text tables</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Col: Summary & Trigger Action */}
+            <div className="space-y-6">
+              {/* Summary Box */}
+              <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-xl space-y-5 border border-slate-800">
+                <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                  <Archive className="w-4 h-4" />
+                  <span>Export Manifest</span>
+                </div>
+
+                <div className="space-y-3 divide-y divide-slate-800 text-xs">
+                  <div className="pt-2 flex items-center justify-between">
+                    <span className="text-slate-400">Package Type:</span>
+                    <span className="font-bold text-emerald-300 capitalize">
+                      {exportPackageType === "full_archive" ? "Full Dossier (.ZIP)" : "Spreadsheets Only"}
+                    </span>
+                  </div>
+
+                  <div className="pt-3 flex items-center justify-between">
+                    <span className="text-slate-400">Data Format:</span>
+                    <span className="font-bold text-white uppercase">
+                      .{exportFormat}
+                    </span>
+                  </div>
+
+                  <div className="pt-3 flex items-center justify-between">
+                    <span className="text-slate-400">Selected Modules:</span>
+                    <span className="font-bold text-emerald-400">
+                      {exportCategories.length} Departments
+                    </span>
+                  </div>
+
+                  <div className="pt-3 space-y-1.5 text-[11px]">
+                    <span className="text-slate-400 block font-semibold">Included Folders:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {exportCategories.map((c) => (
+                        <span
+                          key={c}
+                          className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-200 border border-slate-700 capitalize font-medium"
+                        >
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Primary Export Button */}
+                <button
+                  type="button"
+                  onClick={handleMasterExport}
+                  disabled={isExporting || exportCategories.length === 0}
+                  className="w-full inline-flex items-center justify-center space-x-2 px-5 py-3.5 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-lg shadow-emerald-600/30 transition-all uppercase tracking-wider"
+                >
+                  {isExporting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Packaging Export...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileDown className="w-4 h-4" />
+                      <span>
+                        Download {exportPackageType === "full_archive" ? "Full Archive (.ZIP)" : "Spreadsheet"}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Archive Structure Guide */}
+              <div className="bg-emerald-50/60 rounded-2xl border border-emerald-200 p-5 space-y-3 text-xs text-emerald-950">
+                <div className="flex items-center space-x-2 font-bold text-emerald-900">
+                  <FolderArchive className="w-4 h-4 text-emerald-600" />
+                  <span>Folder Structure Preview:</span>
+                </div>
+                <div className="p-3 bg-white/80 rounded-xl font-mono text-[11px] text-slate-700 border border-emerald-200/60 space-y-1 leading-relaxed">
+                  <div>📁 01_Drivers/</div>
+                  <div className="pl-4">📁 John_Doe_drv-1/</div>
+                  <div className="pl-8">📁 01_CDL/ (file.pdf)</div>
+                  <div className="pl-8 text-amber-700">📁 04_PSP (empty)/</div>
+                  <div>📁 03_Trucks/</div>
+                  <div className="pl-4">📁 Unit_101_A81920/</div>
+                  <div className="pl-8">📁 01_CabCard/</div>
+                </div>
+                <p className="text-[11px] text-emerald-800">
+                  All folders and subfolders are cleanly labelled and numbered for instant DOT audit compliance.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
