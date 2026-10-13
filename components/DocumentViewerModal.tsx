@@ -140,6 +140,16 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                 className="max-h-[460px] object-contain rounded-lg"
               />
             </div>
+          ) : (doc.fileType.startsWith("video/") || doc.name.endsWith(".mp4") || doc.name.endsWith(".mov") || doc.name.endsWith(".webm")) && doc.fileData ? (
+            <div className="flex items-center justify-center p-4 bg-slate-900 rounded-xl border border-slate-800 shadow-inner">
+              <video
+                src={doc.fileData}
+                controls
+                className="max-h-[460px] w-full rounded-lg"
+              >
+                Your browser does not support the video tag.
+              </video>
+            </div>
           ) : doc.fileData && doc.fileType === "application/pdf" ? (
             <div className="w-full h-[460px] bg-white rounded-xl border border-slate-200 overflow-hidden">
               <iframe

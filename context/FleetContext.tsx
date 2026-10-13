@@ -16,6 +16,7 @@ import {
   AppUser,
   UserStatus,
   PaymentReminder,
+  PtiInspection,
 } from "@/types/fleet";
 import {
   initialTrucks,
@@ -44,6 +45,8 @@ import {
   rowToReminder,
   userToRow,
   rowToUser,
+  ptiToRow,
+  rowToPti,
   cloudUpsert,
   cloudDelete,
 } from "@/lib/supabaseSync";
@@ -142,6 +145,15 @@ interface FleetContextType {
   ) => void;
   deleteMaintenanceRecord: (id: string) => void;
 
+  // Weekly Driver Pre-Trip Inspections (PTI Trips)
+  ptiInspections: PtiInspection[];
+  addPtiInspection: (inspection: Omit<PtiInspection, "id">) => void;
+  updatePtiInspection: (id: string, patch: Partial<PtiInspection>) => void;
+  deletePtiInspection: (id: string) => void;
+  addPtiFile: (ptiId: string, document: FleetDocument) => void;
+  removePtiFile: (ptiId: string, documentId: string) => void;
+  generateWeeklyPtiRequests: () => number; // Auto-generates weekly inspection requests for all active assigned drivers
+
   // Shops
   addShop: (shop: Omit<TruckShop, "id">) => void;
   updateShop: (id: string, shop: Partial<TruckShop>) => void;
@@ -204,6 +216,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
   >([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [reminders, setReminders] = useState<PaymentReminder[]>([]);
+  const [ptiInspections, setPtiInspections] = useState<PtiInspection[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
@@ -221,6 +234,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       const savedMaint = localStorage.getItem("zdunje_maintenance");
       const savedUsers = localStorage.getItem("zdunje_users");
       const savedReminders = localStorage.getItem("zdunje_reminders");
+      const savedPti = localStorage.getItem("zdunje_pti");
 
       if (savedTrucks) setTrucks(JSON.parse(savedTrucks));
       if (savedTrailers) setTrailers(JSON.parse(savedTrailers));
@@ -230,6 +244,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       if (savedMaint) setMaintenanceRecords(JSON.parse(savedMaint));
       if (savedUsers) setUsers(JSON.parse(savedUsers));
       if (savedReminders) setReminders(JSON.parse(savedReminders));
+      if (savedPti) setPtiInspections(JSON.parse(savedPti));
     } catch (e) {
       console.warn("Could not read localStorage cache:", e);
     }
@@ -359,6 +374,18 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           localStorage.setItem("zdunje_reminders", JSON.stringify(remoteReminders));
         }
 
+        // PTI Inspections: live from Supabase if table exists, otherwise keep local cache
+        try {
+          const ptiRes = await supabase.from("pti_inspections").select("*");
+          if (ptiRes.data && ptiRes.data.length > 0) {
+            const remotePti = ptiRes.data.map(rowToPti);
+            setPtiInspections(remotePti);
+            localStorage.setItem("zdunje_pti", JSON.stringify(remotePti));
+          }
+        } catch (e) {
+          console.warn("[Supabase] PTI table not present or empty, using cached records:", e);
+        }
+
         const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
         setLastSyncTime(timeStr);
         setCloudSyncStatus("synced");
@@ -385,10 +412,11 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
       localStorage.setItem("zdunje_maintenance", JSON.stringify(maintenanceRecords));
       localStorage.setItem("zdunje_users", JSON.stringify(users));
       localStorage.setItem("zdunje_reminders", JSON.stringify(reminders));
+      localStorage.setItem("zdunje_pti", JSON.stringify(ptiInspections));
     } catch (e) {
       console.error("Failed to save to localStorage cache", e);
     }
-  }, [trucks, trailers, drivers, applicants, shops, maintenanceRecords, users, reminders, isLoaded]);
+  }, [trucks, trailers, drivers, applicants, shops, maintenanceRecords, users, reminders, ptiInspections, isLoaded]);
 
   // Explicit Full Cloud Sync Function
   const syncWithCloud = async (): Promise<{ success: boolean; message: string }> => {
@@ -404,6 +432,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         maintenanceRecords.length > 0 ? cloudUpsert("maintenance_records", maintenanceRecords.map(maintenanceToRow)) : Promise.resolve(),
         reminders.length > 0 ? cloudUpsert("payment_reminders", reminders.map(reminderToRow)) : Promise.resolve(),
         users.length > 0 ? cloudUpsert("user_profiles", users.map(userToRow)) : Promise.resolve(),
+        ptiInspections.length > 0 ? cloudUpsert("pti_inspections", ptiInspections.map(ptiToRow)) : Promise.resolve(),
       ]);
       const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
       setLastSyncTime(timeStr);
@@ -1727,6 +1756,143 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     cloudDelete("maintenance_records", id);
   };
 
+  // Weekly Driver Pre-Trip Inspection (PTI Trips) Handlers
+  const addPtiInspection = (inspection: Omit<PtiInspection, "id">) => {
+    const newPti: PtiInspection = {
+      ...inspection,
+      id: `pti-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    };
+    setPtiInspections((prev) => [newPti, ...prev]);
+    cloudUpsert("pti_inspections", ptiToRow(newPti));
+  };
+
+  const updatePtiInspection = (id: string, patch: Partial<PtiInspection>) => {
+    setPtiInspections((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const updated = { ...p, ...patch };
+
+        // Auto-compute status logic if status wasn't explicitly overridden
+        if (!patch.status) {
+          if (updated.driverExemption === "Hometime" || updated.driverExemption === "Broken Down") {
+            updated.status = "Skipped (Hometime / Broken)";
+          } else if (updated.providedImages || (updated.files && updated.files.length > 0)) {
+            updated.status = "Passed / Complete";
+          } else {
+            updated.status = "Pending Driver Upload";
+          }
+        }
+
+        cloudUpsert("pti_inspections", ptiToRow(updated));
+        return updated;
+      })
+    );
+  };
+
+  const deletePtiInspection = (id: string) => {
+    setPtiInspections((prev) => prev.filter((p) => p.id !== id));
+    cloudDelete("pti_inspections", id);
+  };
+
+  const addPtiFile = (ptiId: string, document: FleetDocument) => {
+    setPtiInspections((prev) =>
+      prev.map((p) => {
+        if (p.id !== ptiId) return p;
+        const newFiles = [document, ...(p.files || [])];
+        const updated: PtiInspection = {
+          ...p,
+          files: newFiles,
+          providedImages: true,
+          status: p.driverExemption === "None" ? "Passed / Complete" : p.status,
+        };
+        cloudUpsert("pti_inspections", ptiToRow(updated));
+        return updated;
+      })
+    );
+  };
+
+  const removePtiFile = (ptiId: string, documentId: string) => {
+    setPtiInspections((prev) =>
+      prev.map((p) => {
+        if (p.id !== ptiId) return p;
+        const filtered = (p.files || []).filter((f) => f.id !== documentId);
+        const hasFiles = filtered.length > 0;
+        const updated: PtiInspection = {
+          ...p,
+          files: filtered,
+          providedImages: hasFiles,
+          status:
+            p.driverExemption !== "None"
+              ? "Skipped (Hometime / Broken)"
+              : hasFiles
+              ? "Passed / Complete"
+              : "Pending Driver Upload",
+        };
+        cloudUpsert("pti_inspections", ptiToRow(updated));
+        return updated;
+      })
+    );
+  };
+
+  // Generate weekly inspection requests for all active drivers with assigned trucks
+  const generateWeeklyPtiRequests = () => {
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
+    const dueDate = new Date(today);
+    dueDate.setDate(dueDate.getDate() + 7);
+    const dueDateStr = dueDate.toISOString().split("T")[0];
+
+    const newRequests: PtiInspection[] = [];
+    const existing = [...ptiInspections];
+
+    drivers.forEach((driver) => {
+      if (driver.status !== "Active") return;
+      if (!driver.assignedTruckId) return;
+
+      const truck = trucks.find((t) => t.id === driver.assignedTruckId);
+      if (!truck) return;
+
+      // Find coupled trailer (if any)
+      const trailer = trailers.find((tr) => tr.assignedTruckId === truck.id);
+
+      // Check if driver already has an open or requested inspection for this week
+      const hasRecent = existing.some(
+        (p) =>
+          p.driverId === driver.id &&
+          p.requestedDate === todayStr
+      );
+
+      if (!hasRecent) {
+        const item: PtiInspection = {
+          id: `pti-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`,
+          driverId: driver.id,
+          driverName: `${driver.firstName} ${driver.lastName}`,
+          driverPhone: driver.phone || "",
+          truckId: truck.id,
+          truckUnitNumber: truck.unitNumber,
+          trailerId: trailer?.id || null,
+          trailerUnitNumber: trailer ? trailer.unitNumber : undefined,
+          requestedDate: todayStr,
+          dueDate: dueDateStr,
+          providedImages: false,
+          files: [],
+          status: "Pending Driver Upload",
+          driverExemption: "None",
+          reminderSent: false,
+          reminderDate: null,
+          inspectorNotes: `Weekly PTI walkaround request for Unit #${truck.unitNumber}`,
+        };
+        newRequests.push(item);
+      }
+    });
+
+    if (newRequests.length > 0) {
+      setPtiInspections((prev) => [...newRequests, ...prev]);
+      cloudUpsert("pti_inspections", newRequests.map(ptiToRow));
+    }
+    return newRequests.length;
+  };
+
   // Shop Handlers
   const addShop = (shop: Omit<TruckShop, "id">) => {
     const newShop: TruckShop = {
@@ -2162,6 +2328,13 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
         addMaintenanceRecord,
         updateMaintenanceRecord,
         deleteMaintenanceRecord,
+        ptiInspections,
+        addPtiInspection,
+        updatePtiInspection,
+        deletePtiInspection,
+        addPtiFile,
+        removePtiFile,
+        generateWeeklyPtiRequests,
         addShop,
         updateShop,
         deleteShop,

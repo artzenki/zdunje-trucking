@@ -23,7 +23,7 @@ import {
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
-  const { trucks, trailers, drivers, applicants, alerts, users, reminders } = useFleet();
+  const { trucks, trailers, drivers, applicants, alerts, users, reminders, ptiInspections } = useFleet();
   const { currentUser, hasPermission, logout } = useAuth();
 
   const activeTrucks = (trucks || []).filter((t) => t.status === "Active").length;
@@ -35,6 +35,9 @@ export const Sidebar: React.FC = () => {
   const todayStr = new Date().toISOString().split("T")[0];
   const pendingReminders = (reminders || []).filter((r) => r.status === "Pending");
   const dueTodayOrOverdue = pendingReminders.filter((r) => r.date <= todayStr).length;
+  const pendingPtiCount = (ptiInspections || []).filter(
+    (p) => p.status === "Pending Driver Upload" && p.driverExemption === "None"
+  ).length;
 
   const allNavItems: {
     name: string;
@@ -83,7 +86,8 @@ export const Sidebar: React.FC = () => {
       name: "Maintenance",
       href: "/maintenance",
       icon: Wrench,
-      badge: null,
+      badge: pendingPtiCount > 0 ? `${pendingPtiCount} PTI` : null,
+      badgeColor: "bg-amber-500 text-white",
       module: "maintenance",
     },
     {

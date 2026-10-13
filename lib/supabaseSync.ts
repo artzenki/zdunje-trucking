@@ -19,6 +19,7 @@ import {
   MaintenanceStatus,
   PaymentCategory,
   PaymentReminderStatus,
+  PtiInspection,
 } from "@/types/fleet";
 
 /* =====================================================================
@@ -460,6 +461,50 @@ export const rowToUser = (u: Record<string, unknown>): AppUser => ({
   createdAt: String(u.created_at || new Date().toISOString().split("T")[0]),
   notes: u.notes ? String(u.notes) : undefined,
   password: u.password ? String(u.password) : undefined,
+});
+
+export const ptiToRow = (p: PtiInspection) => ({
+  id: p.id,
+  driver_id: p.driverId,
+  driver_name: p.driverName,
+  driver_phone: p.driverPhone || "",
+  truck_id: p.truckId,
+  truck_unit_number: p.truckUnitNumber,
+  trailer_id: p.trailerId || null,
+  trailer_unit_number: p.trailerUnitNumber || "",
+  requested_date: p.requestedDate,
+  due_date: p.dueDate || null,
+  provided_images: !!p.providedImages,
+  files: p.files || [],
+  status: p.status,
+  driver_exemption: p.driverExemption || "None",
+  reminder_sent: !!p.reminderSent,
+  reminder_date: p.reminderDate || null,
+  inspector_notes: p.inspectorNotes || "",
+  verified_by: p.verifiedBy || null,
+  verified_at: p.verifiedAt || null,
+});
+
+export const rowToPti = (p: Record<string, unknown>): PtiInspection => ({
+  id: String(p.id),
+  driverId: String(p.driver_id || p.driverId || ""),
+  driverName: String(p.driver_name || p.driverName || "Driver"),
+  driverPhone: String(p.driver_phone || p.driverPhone || ""),
+  truckId: String(p.truck_id || p.truckId || ""),
+  truckUnitNumber: String(p.truck_unit_number || p.truckUnitNumber || "Unit"),
+  trailerId: p.trailer_id ? String(p.trailer_id) : p.trailerId ? String(p.trailerId) : null,
+  trailerUnitNumber: p.trailer_unit_number ? String(p.trailer_unit_number) : p.trailerUnitNumber ? String(p.trailerUnitNumber) : undefined,
+  requestedDate: String(p.requested_date || p.requestedDate || new Date().toISOString().split("T")[0]),
+  dueDate: p.due_date ? String(p.due_date) : p.dueDate ? String(p.dueDate) : undefined,
+  providedImages: Boolean(p.provided_images || p.providedImages),
+  files: (Array.isArray(p.files) ? p.files : []) as FleetDocument[],
+  status: (p.status || "Pending Driver Upload") as PtiInspection["status"],
+  driverExemption: (p.driver_exemption || p.driverExemption || "None") as PtiInspection["driverExemption"],
+  reminderSent: Boolean(p.reminder_sent || p.reminderSent),
+  reminderDate: p.reminder_date ? String(p.reminder_date) : p.reminderDate ? String(p.reminderDate) : null,
+  inspectorNotes: String(p.inspector_notes || p.inspectorNotes || ""),
+  verifiedBy: p.verified_by ? String(p.verified_by) : p.verifiedBy ? String(p.verifiedBy) : undefined,
+  verifiedAt: p.verified_at ? String(p.verified_at) : p.verifiedAt ? String(p.verifiedAt) : undefined,
 });
 
 /* =====================================================================

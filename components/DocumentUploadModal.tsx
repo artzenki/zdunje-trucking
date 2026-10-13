@@ -125,7 +125,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       } else if (
         targetLower.includes("maintenance") ||
         targetLower.includes("work order") ||
-        targetLower.includes("repair")
+        targetLower.includes("repair") ||
+        targetLower.includes("pti") ||
+        targetLower.includes("inspection")
       ) {
         folder = "maintenance";
       }
@@ -210,7 +212,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             {/* File Picker Box */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                Select Document File (PDF, PNG, JPG)
+                Select Document File (PDF, PNG, JPG, MP4, MOV)
               </label>
               <label
                 onDragOver={handleDragOver}
@@ -225,7 +227,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 <input
                   type="file"
                   className="sr-only"
-                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.mp4,.mov,.webm,image/*,video/*"
                   onChange={handleFileChange}
                 />
                 <div

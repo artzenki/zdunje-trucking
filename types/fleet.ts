@@ -242,6 +242,32 @@ export interface ComplianceAlert {
   status: "expired" | "urgent" | "upcoming"; // <=0 days: expired, <=15: urgent, <=30: upcoming
 }
 
+// Safety & Maintenance: Weekly Driver Pre-Trip Inspection (PTI) Types
+export type PtiStatus = "Passed / Complete" | "Pending Driver Upload" | "Skipped (Hometime / Broken)";
+export type PtiDriverExemption = "None" | "Hometime" | "Broken Down";
+
+export interface PtiInspection {
+  id: string;
+  driverId: string;
+  driverName: string;
+  driverPhone: string;
+  truckId: string;
+  truckUnitNumber: string;
+  trailerId?: string | null;
+  trailerUnitNumber?: string;
+  requestedDate: string; // YYYY-MM-DD
+  dueDate?: string; // YYYY-MM-DD
+  providedImages: boolean; // Checkbox: driver provided images/videos
+  files: FleetDocument[]; // Uploaded PTI photos & walkaround videos
+  status: PtiStatus;
+  driverExemption: PtiDriverExemption; // "None" | "Hometime" | "Broken Down"
+  reminderSent: boolean; // Checkbox: reminder has been sent
+  reminderDate?: string | null; // ISO string or YYYY-MM-DD when reminder was triggered
+  inspectorNotes?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+}
+
 // User & Role-Based Access Control Types
 export type UserRole =
   | "Super Admin"
