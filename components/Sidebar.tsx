@@ -153,12 +153,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 md:w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 h-screen border-r border-slate-800 transition-transform duration-300 ease-in-out md:sticky md:top-0 md:h-screen md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 md:w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 h-[100dvh] max-h-[100dvh] border-r border-slate-800 transition-transform duration-300 ease-in-out md:sticky md:top-0 md:h-screen md:translate-x-0 ${
           isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
         }`}
       >
         {/* Brand Header */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800/80 bg-slate-950/40">
+        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800/80 bg-slate-950/40 shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black shadow-lg shadow-blue-600/30">
               <Truck className="w-5 h-5 text-white" />
@@ -186,7 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
         </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto overscroll-contain min-h-0 [scrollbar-width:thin]">
         <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
           Fleet Operations
         </div>
@@ -237,17 +237,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
       </nav>
 
       {/* Fleet Quick Status Card at bottom */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-950/30">
-        <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50">
-          <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-            <span className="font-semibold text-slate-300">Fleet Status</span>
-            <span className="flex items-center text-emerald-400 font-medium">
+      <div className="p-3 md:p-4 border-t border-slate-800/80 bg-slate-950/30 shrink-0">
+        <div className="p-2.5 md:p-3 bg-slate-800/60 rounded-xl border border-slate-700/50">
+          <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5 md:mb-2">
+            <span className="font-semibold text-slate-300 text-[11px] md:text-xs">Fleet Status</span>
+            <span className="flex items-center text-emerald-400 font-medium text-[11px] md:text-xs">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-pulse"></span>
               Live
             </span>
           </div>
           <div className="grid grid-cols-2 gap-2 text-center text-xs">
-            <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div className="bg-slate-900/80 p-1.5 md:p-2 rounded-lg border border-slate-800">
               <p className="text-slate-400 text-[10px]">Active Trucks</p>
               <p className="text-white font-bold text-sm mt-0.5">
                 {activeTrucks}/{trucks.length}
