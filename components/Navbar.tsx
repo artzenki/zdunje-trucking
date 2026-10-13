@@ -33,13 +33,32 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch, onToggleSidebar })
   const [showAlertsDropdown, setShowAlertsDropdown] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [syncToast, setSyncToast] = useState<{ message: string; success: boolean } | null>(null);
 
   const urgentCount = alerts.filter(
     (a) => a.status === "expired" || a.status === "urgent"
   ).length;
 
+  const handleManualSync = async () => {
+    const res = await syncWithCloud();
+    setSyncToast({ message: res.message, success: res.success });
+    setTimeout(() => setSyncToast(null), 3000);
+  };
+
   return (
-    <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-40 px-3 sm:px-6 flex items-center justify-between gap-2">
+    <>
+      {syncToast && (
+        <div
+          className={`fixed top-4 right-4 z-50 px-4 py-2.5 rounded-xl shadow-lg border text-xs font-semibold flex items-center space-x-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
+            syncToast.success
+              ? "bg-emerald-900/95 text-emerald-100 border-emerald-700"
+              : "bg-rose-900/95 text-rose-100 border-rose-700"
+          }`}
+        >
+          <span>{syncToast.message}</span>
+        </div>
+      )}
+      <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-40 px-3 sm:px-6 flex items-center justify-between gap-2">
       {/* Mobile Hamburger & Logo preview */}
       <div className="flex items-center space-x-2 md:hidden">
         {onToggleSidebar && (
@@ -78,9 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch, onToggleSidebar })
       <div className="flex items-center space-x-3 ml-4">
         {/* Cloud Auto-Sync Indicator */}
         <button
-          onClick={async () => {
-            await syncWithCloud();
-          }}
+          onClick={handleManualSync}
           disabled={cloudSyncStatus === "syncing"}
           title={
             lastSyncTime
@@ -344,5 +361,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch, onToggleSidebar })
         </div>
       </div>
     </header>
+    </>
   );
 };
