@@ -778,7 +778,11 @@ Thank you and stay safe out there! 🙏 Safe miles!`
                     <div className="flex items-center lg:flex-col justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0">
                       <button
                         type="button"
-                        onClick={() => deletePtiInspection(item.id)}
+                        onClick={() => {
+                          if (window.confirm(`Delete PTI inspection request for ${item.driverName} (Unit #${item.truckUnitNumber})?`)) {
+                            deletePtiInspection(item.id);
+                          }
+                        }}
                         title="Delete Inspection Request"
                         className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
                       >

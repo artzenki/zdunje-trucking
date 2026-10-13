@@ -258,7 +258,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setCloudSyncStatus("syncing");
       try {
-        const [tRes, trRes, dRes, appRes, sRes, mRes, uRes, rRes] = await Promise.all([
+        const [tRes, trRes, dRes, appRes, sRes, mRes, uRes, rRes, ptiRes] = await Promise.all([
           supabase.from("trucks").select("*"),
           supabase.from("trailers").select("*"),
           supabase.from("drivers").select("*"),
@@ -267,6 +267,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           supabase.from("maintenance_records").select("*"),
           supabase.from("user_profiles").select("*"),
           supabase.from("payment_reminders").select("*"),
+          supabase.from("pti_inspections").select("*"),
         ]);
 
         // Map remote data
@@ -374,16 +375,11 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           localStorage.setItem("zdunje_reminders", JSON.stringify(remoteReminders));
         }
 
-        // PTI Inspections: live from Supabase if table exists, otherwise keep local cache
-        try {
-          const ptiRes = await supabase.from("pti_inspections").select("*");
-          if (ptiRes.data && ptiRes.data.length > 0) {
-            const remotePti = ptiRes.data.map(rowToPti);
-            setPtiInspections(remotePti);
-            localStorage.setItem("zdunje_pti", JSON.stringify(remotePti));
-          }
-        } catch (e) {
-          console.warn("[Supabase] PTI table not present or empty, using cached records:", e);
+        // PTI Inspections: live from Supabase (multi-user source of truth)
+        if (ptiRes.data && ptiRes.data.length > 0) {
+          const remotePti = ptiRes.data.map(rowToPti);
+          setPtiInspections(remotePti);
+          localStorage.setItem("zdunje_pti", JSON.stringify(remotePti));
         }
 
         const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -466,6 +462,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
           maintenanceRecords.length > 0 ? cloudUpsert("maintenance_records", maintenanceRecords.map(maintenanceToRow)) : Promise.resolve(),
           reminders.length > 0 ? cloudUpsert("payment_reminders", reminders.map(reminderToRow)) : Promise.resolve(),
           users.length > 0 ? cloudUpsert("user_profiles", users.map(userToRow)) : Promise.resolve(),
+          ptiInspections.length > 0 ? cloudUpsert("pti_inspections", ptiInspections.map(ptiToRow)) : Promise.resolve(),
         ]);
         const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
         setLastSyncTime(timeStr);
@@ -477,7 +474,7 @@ export const FleetProvider: React.FC<{ children: React.ReactNode }> = ({
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [trucks, trailers, drivers, shops, maintenanceRecords, reminders, users, isLoaded]);
+  }, [trucks, trailers, drivers, applicants, shops, maintenanceRecords, reminders, users, ptiInspections, isLoaded]);
 
   // Compute Alerts
   const alerts: ComplianceAlert[] = React.useMemo(() => {
