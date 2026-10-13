@@ -20,12 +20,12 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
-      <div className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
+      <div className="flex-1 flex flex-col min-w-0 w-full">
         <Navbar
           onOpenSearch={() => setIsSearchOpen(true)}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
