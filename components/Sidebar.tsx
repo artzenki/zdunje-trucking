@@ -19,9 +19,15 @@ import {
   ShieldCheck,
   CalendarDays,
   LogOut,
+  X,
 } from "lucide-react";
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const pathname = usePathname();
   const { trucks, trailers, drivers, applicants, alerts, users, reminders, ptiInspections } = useFleet();
   const { currentUser, hasPermission, logout } = useAuth();
@@ -136,23 +142,48 @@ export const Sidebar: React.FC = () => {
   });
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 h-screen sticky top-0 border-r border-slate-800">
-      {/* Brand Header */}
-      <div className="h-16 flex items-center px-6 border-b border-slate-800/80 bg-slate-950/40">
-        <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black shadow-lg shadow-blue-600/30">
-            <Truck className="w-5 h-5 text-white" />
+    <>
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-xs md:hidden animate-in fade-in duration-200"
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 md:w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 h-screen border-r border-slate-800 transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
+          isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
+        }`}
+      >
+        {/* Brand Header */}
+        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800/80 bg-slate-950/40">
+          <div className="flex items-center space-x-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black shadow-lg shadow-blue-600/30">
+              <Truck className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="font-bold text-white text-sm tracking-tight leading-none">
+                Zdunje Trucking
+              </h1>
+              <p className="text-[11px] text-blue-400 font-medium tracking-wide mt-1">
+                Safety & Fleet Management
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-bold text-white text-sm tracking-tight leading-none">
-              Zdunje Trucking
-            </h1>
-            <p className="text-[11px] text-blue-400 font-medium tracking-wide mt-1">
-              Safety & Fleet Management
-            </p>
-          </div>
+
+          {/* Close button for mobile */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg md:hidden transition-colors"
+              aria-label="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
-      </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -170,6 +201,9 @@ export const Sidebar: React.FC = () => {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => {
+                if (onClose) onClose();
+              }}
               className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 isActive
                   ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
@@ -261,5 +295,6 @@ export const Sidebar: React.FC = () => {
         )}
       </div>
     </aside>
+    </>
   );
 };

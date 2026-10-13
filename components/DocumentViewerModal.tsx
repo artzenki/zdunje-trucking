@@ -56,34 +56,34 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[90vh] flex flex-col my-auto overflow-hidden">
         {/* Header */}
-        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
-              <FileText className="w-5 h-5" />
+        <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl gap-3">
+          <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+            <div className="p-2 sm:p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shrink-0">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center space-x-2">
-                <h3 className="font-semibold text-slate-900 text-lg">
+                <h3 className="font-semibold text-slate-900 text-sm sm:text-lg truncate">
                   {doc.name}
                 </h3>
                 {entityName && (
-                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-slate-200/80 text-slate-700">
+                  <span className="hidden sm:inline px-2 py-0.5 text-xs font-medium rounded-full bg-slate-200/80 text-slate-700 shrink-0">
                     {entityName}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">
                 Category: <span className="font-medium text-slate-700">{doc.category}</span>
               </p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             <button
               onClick={() => downloadDocument(doc)}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+              className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
             >
-              <Download className="w-4 h-4" />
-              <span>Download</span>
+              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Download</span>
             </button>
             <button
               onClick={onClose}

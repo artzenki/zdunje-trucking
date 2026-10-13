@@ -464,7 +464,7 @@ Thank you and stay safe out there! 🙏 Safe miles!`
               return (
                 <div
                   key={item.id}
-                  className={`p-6 transition-colors ${
+                  className={`p-4 sm:p-6 transition-colors ${
                     isSkipped
                       ? "bg-slate-50/50"
                       : isPassed
@@ -472,7 +472,7 @@ Thank you and stay safe out there! 🙏 Safe miles!`
                       : "hover:bg-amber-50/20"
                   }`}
                 >
-                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
+                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 sm:gap-5">
                     {/* Left Column: Driver, Units & Exemption Status */}
                     <div className="space-y-3 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -518,12 +518,12 @@ Thank you and stay safe out there! 🙏 Safe miles!`
                       </div>
 
                       {/* Exemption Selector & Duty Status Controls */}
-                      <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                        <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1 text-xs">
+                        <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider shrink-0">
                           Duty Exemption:
                         </span>
                         
-                        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
+                        <div className="inline-flex flex-wrap rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs gap-0.5">
                           <button
                             type="button"
                             onClick={() => handleSetExemption(item, "None")}

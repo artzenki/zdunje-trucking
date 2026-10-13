@@ -308,11 +308,11 @@ function MaintenanceContent() {
   return (
     <div className="space-y-6">
       {/* Tab Switcher */}
-      <div className="flex border-b border-slate-200 gap-8">
+      <div className="flex border-b border-slate-200 gap-4 sm:gap-8 overflow-x-auto scrollbar-none pb-px">
         <button
           type="button"
           onClick={() => setActiveTab("records")}
-          className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-colors ${
+          className={`pb-3 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 transition-colors whitespace-nowrap shrink-0 ${
             activeTab === "records"
               ? "border-indigo-600 text-indigo-600"
               : "border-transparent text-slate-500 hover:text-slate-800"
@@ -320,7 +320,7 @@ function MaintenanceContent() {
         >
           <Wrench className="w-4 h-4" />
           <span>Work Orders & Repairs</span>
-          <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-600">
+          <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-slate-100 text-slate-600">
             {maintenanceRecords.length}
           </span>
         </button>
@@ -328,7 +328,7 @@ function MaintenanceContent() {
         <button
           type="button"
           onClick={() => setActiveTab("pti")}
-          className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-colors ${
+          className={`pb-3 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 border-b-2 transition-colors whitespace-nowrap shrink-0 ${
             activeTab === "pti"
               ? "border-indigo-600 text-indigo-600"
               : "border-transparent text-slate-500 hover:text-slate-800"
@@ -337,11 +337,11 @@ function MaintenanceContent() {
           <ShieldCheck className="w-4 h-4" />
           <span>Weekly Driver PTI Trips</span>
           {pendingPtiCount > 0 ? (
-            <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-100 text-amber-800">
+            <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-100 text-amber-800">
               {pendingPtiCount} Pending
             </span>
           ) : (
-            <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-600">
+            <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-slate-100 text-slate-600">
               {ptiInspections.length}
             </span>
           )}

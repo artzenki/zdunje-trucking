@@ -18,14 +18,16 @@ import {
   Cloud,
   CloudOff,
   RefreshCw,
+  Menu,
 } from "lucide-react";
 import Link from "next/link";
 
 interface NavbarProps {
   onOpenSearch: () => void;
+  onToggleSidebar?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch, onToggleSidebar }) => {
   const { alerts, cloudSyncStatus, lastSyncTime, syncWithCloud } = useFleet();
   const { currentUser, logout } = useAuth();
   const [showAlertsDropdown, setShowAlertsDropdown] = useState(false);
@@ -37,20 +39,34 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
   ).length;
 
   return (
-    <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-40 px-6 flex items-center justify-between">
+    <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-40 px-3 sm:px-6 flex items-center justify-between gap-2">
+      {/* Mobile Hamburger & Logo preview */}
+      <div className="flex items-center space-x-2 md:hidden">
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors shrink-0"
+            aria-label="Open navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+
       {/* Search trigger bar */}
       <div className="flex-1 max-w-xl">
         <button
           onClick={onOpenSearch}
-          className="w-full flex items-center justify-between px-3.5 py-2 text-sm text-slate-500 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all shadow-xs group"
+          className="w-full flex items-center justify-between px-3 py-2 text-xs sm:text-sm text-slate-500 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all shadow-xs group"
         >
-          <div className="flex items-center space-x-2.5">
-            <Search className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
-            <span className="text-slate-500 font-normal">
-              Search by Unit #, VIN, Driver name, Shop...
+          <div className="flex items-center space-x-2 truncate">
+            <Search className="w-4 h-4 text-slate-400 group-hover:text-blue-600 shrink-0 transition-colors" />
+            <span className="text-slate-500 font-normal truncate">
+              <span className="hidden sm:inline">Search by Unit #, VIN, Driver name, Shop...</span>
+              <span className="sm:hidden">Search fleet...</span>
             </span>
           </div>
-          <div className="flex items-center space-x-1">
+          <div className="hidden sm:flex items-center space-x-1">
             <kbd className="px-1.5 py-0.5 text-[11px] font-semibold text-slate-500 bg-white border border-slate-200 rounded shadow-xs">
               ⌘K
             </kbd>
